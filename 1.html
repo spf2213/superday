@@ -1,0 +1,1639 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Superday — Land the offer.</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+<div class="grid-bg"></div>
+
+<!-- ══════════════════════════════════════
+     AUTH SCREEN
+══════════════════════════════════════ -->
+<div class="screen" id="screen-auth">
+  <div class="auth-wrap">
+    <div class="auth-logo"><span class="logo-dot"></span>Superday</div>
+    <div class="auth-card">
+      <div class="auth-tabs">
+        <div class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Log in</div>
+        <div class="auth-tab" id="tab-signup" onclick="switchAuthTab('signup')">Sign up</div>
+      </div>
+
+      <!-- LOGIN FORM -->
+      <div id="auth-login-form">
+        <div class="auth-title">Welcome back.</div>
+        <div class="auth-sub">Log in to continue your prep.</div>
+        <div class="auth-field">
+          <label class="auth-label">Email</label>
+          <input class="auth-input" type="email" id="login-email" placeholder="you@email.com"/>
+        </div>
+        <div class="auth-field">
+          <label class="auth-label">Password</label>
+          <input class="auth-input" type="password" id="login-password" placeholder="••••••••"
+            onkeydown="if(event.key==='Enter')doLogin()"/>
+        </div>
+        <button class="auth-btn" id="login-btn" onclick="doLogin()">Log in →</button>
+        <div class="auth-msg" id="login-msg"></div>
+      </div>
+
+      <!-- SIGNUP FORM -->
+      <div id="auth-signup-form" style="display:none">
+        <div class="auth-title">Create your account.</div>
+        <div class="auth-sub">Free forever. No credit card required.</div>
+        <div class="auth-field">
+          <label class="auth-label">Full Name</label>
+          <input class="auth-input" type="text" id="signup-name" placeholder="Alex Chen"/>
+        </div>
+        <div class="auth-field">
+          <label class="auth-label">Email</label>
+          <input class="auth-input" type="email" id="signup-email" placeholder="you@email.com"/>
+        </div>
+        <div class="auth-field">
+          <label class="auth-label">Password</label>
+          <input class="auth-input" type="password" id="signup-password" placeholder="Min. 8 characters"
+            onkeydown="if(event.key==='Enter')doSignup()"/>
+        </div>
+        <button class="auth-btn" id="signup-btn" onclick="doSignup()">Create account →</button>
+        <div class="auth-msg" id="signup-msg"></div>
+      </div>
+    </div>
+    <div class="auth-back" onclick="showScreen('landing')">← <span>Back to homepage</span></div>
+    <div style="margin-top:12px;text-align:center">
+      <button onclick="guestLogin()" style="background:none;border:none;cursor:pointer;font-size:12.5px;color:var(--t-3);transition:var(--trans);padding:6px 12px;border-radius:var(--r)" onmouseover="this.style.color='var(--t)'" onmouseout="this.style.color='var(--t-3)'">
+        Continue as guest →
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     LANDING PAGE
+══════════════════════════════════════ -->
+<div class="screen active" id="screen-landing">
+
+  <nav class="land-nav">
+    <div class="nav-logo">
+      <div class="logo-mark">S</div>
+      <span class="logo-wordmark">Superday</span>
+    </div>
+    <div class="nav-links" id="nav-links">
+      <div class="nav-link nav-active" onclick="setNavActive(this);navScrollTo('product-section')">Product</div>
+      <div class="nav-link" onclick="setNavActive(this);navScrollTo('section-pricing')">Pricing</div>
+      <div class="nav-link" onclick="setNavActive(this);navScrollTo('section-faq')">FAQ</div>
+    </div>
+    <div class="nav-right">
+      <button class="theme-btn" onclick="toggleTheme()" title="Toggle theme">
+        <span id="theme-icon">☀</span>
+      </button>
+      <button class="nav-login" onclick="showAuthTab('login')">Log in</button>
+      <button class="nav-cta" onclick="showAuthTab('signup')">Start free →</button>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero" id="product-section">
+    <div class="hero-glow"></div>
+    <div class="hero-badge" data-reveal="down" data-delay="100">
+      <span class="badge-dot"></span>
+      <span>The smarter way to prep for finance interviews</span>
+    </div>
+    <h1 data-reveal="up" data-delay="250">Win your next<br><span class="grad">finance internship.</span></h1>
+    <p data-reveal="up" data-delay="400">250+ real interview questions. Adaptive learning paths. AI mock interviews that score like a VP. Built for students breaking into IB, PE, ER, and beyond.</p>
+    <div class="hero-actions" data-reveal="up" data-delay="550">
+      <button class="btn-primary" onclick="startDirectDiagnostic()">Take the diagnostic test →</button>
+      <button class="btn-ghost" onclick="document.getElementById('demo-section').scrollIntoView({behavior:'smooth'})">See it in action</button>
+    </div>
+
+    <!-- INTERACTIVE MINI APP PREVIEW -->
+    <div class="hero-preview" data-reveal="scale-up" data-delay="700" data-dur="slow">
+      <div class="preview-bar">
+        <div class="pbar-dot"></div><div class="pbar-dot"></div><div class="pbar-dot"></div>
+        <div class="preview-title" id="prev-title"></div>
+      </div>
+      <div class="preview-body">
+
+        <!-- SIDEBAR -->
+        <div class="prev-sidebar">
+          <div class="ps-brand">
+            <div class="logo-mark" style="width:18px;height:18px;border-radius:5px;font-size:9px;flex-shrink:0">S</div>
+            Superday
+          </div>
+          <div class="ps-item ps-active" id="pnav-dashboard" onclick="prevNav('dashboard',this)">
+            <span class="ps-icon">◈</span>Dashboard
+          </div>
+          <div class="ps-section">Learn</div>
+          <div class="ps-item" id="pnav-bank" onclick="prevNav('bank',this)">
+            <span class="ps-icon">📖</span>Concepts
+          </div>
+          <div class="ps-section">Practice</div>
+          <div class="ps-item" id="pnav-flash" onclick="prevNav('flash',this)">
+            <span class="ps-icon">⧉</span>Flashcards
+          </div>
+          <div class="ps-section">Test</div>
+          <div class="ps-item" id="pnav-mock" onclick="prevNav('mock',this)">
+            <span class="ps-icon">✓</span>Quiz Mode
+          </div>
+        </div>
+
+        <!-- MAIN PANEL -->
+        <div class="prev-main" style="overflow:hidden;display:flex;flex-direction:column">
+
+          <!-- ── DASHBOARD ── -->
+          <div id="pv-dashboard" style="display:flex;flex-direction:column;gap:0;height:100%">
+            <div style="flex-shrink:0">
+              <div class="pm-greeting">Good morning, Alex.</div>
+              <div class="pm-date">Sunday · Feb 15, 2026</div>
+            </div>
+            <div class="pm-stats" style="flex-shrink:0">
+              <div class="pm-stat">
+                <div class="pm-stat-label">Answered</div>
+                <div class="pm-stat-val" style="color:var(--accent)">14</div>
+                <div class="pm-stat-sub">of 250 questions</div>
+                <div class="pm-stat-bar"><div class="pm-stat-fill" style="width:22%"></div></div>
+              </div>
+              <div class="pm-stat">
+                <div class="pm-stat-label">Streak</div>
+                <div class="pm-stat-val" style="color:var(--green)">5</div>
+                <div class="pm-stat-sub">days in a row</div>
+                <div class="pm-stat-bar"><div class="pm-stat-fill" style="width:71%;background:var(--green)"></div></div>
+              </div>
+              <div class="pm-stat">
+                <div class="pm-stat-label">Score</div>
+                <div class="pm-stat-val">8.4</div>
+                <div class="pm-stat-sub">avg across mocks</div>
+                <div class="pm-stat-bar"><div class="pm-stat-fill" style="width:84%"></div></div>
+              </div>
+            </div>
+            <div class="pm-section-title" style="flex-shrink:0">Up next</div>
+            <div class="pm-qlist" style="overflow-y:auto">
+              <div class="pm-qitem" style="cursor:pointer;transition:var(--trans)" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background=''">
+                <span class="pm-qpill pill-acc">Accounting</span>
+                <span class="pm-qtxt">How does a $10 D&amp;A increase flow through all 3 statements?</span>
+                <span style="font-size:10px;color:var(--accent)">→</span>
+              </div>
+              <div class="pm-qitem" style="cursor:pointer;transition:var(--trans)" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background=''">
+                <span class="pm-qpill pill-val">Valuation</span>
+                <span class="pm-qtxt">Walk me through the three valuation methodologies.</span>
+                <span style="font-size:10px;color:var(--accent)">→</span>
+              </div>
+              <div class="pm-qitem" style="cursor:pointer;transition:var(--trans)" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background=''">
+                <span class="pm-qpill" style="background:rgba(240,180,40,0.12);color:#e0a820">Behavioral</span>
+                <span class="pm-qtxt">Why investment banking? Why this firm?</span>
+                <span style="font-size:10px;color:var(--accent)">→</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── QUESTION BANK ── -->
+          <div id="pv-bank" style="display:none;flex-direction:column;height:100%">
+            <div style="flex-shrink:0;margin-bottom:8px">
+              <div style="font-size:13px;font-weight:600;letter-spacing:-0.02em;color:var(--t);margin-bottom:8px">Question Bank</div>
+              <div style="display:flex;gap:4px;flex-wrap:wrap">
+                <span class="qb-pill active" onclick="pvBankFilter(this,'all')">All <span style="opacity:0.6;font-size:9px">120+</span></span>
+                <span class="qb-pill" onclick="pvBankFilter(this,'acc')">Accounting</span>
+                <span class="qb-pill" onclick="pvBankFilter(this,'val')">Valuation</span>
+                <span class="qb-pill" onclick="pvBankFilter(this,'beh')">Behavioral</span>
+              </div>
+            </div>
+            <div id="pv-bank-list" style="display:flex;flex-direction:column;gap:4px;overflow-y:auto;flex:1">
+              <div class="pm-qitem pv-q-item" data-cat="acc" style="flex-direction:column;align-items:stretch;cursor:pointer" onclick="pvToggleQ(this)">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span class="pm-qpill pill-acc">Accounting</span>
+                  <span class="pm-qtxt">Walk me through the three financial statements.</span>
+                  <span class="pv-caret" style="font-size:10px;color:var(--t-3);flex-shrink:0;transition:transform 0.2s">⌄</span>
+                </div>
+                <div class="pv-ans" style="display:none;padding:8px 0 2px;font-size:11px;color:var(--t-2);line-height:1.6;border-top:1px solid var(--line);margin-top:6px">
+                  IS: revenue − expenses = net income. BS: assets = liabilities + equity, snapshot in time. CFS: reconciles net income to cash via operating, investing, financing activities. Net income flows into retained earnings on BS.
+                  <div style="margin-top:5px;padding:5px 8px;background:var(--accent-dim);border-left:2px solid var(--accent);border-radius:0 4px 4px 0;font-size:10.5px;color:var(--t-3)"><strong style="color:var(--t-2)">Tip:</strong> Draw the linkages — examiners love candidates who can sketch this cold.</div>
+                </div>
+              </div>
+              <div class="pm-qitem pv-q-item" data-cat="acc" style="flex-direction:column;align-items:stretch;cursor:pointer" onclick="pvToggleQ(this)">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span class="pm-qpill pill-acc">Accounting</span>
+                  <span class="pm-qtxt">How does a $10 D&amp;A increase flow through all 3 statements?</span>
+                  <span class="pv-caret" style="font-size:10px;color:var(--t-3);flex-shrink:0;transition:transform 0.2s">⌄</span>
+                </div>
+                <div class="pv-ans" style="display:none;padding:8px 0 2px;font-size:11px;color:var(--t-2);line-height:1.6;border-top:1px solid var(--line);margin-top:6px">
+                  IS: pre-tax income ↓$10, tax ↓$3.50, net income ↓$6.50. CFS: add back D&amp;A (+$10), so OCF ↑$3.50. BS: PP&amp;E ↓$10; cash ↑$3.50; retained earnings ↓$6.50 — still balances.
+                  <div style="margin-top:5px;padding:5px 8px;background:var(--accent-dim);border-left:2px solid var(--accent);border-radius:0 4px 4px 0;font-size:10.5px;color:var(--t-3)"><strong style="color:var(--t-2)">Tip:</strong> Memorise this cold — it's the single most tested question in IB technicals.</div>
+                </div>
+              </div>
+              <div class="pm-qitem pv-q-item" data-cat="val" style="flex-direction:column;align-items:stretch;cursor:pointer" onclick="pvToggleQ(this)">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span class="pm-qpill pill-val">Valuation</span>
+                  <span class="pm-qtxt">Walk me through the three valuation methodologies.</span>
+                  <span class="pv-caret" style="font-size:10px;color:var(--t-3);flex-shrink:0;transition:transform 0.2s">⌄</span>
+                </div>
+                <div class="pv-ans" style="display:none;padding:8px 0 2px;font-size:11px;color:var(--t-2);line-height:1.6;border-top:1px solid var(--line);margin-top:6px">
+                  (1) DCF — intrinsic value, discount projected FCF at WACC. (2) Comparable companies — EV multiples of similar public companies. (3) Precedent transactions — acquisition multiples from prior M&amp;A deals. Comps and precedents are relative; DCF is absolute.
+                  <div style="margin-top:5px;padding:5px 8px;background:var(--accent-dim);border-left:2px solid var(--accent);border-radius:0 4px 4px 0;font-size:10.5px;color:var(--t-3)"><strong style="color:var(--t-2)">Tip:</strong> Always know which gives a higher/lower value and why — follow-ups are guaranteed.</div>
+                </div>
+              </div>
+              <div class="pm-qitem pv-q-item" data-cat="beh" style="flex-direction:column;align-items:stretch;cursor:pointer" onclick="pvToggleQ(this)">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span class="pm-qpill" style="background:rgba(240,180,40,0.12);color:#e0a820;font-size:9px;padding:2px 7px;border-radius:4px;font-family:'Geist Mono',monospace;font-weight:500;white-space:nowrap">Behavioral</span>
+                  <span class="pm-qtxt">Why investment banking? Why this firm specifically?</span>
+                  <span class="pv-caret" style="font-size:10px;color:var(--t-3);flex-shrink:0;transition:transform 0.2s">⌄</span>
+                </div>
+                <div class="pv-ans" style="display:none;padding:8px 0 2px;font-size:11px;color:var(--t-2);line-height:1.6;border-top:1px solid var(--line);margin-top:6px">
+                  Structure: (1) genuine interest in capital markets/deal-making, (2) specific experience that drew you here, (3) firm-specific reason tied to their culture, deal flow, or sector focus. Never give a generic answer — research the firm's recent deals.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── FLASHCARDS ── -->
+          <div id="pv-flash" style="display:none;flex-direction:column;height:100%">
+            <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <span style="font-size:13px;font-weight:600;letter-spacing:-0.02em;color:var(--t)">Flashcards</span>
+              <span id="pv-fc-prog" style="font-size:9.5px;font-family:'Geist Mono',monospace;color:var(--t-3)">1 / 4</span>
+            </div>
+            <!-- 3D flip card -->
+            <div style="flex:1;perspective:800px;cursor:pointer" onclick="pvFlipCard()">
+              <div id="pv-fc-inner" style="
+                width:100%;height:100%;position:relative;
+                transform-style:preserve-3d;
+                transition:transform 0.5s cubic-bezier(0.4,0,0.2,1);
+              ">
+                <!-- Front -->
+                <div style="
+                  position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+                  background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);
+                  border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px;
+                ">
+                  <div id="pv-fc-cat" style="font-size:9px;font-family:'Geist Mono',monospace;color:var(--accent);letter-spacing:0.06em">VALUATION</div>
+                  <div id="pv-fc-q" style="font-size:12.5px;font-weight:500;color:var(--t);line-height:1.55;flex:1"></div>
+                  <div style="font-size:10px;color:var(--t-3);margin-top:auto">↩ tap to flip</div>
+                </div>
+                <!-- Back -->
+                <div style="
+                  position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+                  transform:rotateY(180deg);
+                  background:rgba(94,106,210,0.08);border:1px solid rgba(94,106,210,0.25);
+                  border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;
+                ">
+                  <div style="font-size:9px;font-family:'Geist Mono',monospace;color:var(--green);letter-spacing:0.06em">ANSWER</div>
+                  <div id="pv-fc-a" style="font-size:11px;color:var(--t-2);line-height:1.6;flex:1"></div>
+                </div>
+              </div>
+            </div>
+            <!-- Nav -->
+            <div style="flex-shrink:0;display:flex;gap:6px;margin-top:10px;justify-content:center">
+              <button onclick="pvFCNav(-1)" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);border-radius:5px;padding:5px 12px;font-size:11px;color:var(--t-2);cursor:pointer;transition:var(--trans)" onmouseover="this.style.background='rgba(255,255,255,0.11)'" onmouseout="this.style.background='rgba(255,255,255,0.06)'">← Prev</button>
+              <button onclick="pvFlipCard()" style="background:var(--accent);border:none;border-radius:5px;padding:5px 14px;font-size:11px;color:white;cursor:pointer">Flip</button>
+              <button onclick="pvFCNav(1)"  style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);border-radius:5px;padding:5px 12px;font-size:11px;color:var(--t-2);cursor:pointer;transition:var(--trans)" onmouseover="this.style.background='rgba(255,255,255,0.11)'" onmouseout="this.style.background='rgba(255,255,255,0.06)'">Next →</button>
+            </div>
+          </div>
+
+          <!-- ── MOCK INTERVIEW ── -->
+          <div id="pv-mock" style="display:none;flex-direction:column;height:100%">
+            <!-- Header -->
+            <div style="flex-shrink:0;display:flex;align-items:center;gap:8px;padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:10px">
+              <div style="width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#5E6AD2,#8b8ff8);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:white;flex-shrink:0">AC</div>
+              <div>
+                <div style="font-size:12px;font-weight:600;color:var(--t);letter-spacing:-0.01em">Alex Chen</div>
+                <div style="font-size:10px;color:var(--t-3)">VP, M&amp;A · Goldman Sachs</div>
+              </div>
+              <div style="margin-left:auto;display:flex;align-items:center;gap:4px;font-size:9.5px;font-family:'Geist Mono',monospace;color:var(--green)">
+                <div style="width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite"></div>LIVE
+              </div>
+            </div>
+            <!-- Chat log -->
+            <div id="pv-mock-chat" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:2px;min-height:0">
+              <div style="display:flex;gap:7px;align-items:flex-start">
+                <div style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#5E6AD2,#8b8ff8);display:flex;align-items:center;justify-content:center;font-size:7.5px;font-weight:700;color:white;flex-shrink:0;margin-top:1px">AC</div>
+                <div style="background:rgba(255,255,255,0.05);border:1px solid var(--line);border-radius:0 8px 8px 8px;padding:8px 10px;font-size:11px;color:var(--t-2);line-height:1.55;max-width:88%">Walk me through a DCF. Which assumptions have the biggest impact on value?</div>
+              </div>
+            </div>
+            <!-- Input -->
+            <div style="flex-shrink:0;display:flex;gap:6px;margin-top:8px">
+              <input id="pv-mock-input" type="text" placeholder="Type your answer and hit Enter…" onkeydown="if(event.key==='Enter')pvMockSend()"
+                style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--t);outline:none;min-width:0"
+                onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='rgba(255,255,255,0.09)'"/>
+              <button onclick="pvMockSend()" style="flex-shrink:0;background:var(--accent);border:none;border-radius:6px;padding:6px 12px;font-size:11px;color:white;cursor:pointer;white-space:nowrap;font-weight:500">Send →</button>
+            </div>
+          </div>
+
+        </div><!-- /prev-main -->
+      </div><!-- /preview-body -->
+    </div><!-- /hero-preview -->
+  </section>
+
+  <!-- LOGOS -->
+  <div class="logos-row" data-reveal="fade" data-delay="0">
+    <div class="logos-section">
+      <div class="logos-label" data-reveal="fade" data-delay="0">Candidates interviewing at</div>
+      <div class="logos-strip" data-stagger-children="80">
+        <div class="wm-logo wm-text" title="Goldman Sachs"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:11px;font-weight:700;letter-spacing:-0.02em">Goldman Sachs</span></div>
+        <div class="wm-logo wm-text" title="J.P. Morgan"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:11.5px;font-weight:700;letter-spacing:-0.01em">J.P. Morgan</span></div>
+        <div class="wm-logo wm-text" title="Morgan Stanley"><span class="wm-wordmark" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:10.5px;font-weight:600;letter-spacing:0.01em">Morgan Stanley</span></div>
+        <div class="wm-logo wm-text" title="Lazard"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:12px;font-weight:700;letter-spacing:0.03em">LAZARD</span></div>
+        <div class="wm-logo wm-text" title="Blackstone"><span class="wm-wordmark" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:10.5px;font-weight:700;letter-spacing:0.02em">Blackstone</span></div>
+        <div class="wm-logo wm-text" title="KKR"><span class="wm-wordmark" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;font-weight:800;letter-spacing:0.06em">KKR</span></div>
+        <div class="wm-logo wm-text" title="Evercore"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:11px;font-weight:700;letter-spacing:0.02em">EVERCORE</span></div>
+        <div class="wm-logo wm-text" title="Jefferies"><span class="wm-wordmark" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.01em">Jefferies</span></div>
+      </div>
+    </div>
+    <div class="logos-divider" data-reveal="fade" data-delay="200"></div>
+    <div class="logos-section">
+      <div class="logos-label" data-reveal="fade" data-delay="0">Students from</div>
+      <div class="logos-strip" data-stagger-children="80">
+        <div class="wm-logo wm-text sq-text" title="Harvard"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:10px;font-weight:700;letter-spacing:0em">Harvard</span></div>
+        <div class="wm-logo wm-text sq-text" title="Yale"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:10.5px;font-weight:700;letter-spacing:0em">Yale</span></div>
+        <div class="wm-logo wm-text sq-text" title="Princeton"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:9.5px;font-weight:700;letter-spacing:0em">Princeton</span></div>
+        <div class="wm-logo wm-text sq-text" title="Columbia"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:9.5px;font-weight:700;letter-spacing:0em">Columbia</span></div>
+        <div class="wm-logo wm-text sq-text" title="Penn"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:10.5px;font-weight:700;letter-spacing:0em">Penn</span></div>
+        <div class="wm-logo wm-text sq-text" title="Brown"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:10.5px;font-weight:700;letter-spacing:0em">Brown</span></div>
+        <div class="wm-logo wm-text sq-text" title="Dartmouth"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:9px;font-weight:700;letter-spacing:0em">Dartmouth</span></div>
+        <div class="wm-logo wm-text sq-text" title="Cornell"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:10px;font-weight:700;letter-spacing:0em">Cornell</span></div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- FEATURES -->
+  <div class="features" id="demo-section">
+
+    <!-- FEAT 1: Question Bank -->
+    <section class="feat-section">
+      <div class="feat-two">
+        <div data-reveal="left" data-dur="slow">
+          <div class="feat-tag">Question Bank</div>
+          <h2 class="feat-h">Master what's coming. Before you walk in.</h2>
+          <p class="feat-p">250+ questions pulled from real IB interviews. Every answer written the way a banker wants to hear it.</p>
+          <button class="btn-primary" onclick="showAuthTab('signup')">Explore all 250+ questions →</button>
+        </div>
+        <div class="demo-card" data-reveal="right" data-dur="slow">
+          <div class="qb-demo">
+            <div class="qb-toolbar">
+              <span class="qb-pill active" onclick="demoFilterBank(this,'all')">All</span>
+              <span class="qb-pill" onclick="demoFilterBank(this,'tech')">Technical</span>
+              <span class="qb-pill" onclick="demoFilterBank(this,'beh')">Behavioral</span>
+              <span class="qb-pill" onclick="demoFilterBank(this,'brain')">Brain Teaser</span>
+            </div>
+            <div class="qb-list" id="demo-qb-list">
+              <div class="qb-item demo-q-row" data-qcat="tech" onclick="demoToggleQ(this)" style="flex-direction:column;align-items:stretch;cursor:pointer">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <span class="qb-num">01</span>
+                  <span class="qb-text">Walk me through the three financial statements.</span>
+                  <span class="qb-badge tech">Technical</span>
+                  <span style="color:var(--t-3);font-size:11px;flex-shrink:0">⌄</span>
+                </div>
+                <div class="demo-q-ans" style="display:none;padding:10px 0 2px 22px;font-size:11.5px;color:var(--t-2);line-height:1.65;border-top:1px solid var(--line);margin-top:8px">
+                  The Income Statement shows revenue and expenses. The Balance Sheet is a snapshot of assets, liabilities and equity. The Cash Flow Statement reconciles net income to actual cash flows. Net income flows into retained earnings and begins the CFS.
+                  <div style="margin-top:6px;padding:6px 10px;background:var(--accent-dim);border-left:2px solid var(--accent);border-radius:0 4px 4px 0;font-size:11px;color:var(--t-3)"><strong style="color:var(--t-2)">Tip:</strong> Be ready to draw the linkages on a whiteboard.</div>
+                </div>
+              </div>
+              <div class="qb-item demo-q-row" data-qcat="tech" onclick="demoToggleQ(this)" style="flex-direction:column;align-items:stretch;cursor:pointer">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <span class="qb-num">02</span>
+                  <span class="qb-text">How does a $10 depreciation increase flow through all three statements?</span>
+                  <span class="qb-badge tech">Technical</span>
+                  <span style="color:var(--t-3);font-size:11px;flex-shrink:0">⌄</span>
+                </div>
+                <div class="demo-q-ans" style="display:none;padding:10px 0 2px 22px;font-size:11.5px;color:var(--t-2);line-height:1.65;border-top:1px solid var(--line);margin-top:8px">
+                  IS: Pre-tax income ↓$10, taxes ↓$3.50, net income ↓$6.50. CFS: Net income ↓$6.50 but D&A added back (+$10), so OCF ↑$3.50. BS: PP&E (net) ↓$10; cash ↑$3.50; retained earnings ↓$6.50 — still balances.
+                  <div style="margin-top:6px;padding:6px 10px;background:var(--accent-dim);border-left:2px solid var(--accent);border-radius:0 4px 4px 0;font-size:11px;color:var(--t-3)"><strong style="color:var(--t-2)">Tip:</strong> Memorise this cold — it's the most common 3-statement question.</div>
+                </div>
+              </div>
+              <div class="qb-item demo-q-row" data-qcat="beh" onclick="demoToggleQ(this)" style="flex-direction:column;align-items:stretch;cursor:pointer">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <span class="qb-num">41</span>
+                  <span class="qb-text">Why investment banking? Why this firm specifically?</span>
+                  <span class="qb-badge" style="background:var(--green-dim);color:var(--green)">Behavioral</span>
+                  <span style="color:var(--t-3);font-size:11px;flex-shrink:0">⌄</span>
+                </div>
+                <div class="demo-q-ans" style="display:none;padding:10px 0 2px 22px;font-size:11.5px;color:var(--t-2);line-height:1.65;border-top:1px solid var(--line);margin-top:8px">
+                  Structure: (1) genuine interest in capital markets/deal-making, (2) specific experience that drew you here, (3) firm-specific reason tied to their culture, deal flow, or sector focus. Never give a generic answer — research the firm's recent deals.
+                </div>
+              </div>
+              <div class="qb-item demo-q-row" data-qcat="beh" onclick="demoToggleQ(this)" style="flex-direction:column;align-items:stretch;cursor:pointer">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <span class="qb-num">42</span>
+                  <span class="qb-text">Tell me about a time you worked under pressure and delivered.</span>
+                  <span class="qb-badge" style="background:var(--green-dim);color:var(--green)">Behavioral</span>
+                  <span style="color:var(--t-3);font-size:11px;flex-shrink:0">⌄</span>
+                </div>
+                <div class="demo-q-ans" style="display:none;padding:10px 0 2px 22px;font-size:11.5px;color:var(--t-2);line-height:1.65;border-top:1px solid var(--line);margin-top:8px">
+                  Use STAR framework. Be specific about the situation, what was at stake, your actions, and a quantifiable result. Show poise, not panic.
+                </div>
+              </div>
+              <div class="qb-item demo-q-row" data-qcat="brain" onclick="demoToggleQ(this)" style="flex-direction:column;align-items:stretch;cursor:pointer">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <span class="qb-num">51</span>
+                  <span class="qb-text">How many golf balls fit in a school bus?</span>
+                  <span class="qb-badge" style="background:var(--amber-dim);color:var(--amber)">Brain Teaser</span>
+                  <span style="color:var(--t-3);font-size:11px;flex-shrink:0">⌄</span>
+                </div>
+                <div class="demo-q-ans" style="display:none;padding:10px 0 2px 22px;font-size:11.5px;color:var(--t-2);line-height:1.65;border-top:1px solid var(--line);margin-top:8px">
+                  ~500,000. Estimate bus volume (~2.5m × 2m × 8m = 40m³), golf ball volume (~40cm³), divide and adjust for packing efficiency (~64%). Show your structured thinking — the exact number matters less than the framework.
+                </div>
+              </div>
+              <div class="qb-item demo-q-row" data-qcat="brain" onclick="demoToggleQ(this)" style="flex-direction:column;align-items:stretch;cursor:pointer">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <span class="qb-num">52</span>
+                  <span class="qb-text">You have a 3-gallon and a 5-gallon jug. How do you measure exactly 4 gallons?</span>
+                  <span class="qb-badge" style="background:var(--amber-dim);color:var(--amber)">Brain Teaser</span>
+                  <span style="color:var(--t-3);font-size:11px;flex-shrink:0">⌄</span>
+                </div>
+                <div class="demo-q-ans" style="display:none;padding:10px 0 2px 22px;font-size:11.5px;color:var(--t-2);line-height:1.65;border-top:1px solid var(--line);margin-top:8px">
+                  Fill the 5-gal, pour into the 3-gal (leaves 2 in the 5). Empty the 3-gal, pour the 2 from 5 into 3. Fill the 5-gal again, pour into the 3-gal (which already has 2) until full — exactly 4 gallons remain in the 5.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FEAT 2: Flashcards -->
+    <section class="feat-section">
+      <div class="feat-two rev">
+        <div data-reveal="right" data-dur="slow">
+          <div class="feat-tag">Flashcards</div>
+          <h2 class="feat-h">Recall beats recognition. Every time.</h2>
+          <p class="feat-p">Knowing the answer isn't enough. Superday drills you to deliver it cold, under pressure — automatically, every time. No hesitation.</p>
+          <button class="btn-primary" onclick="showAuthTab('signup')">Try the flashcards →</button>
+        </div>
+        <div class="demo-card" data-reveal="left" data-dur="slow">
+          <div class="fc-demo">
+            <div class="fc-demo-bar">
+              <span class="fc-demo-label" id="demo-fc-label">VALUATION · Card 1 of 5</span>
+              <span class="fc-demo-progress" id="demo-fc-prog">20% complete</span>
+            </div>
+            <div style="perspective:1000px">
+              <div id="demo-fc-card" onclick="demoFlipCard()" style="
+                position:relative;min-height:180px;cursor:pointer;
+                transform-style:preserve-3d;transition:transform 0.5s cubic-bezier(0.4,0,0.2,1);
+              ">
+                <div style="position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+                  background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);
+                  border-radius:var(--r-lg);padding:24px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden">
+                  <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 30% 50%,var(--accent-dim),transparent 70%);pointer-events:none"></div>
+                  <div>
+                    <div class="fc-cat" id="demo-fc-cat">Technical — Valuation</div>
+                    <div id="demo-fc-q" style="font-size:15px;font-weight:500;line-height:1.5;color:var(--t);margin-top:8px">What is the difference between equity value and enterprise value?</div>
+                  </div>
+                  <div class="fc-hint">↩ Click to reveal answer</div>
+                </div>
+                <div style="position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+                  transform:rotateY(180deg);
+                  background:rgba(94,106,210,0.08);border:1px solid rgba(94,106,210,0.3);
+                  border-radius:var(--r-lg);padding:24px;display:flex;flex-direction:column;gap:10px;overflow:hidden">
+                  <div style="font-size:10px;font-family:'Geist Mono',monospace;color:var(--accent);letter-spacing:0.08em;text-transform:uppercase">Answer</div>
+                  <div id="demo-fc-a" style="font-size:13px;color:var(--t-2);line-height:1.65;flex:1"></div>
+                  <div id="demo-fc-tip" style="font-size:11px;color:var(--t-3);padding:7px 10px;background:var(--accent-dim);border-left:2px solid var(--accent);border-radius:0 4px 4px 0"></div>
+                </div>
+              </div>
+            </div>
+            <div class="fc-demo-btns">
+              <button class="fc-btn-sm" onclick="demoFCNav(-1)">← Prev</button>
+              <button class="fc-btn-sm" onclick="demoFCShuffle()">⟳ Shuffle</button>
+              <button class="fc-btn-sm" onclick="demoFCNav(1)">Next →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FEAT 3: Mock Interview -->
+    <section class="feat-section">
+      <div class="feat-two">
+        <div data-reveal="left" data-dur="slow">
+          <div class="feat-tag">Mock Interview</div>
+          <h2 class="feat-h">Simulate real interviews. Get better each time.</h2>
+          <p class="feat-p">Win by practicing real interview scenarios again and again — until your answers come out clean, confident, and automatic. Alex Chen, VP in M&A, scores every answer on three dimensions and asks harder follow-ups.</p>
+          <button class="btn-primary" onclick="showAuthTab('signup')">Start your mock now →</button>
+        </div>
+        <div class="demo-card" data-reveal="right" data-dur="slow" style="display:flex;flex-direction:column">
+          <div class="iv-topbar">
+            <div class="iv-persona">
+              <div class="iv-av">AC</div>
+              <div><div class="iv-name" style="font-size:13px">Alex Chen</div><div class="iv-role">VP, M&A — Goldman Sachs</div></div>
+            </div>
+            <span class="iv-badge badge-live">● LIVE</span>
+          </div>
+          <div id="demo-chat-body" style="padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-height:200px;max-height:240px;overflow-y:auto">
+            <div class="chat-msg">
+              <div class="cm-av ai">AC</div>
+              <div class="cm-bubble ai">Walk me through a DCF. What are the key assumptions you'd make?</div>
+            </div>
+          </div>
+          <div style="padding:10px 14px;border-top:1px solid var(--line);display:flex;gap:8px;align-items:center">
+            <input id="demo-chat-input" type="text" placeholder="Type your answer…"
+              style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);border-radius:var(--r);padding:8px 12px;font-size:13px;color:var(--t);outline:none;transition:var(--trans)"
+              onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='rgba(255,255,255,0.09)'"
+              onkeydown="if(event.key==='Enter')demoChatSend()"/>
+            <button onclick="demoChatSend()" style="background:var(--accent);border:none;border-radius:var(--r);padding:8px 14px;font-size:13px;color:white;cursor:pointer;transition:var(--trans);white-space:nowrap" onmouseover="this.style.background='var(--accent-h)'" onmouseout="this.style.background='var(--accent)'">Send →</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-band">
+    <div class="stats-inner stats-animate" id="stats-inner">
+      <div class="stat-block">
+        <div class="stat-num">250<span>+</span></div>
+        <div class="stat-desc">questions that actually get asked</div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-num">3<span>×</span></div>
+        <div class="stat-desc">dimensions. scored like a banker scores you</div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-num">$0</div>
+        <div class="stat-desc">to start. no card. no catch</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TESTIMONIALS -->
+  <div class="testimonials">
+    <div class="test-inner">
+      <div class="feat-tag" data-reveal="fade">Testimonials</div>
+      <h2 class="feat-h" data-reveal="up" data-delay="100" style="max-width:580px">Don't Take It From Us. Hear What Future Summer Analysts Are Saying.</h2>
+      <div class="test-grid">
+        <div class="test-card" data-reveal="scale-up" data-delay="0">
+          <div class="test-stars">★★★★★</div>
+          <p class="test-text">"Question 14 about deferred revenue came up word for word in my Goldman first round. I'd drilled it the night before. That moment of recognition is everything."</p>
+          <div class="test-author">
+            <div class="test-avatar">MK</div>
+            <div><div class="test-name">Maya K.</div><div class="test-role">Analyst, Goldman Sachs IBD</div></div>
+          </div>
+        </div>
+        <div class="test-card" data-reveal="scale-up" data-delay="150">
+          <div class="test-stars">★★★★★</div>
+          <p class="test-text">"The AI mock pushed back on my WACC answer and asked me to justify my beta assumption. No prep course does that. I walked into JPM ready for the follow-ups."</p>
+          <div class="test-author">
+            <div class="test-avatar">JL</div>
+            <div><div class="test-name">James L.</div><div class="test-role">Summer Analyst, J.P. Morgan M&A</div></div>
+          </div>
+        </div>
+        <div class="test-card" data-reveal="scale-up" data-delay="300">
+          <div class="test-stars">★★★★★</div>
+          <p class="test-text">"I paid $600 for a prep course and used Superday the week before my Blackstone superday. Superday was more useful. Not close."</p>
+          <div class="test-author">
+            <div class="test-avatar">SR</div>
+            <div><div class="test-name">Sofia R.</div><div class="test-role">PE Associate, Blackstone</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <!-- PRICING -->
+  <div class="pricing-section" id="section-pricing">
+    <div class="feat-tag" data-reveal="fade">Pricing</div>
+    <h2 class="feat-h" data-reveal="up" data-delay="100">Flexible plans to win your offer.</h2>
+    <p class="feat-p" data-reveal="up" data-delay="200" style="margin-bottom:0">Start free. Upgrade when you're ready to go all-in.</p>
+    <div class="pricing-grid">
+
+      <!-- WEEKLY -->
+      <div class="pricing-card" data-reveal="scale-up" data-delay="0">
+        <div class="pricing-name">Weekly</div>
+        <div class="pricing-price">
+          <span class="pricing-currency">$</span>
+          <span class="pricing-amount">3.99</span>
+        </div>
+        <div class="pricing-period">per week</div>
+        <div class="pricing-desc">One focused sprint. Everything you need for the week before interviews.</div>
+        <button class="pricing-btn ghost" onclick="showAuthTab('signup')">Start sprinting</button>
+        <div class="pricing-divider"></div>
+        <div class="pricing-features">
+          <div class="pf-item"><span class="pf-check">✓</span>Full question bank (250+ questions)</div>
+          <div class="pf-item"><span class="pf-check">✓</span>Flashcard mode</div>
+          <div class="pf-item"><span class="pf-check">✓</span>Progress tracking</div>
+          <div class="pf-item muted"><span class="pf-check">–</span>AI mock interviews</div>
+          <div class="pf-item muted"><span class="pf-check">–</span>Market news feed</div>
+        </div>
+      </div>
+
+      <!-- MONTHLY (featured) -->
+      <div class="pricing-card featured" data-reveal="scale-up" data-delay="150">
+        <div class="pricing-badge">Most popular</div>
+        <div class="pricing-name">Monthly</div>
+        <div class="pricing-price">
+          <span class="pricing-currency">$</span>
+          <span class="pricing-amount">10</span>
+        </div>
+        <div class="pricing-period">per month · cancel anytime</div>
+        <div class="pricing-desc">The whole season. From first application to final round.</div>
+        <button class="pricing-btn primary" onclick="showAuthTab('signup')">Get full access →</button>
+        <div class="pricing-divider"></div>
+        <div class="pricing-features">
+          <div class="pf-item"><span class="pf-check">✓</span>Full question bank (250+ questions)</div>
+          <div class="pf-item"><span class="pf-check">✓</span>Flashcard mode</div>
+          <div class="pf-item"><span class="pf-check">✓</span>Progress tracking</div>
+          <div class="pf-item"><span class="pf-check">✓</span>AI mock interviews (unlimited)</div>
+          <div class="pf-item"><span class="pf-check">✓</span>Live market news feed</div>
+        </div>
+      </div>
+
+      <!-- LIFETIME -->
+      <div class="pricing-card" data-reveal="scale-up" data-delay="300">
+        <div class="pricing-name">Lifetime</div>
+        <div class="pricing-price">
+          <span class="pricing-currency">$</span>
+          <span class="pricing-amount">100</span>
+        </div>
+        <div class="pricing-period">one-time · yours forever</div>
+        <div class="pricing-desc">Pay once. Prep for every cycle, every lateral move, every promotion conversation.</div>
+        <button class="pricing-btn ghost" onclick="showAuthTab('signup')">Own it forever</button>
+        <div class="pricing-divider"></div>
+        <div class="pricing-features">
+          <div class="pf-item"><span class="pf-check">✓</span>Everything in Monthly</div>
+          <div class="pf-item"><span class="pf-check">✓</span>All future question updates</div>
+          <div class="pf-item"><span class="pf-check">✓</span>Priority support</div>
+          <div class="pf-item"><span class="pf-check">✓</span>Early access to new features</div>
+          <div class="pf-item"><span class="pf-check">✓</span>Never pay again</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ROI CALCULATOR -->
+  <div class="roi-section" id="section-roi">
+    <div class="roi-inner">
+      <div style="margin-bottom:32px" data-reveal="up">
+        <div class="feat-tag">The Math</div>
+        <h2 class="feat-h">A Wall Street career — for less than a coffee?</h2>
+        <p class="feat-p" style="margin-bottom:0">First-year IB analysts earn $150k+. Win that offer for $3.</p>
+      </div>
+      <div class="roi-card" data-reveal="scale" data-delay="200" data-dur="slow">
+        <div class="roi-grid">
+          <div class="roi-controls">
+            <div>
+              <div class="roi-control-label">
+                <span>Starting salary</span>
+                <span class="roi-val" id="roi-salary-label">$110,000</span>
+              </div>
+              <input class="roi-slider" type="range" min="80000" max="250000" step="5000" value="110000"
+                id="roi-salary" oninput="calcROI()"/>
+            </div>
+            <div>
+              <div class="roi-control-label">
+                <span>Expected signing bonus</span>
+                <span class="roi-val" id="roi-bonus-label">$20,000</span>
+              </div>
+              <input class="roi-slider" type="range" min="0" max="60000" step="2500" value="20000"
+                id="roi-bonus" oninput="calcROI()"/>
+            </div>
+            <div>
+              <div class="roi-control-label">
+                <span>Years in IB before exit</span>
+                <span class="roi-val" id="roi-years-label">2 years</span>
+              </div>
+              <input class="roi-slider" type="range" min="1" max="5" step="1" value="2"
+                id="roi-years" oninput="calcROI()"/>
+            </div>
+            <div>
+              <div class="roi-control-label">
+                <span>Your Superday plan</span>
+                <span class="roi-val" id="roi-plan-label">Monthly</span>
+              </div>
+              <input class="roi-slider" type="range" min="0" max="2" step="1" value="1"
+                id="roi-plan" oninput="calcROI()"/>
+            </div>
+          </div>
+          <div class="roi-results">
+            <div class="roi-result-item">
+              <div class="roi-result-label">Total earnings (est.)</div>
+              <div class="roi-result-val" id="roi-total-earn">$220,000</div>
+              <div class="roi-result-sub">salary + bonus over your IB tenure</div>
+            </div>
+            <div class="roi-result-item">
+              <div class="roi-result-label">Cost of Superday</div>
+              <div class="roi-result-val" id="roi-cost">$10</div>
+              <div class="roi-result-sub">total investment in your prep</div>
+            </div>
+            <div class="roi-highlight">
+              <div class="roi-highlight-label">Return on investment</div>
+              <div class="roi-highlight-val" id="roi-multiple">22,000×</div>
+              <div class="roi-highlight-sub" id="roi-sub">every $1 spent returns $22,000 in earnings</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAQ -->
+  <div class="faq-section" id="section-faq">
+    <div class="feat-tag">FAQ</div>
+    <h2 class="feat-h">Quick answers.</h2>
+    <div class="faq-list">
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">What types of questions are covered? <span class="faq-caret">⌄</span></div>
+        <div class="faq-a">Everything you'll face in a real IB interview: 140 technical questions (Accounting, Valuation, LBO, and M&amp;A), 35 Behaviorals, 25 Brain Teasers, and 50 Deals &amp; Markets questions — 250 total. Every single one comes with a model answer and an interviewer tip that tells you how a banker actually evaluates the response.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">How is the AI mock different from just reading answers? <span class="faq-caret">⌄</span></div>
+        <div class="faq-a">Reading builds knowledge. The mock builds performance. There's a real gap between knowing an answer and delivering it calmly under pressure — that gap is where most candidates lose offers. The AI scores you on three dimensions, follows up with harder questions, and doesn't let you off easy. It's the closest thing to a real first round you'll get without booking a flight.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">Is it actually free? <span class="faq-caret">⌄</span></div>
+        <div class="faq-a">Yes. The full question bank and flashcards are free, no credit card required. Paid plans unlock the AI mock interviewer, the live market news feed, and priority support. We'd rather have you prepared for free than unprepared because of a paywall.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">Are the questions actually up to date? <span class="faq-caret">⌄</span></div>
+        <div class="faq-a">The core technicals don't change — the three-statement model and DCF mechanics are the same as they were 20 years ago. What changes is emphasis and framing, which we update based on real interview reports. If Goldman starts asking a specific LBO structure question, it'll show up here.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">Which banks is this relevant for? <span class="faq-caret">⌄</span></div>
+        <div class="faq-a">All of them. The technical foundation — accounting, valuation, LBOs — is universal across Goldman, JPM, Morgan Stanley, Lazard, Evercore, Blackstone, KKR, and every other firm. The AI mock lets you pick your target bank and adjusts accordingly.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">Can I cancel anytime? <span class="faq-caret">⌄</span></div>
+        <div class="faq-a">Yes, with no questions and no friction. Monthly plans cancel instantly and you keep access until the end of your billing period. The lifetime plan has no recurring charges — ever.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">Does my progress save across devices? <span class="faq-caret">⌄</span></div>
+        <div class="faq-a">Yes. Create an account and your progress — questions answered, streaks, activity log — syncs to the cloud. Pick up on your laptop, continue on your phone, same state every time.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cta-section">
+    <div class="cta-glow"></div>
+    <h2 class="cta-h" data-reveal="up">Win your next<br>finance internship.</h2>
+    <p class="cta-p" data-reveal="up" data-delay="120">Built for candidates who don't leave offers to chance.</p>
+    <div data-reveal="up" data-delay="240" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <button class="btn-primary" onclick="startDirectDiagnostic()">Take the diagnostic test →</button>
+      <button class="btn-ghost" onclick="showAuthTab('signup')">Create account</button>
+    </div>
+  </div>
+
+  <footer class="land-footer">
+    <div class="nav-logo" onclick="showScreen('landing')">
+      <div class="logo-mark">S</div>
+      <span class="logo-wordmark">Superday</span>
+    </div>
+    <div class="footer-copy">© 2026 Superday. Built for candidates who don't leave offers to chance.</div>
+    <div class="footer-links">
+      <span class="footer-link">Privacy</span>
+      <span class="footer-link">Terms</span>
+      <span class="footer-link" onclick="showAuthTab('login')">Sign in</span>
+    </div>
+  </footer>
+
+</div><!-- /landing -->
+
+<!-- ══════════════════════════════════════
+     APP SHELL
+══════════════════════════════════════ -->
+<div class="screen" id="screen-app">
+
+  <!-- SIDEBAR -->
+  <aside class="app-sidebar">
+    <div class="sb-top">
+      <div class="sb-brand"><div class="logo-mark" style="width:20px;height:20px;border-radius:5px;font-size:10px">S</div>Superday</div>
+      <div class="sb-item active" onclick="showView('dashboard')"><span class="sb-icon">◈</span>Dashboard</div>
+      <div class="sb-section">Learn</div>
+      <div class="sb-item" onclick="showView('learn')"><span class="sb-icon">📖</span>Concepts</div>
+      <div class="sb-item" onclick="showView('cases')"><span class="sb-icon">🧮</span>Mini-Cases</div>
+      <div class="sb-item" onclick="showView('map')"><span class="sb-icon">◉</span>Knowledge Map</div>
+      <div class="sb-section">Practice</div>
+      <div class="sb-item" onclick="showView('bank')"><span class="sb-icon">☰</span>Question Bank</div>
+      <div class="sb-item" onclick="showView('flash')"><span class="sb-icon">⧉</span>Flashcards</div>
+      <div class="sb-section">Test</div>
+      <div class="sb-item" onclick="showView('quiz')"><span class="sb-icon">✓</span>Quiz Mode</div>
+      <div class="sb-item" onclick="showView('mock')"><span class="sb-icon">◎</span>Mock Interview</div>
+      <div class="sb-section">Apply</div>
+      <div class="sb-item" onclick="showView('apply')"><span class="sb-icon">⊞</span>Internship Tracker</div>
+    </div>
+    <div class="sb-spacer"></div>
+    <div class="sb-bottom">
+      <div class="sb-theme" onclick="toggleTheme()">
+        <span class="sb-theme-label" id="theme-label-app">DARK</span>
+        <div class="theme-track"><div class="theme-thumb"></div></div>
+      </div>
+      <div class="sb-user" style="cursor:pointer" onclick="showView('profile')">
+        <div class="sb-avatar" id="sb-avatar">J</div>
+        <div style="flex:1;min-width:0">
+          <div class="sb-user-name" id="sb-name">Jamie</div>
+          <div class="sb-user-plan" id="sb-email-display" style="font-size:10px;color:var(--t-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+        </div>
+        <div onclick="event.stopPropagation();doSignOut()" title="Sign out"
+          style="cursor:pointer;color:var(--t-3);font-size:13px;padding:4px;border-radius:4px;transition:var(--trans);flex-shrink:0"
+          onmouseover="this.style.color='var(--t)'" onmouseout="this.style.color='var(--t-3)'">⏏</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="app-main">
+
+    <!-- Session Timer (for Quick 10 mode) -->
+    <div class="session-timer" id="session-timer">
+      <span class="timer-label">Session</span>
+      <span id="session-time">0:00</span>
+    </div>
+
+    <!-- ── DASHBOARD ── -->
+    <div class="app-view active" id="view-dashboard">
+      <div class="dash-welcome">
+        <div>
+          <div class="dash-h">Good morning, <span id="greeting-name">Jamie</span>.</div>
+          <div class="dash-date" id="dash-date"></div>
+        </div>
+        <button class="dash-today-btn" id="dash-practice-btn" onclick="smartPractice()">
+          <span>📋</span><span id="practice-btn-text">Practice today →</span>
+        </button>
+      </div>
+
+      <!-- Personalized Prep Plan -->
+      <div id="prep-plan-container"></div>
+
+      <!-- Two-column: left = study progress, right = application pipeline -->
+      <div class="dash-two-col">
+
+        <!-- LEFT: Study Progress -->
+        <div class="dash-col-left">
+          <div class="kpi-row" style="grid-template-columns:1fr 1fr 1fr">
+            <div class="kpi-card">
+              <div class="kpi-label">Answered</div>
+              <div class="kpi-val" id="kpi-answered">0</div>
+              <div class="kpi-sub">of <span id="kpi-total">120</span> total</div>
+              <div class="kpi-bar"><div class="kpi-fill" id="kpi-answered-fill" style="width:0%"></div></div>
+            </div>
+            <div class="kpi-card" style="cursor:pointer" onclick="goToDueReview()">
+              <div class="kpi-label">Due for Review</div>
+              <div class="kpi-val" id="kpi-due" style="color:var(--amber)">0</div>
+              <div class="kpi-sub">cards to review</div>
+              <div class="kpi-bar"><div class="kpi-fill" id="kpi-due-fill" style="width:0%;background:var(--amber)"></div></div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Mastered</div>
+              <div class="kpi-val" id="kpi-mastered" style="color:var(--green)">0</div>
+              <div class="kpi-sub">of 250 questions</div>
+              <div class="kpi-bar"><div class="kpi-fill green" id="kpi-mastered-fill" style="width:0%"></div></div>
+            </div>
+          </div>
+
+          <div class="kpi-row" style="grid-template-columns:1fr 1fr;margin-top:0">
+            <div class="kpi-card">
+              <div class="kpi-label">Current Streak</div>
+              <div class="kpi-val" id="kpi-streak">0</div>
+              <div class="kpi-sub">days in a row</div>
+              <div class="streak-row" id="streak-dots"></div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Categories</div>
+              <div class="kpi-val" id="kpi-cats">0</div>
+              <div class="kpi-sub">of 4 practiced</div>
+              <div class="kpi-bar"><div class="kpi-fill green" id="kpi-cats-fill" style="width:0%"></div></div>
+            </div>
+          </div>
+
+          <div class="dash-panel">
+            <div class="dp-header">
+              <span class="dp-title">Category Progress</span>
+              <span class="dp-action" onclick="showView('bank')">View all →</span>
+            </div>
+            <div class="cat-grid">
+              <div class="cat-item" onclick="filterBankNav('tech')">
+                <div class="cat-name">Technical</div>
+                <div class="cat-pct" id="pct-tech">0%</div>
+                <div class="cat-bar"><div class="cat-fill fill-acc" id="fill-tech" style="width:0%"></div></div>
+                <div style="font-size:10.5px;color:var(--t-3);margin-top:4px;font-family:'Geist Mono',monospace" id="count-tech">0 answered</div>
+              </div>
+              <div class="cat-item" onclick="filterBankNav('beh')">
+                <div class="cat-name">Behavioral</div>
+                <div class="cat-pct" id="pct-beh">0%</div>
+                <div class="cat-bar"><div class="cat-fill fill-grn" id="fill-beh" style="width:0%"></div></div>
+                <div style="font-size:10.5px;color:var(--t-3);margin-top:4px;font-family:'Geist Mono',monospace" id="count-beh">0 answered</div>
+              </div>
+              <div class="cat-item" onclick="filterBankNav('brain')">
+                <div class="cat-name">Brain Teasers</div>
+                <div class="cat-pct" id="pct-brain">0%</div>
+                <div class="cat-bar"><div class="cat-fill fill-amb" id="fill-brain" style="width:0%"></div></div>
+                <div style="font-size:10.5px;color:var(--t-3);margin-top:4px;font-family:'Geist Mono',monospace" id="count-brain">0 answered</div>
+              </div>
+              <div class="cat-item" onclick="filterBankNav('deal')">
+                <div class="cat-name">Deals & Markets</div>
+                <div class="cat-pct" id="pct-deal">0%</div>
+                <div class="cat-bar"><div class="cat-fill fill-blu" id="fill-deal" style="width:0%"></div></div>
+                <div style="font-size:10.5px;color:var(--t-3);margin-top:4px;font-family:'Geist Mono',monospace" id="count-deal">0 answered</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dash-panel">
+            <div class="dp-header">
+              <span class="dp-title">Recent Activity</span>
+            </div>
+            <div class="activity-list" id="activity-list">
+              <div style="padding:32px 16px;text-align:center;font-size:12.5px;color:var(--t-3)">No activity yet — start practicing.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Application Pipeline + Market News -->
+        <div class="dash-col-right">
+          <div class="dash-pipeline" id="dash-pipeline"></div>
+
+          <div class="news-panel" id="news-panel">
+            <div class="dp-header">
+              <span class="dp-title">Market Pulse</span>
+              <span style="display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--t-3);font-family:'Geist Mono',monospace">
+                <span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;animation:pulse-dot 2s ease infinite"></span>LIVE
+              </span>
+            </div>
+            <div class="news-list-inner" id="news-list">
+              <div style="padding:28px;text-align:center;font-size:12.5px;color:var(--t-3)">Loading market news…</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── QUESTION BANK ── -->
+    <div class="app-view" id="view-bank">
+      <div class="view-header">
+        <div class="view-title">Question Bank</div>
+        <div class="view-sub">250+ curated questions with model answers and interview tips</div>
+      </div>
+      <div class="bank-toolbar">
+        <input class="bank-search" type="text" id="bank-search" placeholder="Search questions…" oninput="renderBank()"/>
+        <button class="bank-pill active" data-cat="all" onclick="filterBank('all')">All</button>
+        <button class="bank-pill" data-cat="tech" onclick="filterBank('tech')">Technical</button>
+        <button class="bank-pill" data-cat="beh" onclick="filterBank('beh')">Behavioral</button>
+        <button class="bank-pill" data-cat="brain" onclick="filterBank('brain')">Brain Teasers</button>
+        <button class="bank-pill" data-cat="deal" onclick="filterBank('deal')">Deals &amp; Markets</button>
+      </div>
+      <div class="sub-row" id="subtopic-row">
+        <span class="sub-label">Topic:</span>
+        <button class="bank-pill active" data-sub="all" onclick="filterSub('all')">All Technical</button>
+        <button class="bank-pill" data-sub="accounting" onclick="filterSub('accounting')">Accounting</button>
+        <button class="bank-pill" data-sub="valuation" onclick="filterSub('valuation')">Valuation</button>
+        <button class="bank-pill" data-sub="lbo" onclick="filterSub('lbo')">LBO</button>
+        <button class="bank-pill" data-sub="ma" onclick="filterSub('ma')">M&amp;A</button>
+      </div>
+      <div class="q-list" id="q-list"></div>
+    </div>
+
+    <!-- ── FLASHCARDS ── -->
+    <div class="app-view" id="view-flash">
+      <div class="view-header">
+        <div class="view-title">Flashcards</div>
+        <div class="view-sub">Build recall under pressure. Rate your confidence to optimize review.</div>
+      </div>
+      <div class="flash-wrap">
+        <!-- Study Modes -->
+        <div class="study-mode-bar" id="study-mode-bar">
+          <button class="mode-btn active" data-mode="all" onclick="setStudyMode('all')">
+            <span class="mode-icon">📚</span>All Cards<span class="mode-count" id="mode-count-all">120/span>
+          </button>
+          <button class="mode-btn" data-mode="due" onclick="setStudyMode('due')">
+            <span class="mode-icon">🔄</span>Due for Review<span class="mode-count" id="mode-count-due">0</span>
+          </button>
+          <button class="mode-btn" data-mode="weak" onclick="setStudyMode('weak')">
+            <span class="mode-icon">🎯</span>Weak Spots<span class="mode-count" id="mode-count-weak">0</span>
+          </button>
+          <button class="mode-btn" data-mode="quick" onclick="setStudyMode('quick')">
+            <span class="mode-icon">⚡</span>Quick 10
+          </button>
+        </div>
+
+        <!-- Mastery Stats -->
+        <div class="mastery-stats" id="mastery-stats">
+          <div class="mastery-stat">
+            <span class="mastery-dot new"></span>
+            <span>New:</span>
+            <span class="mastery-stat-val" id="stat-new">120/span>
+          </div>
+          <div class="mastery-stat">
+            <span class="mastery-dot learning"></span>
+            <span>Learning:</span>
+            <span class="mastery-stat-val" id="stat-learning">0</span>
+          </div>
+          <div class="mastery-stat">
+            <span class="mastery-dot mastered"></span>
+            <span>Mastered:</span>
+            <span class="mastery-stat-val" id="stat-mastered">0</span>
+          </div>
+        </div>
+
+        <div class="flash-toolbar" id="flash-toolbar">
+          <button class="bank-pill active" data-fcat="all" onclick="setFlashCat('all')">All</button>
+          <button class="bank-pill" data-fcat="tech" onclick="setFlashCat('tech')">Technical</button>
+          <button class="bank-pill" data-fcat="beh" onclick="setFlashCat('beh')">Behavioral</button>
+          <button class="bank-pill" data-fcat="brain" onclick="setFlashCat('brain')">Brain Teasers</button>
+          <button class="bank-pill" data-fcat="deal" onclick="setFlashCat('deal')">Deals &amp; Markets</button>
+          <button class="bank-pill" onclick="shuffleFlash()">⟳ Shuffle</button>
+        </div>
+        <div class="flash-meta" id="flash-meta">Card 1 of 120</div>
+        <div class="flash-bar"><div class="flash-bar-fill" id="flash-bar-fill" style="width:0%"></div></div>
+        <div class="card-scene" onclick="flipCard()">
+          <div class="card-inner" id="card-inner">
+            <div class="card-face card-front">
+              <div class="card-cat-label" id="card-cat-label">Technical</div>
+              <div class="card-q-text" id="card-q-text">Loading…</div>
+              <div class="card-tap">↩ Click or press Space to reveal</div>
+            </div>
+            <div class="card-face card-back">
+              <div class="card-back-label">Model Answer</div>
+              <div class="card-back-text" id="card-back-text"></div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Confidence Rating Buttons (shown after flip) -->
+        <div class="confidence-bar" id="confidence-bar">
+          <button class="conf-btn miss" onclick="rateCard(1)">
+            <span>✗ Missed</span><span class="conf-key">1</span>
+          </button>
+          <button class="conf-btn unsure" onclick="rateCard(2)">
+            <span>◐ Unsure</span><span class="conf-key">2</span>
+          </button>
+          <button class="conf-btn got" onclick="rateCard(3)">
+            <span>✓ Got it</span><span class="conf-key">3</span>
+          </button>
+        </div>
+
+        <div class="flash-controls" id="flash-nav-controls">
+          <button class="flash-btn" id="flash-prev" onclick="prevCard()">← Prev</button>
+          <button class="flash-btn" id="flash-next" onclick="nextCard()">Next →</button>
+        </div>
+
+        <!-- Keyboard Hints -->
+        <div class="kbd-hints">
+          <div class="kbd-hint"><span class="kbd">Space</span> Flip</div>
+          <div class="kbd-hint"><span class="kbd">←</span><span class="kbd">→</span> Navigate</div>
+          <div class="kbd-hint"><span class="kbd">1</span><span class="kbd">2</span><span class="kbd">3</span> Rate</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── LEARN MODULES ── -->
+    <div class="app-view" id="view-learn">
+      <div class="view-header">
+        <div class="view-title">Concepts</div>
+        <div class="view-sub">Build deep understanding with visual explanations. Learn the "why" before drilling questions.</div>
+      </div>
+      <div class="learn-wrap">
+        <!-- Module List -->
+        <div id="learn-modules-list">
+          <div class="learn-modules" id="learn-modules-grid"></div>
+        </div>
+        
+        <!-- Module Content (hidden until selected) -->
+        <div class="learn-content" id="learn-content"></div>
+      </div>
+    </div>
+
+    <!-- ── MINI-CASES ── -->
+    <div class="app-view" id="view-cases">
+      <div class="view-header">
+        <div class="view-title">Mini-Cases</div>
+        <div class="view-sub">Practice real modeling exercises under time pressure. Build speed and accuracy.</div>
+      </div>
+      <div class="cases-wrap">
+        <!-- Cases Grid -->
+        <div id="cases-list">
+          <div class="cases-grid" id="cases-grid"></div>
+        </div>
+        
+        <!-- Active Case Exercise -->
+        <div class="case-exercise" id="case-exercise"></div>
+      </div>
+    </div>
+
+    <!-- ── KNOWLEDGE MAP ── -->
+    <div class="app-view" id="view-map" style="padding:20px">
+      <div class="view-header" style="margin-bottom:16px">
+        <div class="view-title">Knowledge Map</div>
+        <div class="view-sub">Explore your mastery across all IB topics. Scroll to zoom, drag to pan, click nodes to practice.</div>
+      </div>
+      <div class="map-container" id="map-container">
+        <div class="map-legend">
+          <div class="map-legend-item"><span class="mastery-dot new"></span> Not started</div>
+          <div class="map-legend-item"><span class="mastery-dot learning"></span> Learning</div>
+          <div class="map-legend-item"><span class="mastery-dot mastered"></span> Mastered</div>
+        </div>
+        <div class="map-canvas" id="map-canvas">
+          <div class="map-canvas-grid"></div>
+          <svg class="map-svg" id="map-svg"></svg>
+        </div>
+        <div class="map-hud">
+          <button class="map-hud-btn" onclick="mapZoom(-0.15)" title="Zoom out">−</button>
+          <span class="map-zoom-level" id="map-zoom-label">100%</span>
+          <button class="map-hud-btn" onclick="mapZoom(0.15)" title="Zoom in">+</button>
+          <div class="map-hud-sep"></div>
+          <button class="map-hud-btn" onclick="mapFitAll()" title="Fit all">⊡</button>
+          <button class="map-hud-btn" onclick="mapResetView()" title="Reset view">↺</button>
+        </div>
+        <div class="map-minimap" id="map-minimap">
+          <canvas id="minimap-canvas" width="160" height="100"></canvas>
+          <div class="map-minimap-viewport" id="minimap-viewport"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── QUIZ MODE ── -->
+    <div class="app-view" id="view-quiz">
+      <div class="view-header">
+        <div class="view-title">Quiz Mode</div>
+        <div class="view-sub">Test your knowledge with multiple choice questions. Choose wisely.</div>
+      </div>
+      <div class="quiz-wrap">
+        <!-- Quiz Setup -->
+        <div id="quiz-setup">
+          <div class="quiz-card">
+            <h3 style="font-size:18px;font-weight:600;margin-bottom:16px">Start a Quiz</h3>
+            <p style="font-size:14px;color:var(--t-2);margin-bottom:20px;line-height:1.6">
+              Test yourself with multiple choice questions. Select a category and number of questions to begin.
+            </p>
+            <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px">
+              <div>
+                <label style="font-size:11px;color:var(--t-3);font-family:'Geist Mono',monospace;letter-spacing:0.05em;display:block;margin-bottom:6px">CATEGORY</label>
+                <select class="app-select" id="quiz-cat-select" style="width:100%">
+                  <option value="all">All Categories</option>
+                  <option value="tech">Technical (Accounting, Valuation, LBO, M&amp;A)</option>
+                  <option value="beh">Behavioral</option>
+                  <option value="deal">Deals &amp; Markets</option>
+                  <option value="brain">Brain Teasers</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--t-3);font-family:'Geist Mono',monospace;letter-spacing:0.05em;display:block;margin-bottom:6px">NUMBER OF QUESTIONS</label>
+                <select class="app-select" id="quiz-count-select" style="width:100%">
+                  <option value="5">5 questions</option>
+                  <option value="10" selected>10 questions</option>
+                  <option value="20">20 questions</option>
+                  <option value="all">All available</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--t-3);font-family:'Geist Mono',monospace;letter-spacing:0.05em;display:block;margin-bottom:6px">DIFFICULTY</label>
+                <select class="app-select" id="quiz-diff-select" style="width:100%">
+                  <option value="all">All difficulties</option>
+                  <option value="1">Easy</option>
+                  <option value="2">Medium</option>
+                  <option value="3">Hard</option>
+                </select>
+              </div>
+            </div>
+            <button class="quiz-btn primary" style="width:100%" onclick="startQuiz()">Start Quiz →</button>
+          </div>
+        </div>
+
+        <!-- Active Quiz -->
+        <div id="quiz-active" style="display:none">
+          <div class="quiz-progress">
+            <div class="quiz-progress-bar"><div class="quiz-progress-fill" id="quiz-progress-fill"></div></div>
+            <div class="quiz-progress-text" id="quiz-progress-text">1 / 10</div>
+          </div>
+          <div class="quiz-card">
+            <div class="quiz-cat" id="quiz-current-cat">ACCOUNTING</div>
+            <div class="quiz-question" id="quiz-current-question">Loading...</div>
+            <div class="quiz-answers" id="quiz-answers"></div>
+            <div class="quiz-feedback" id="quiz-feedback">
+              <div class="quiz-feedback-title"></div>
+              <div class="quiz-feedback-text"></div>
+            </div>
+            <div class="quiz-actions" id="quiz-actions" style="display:none">
+              <button class="quiz-btn primary" onclick="nextQuizQuestion()">Next Question →</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quiz Results -->
+        <div id="quiz-results" style="display:none">
+          <div class="quiz-card">
+            <div class="quiz-results">
+              <div class="quiz-results-score" id="quiz-final-score">0%</div>
+              <div class="quiz-results-label">Quiz Complete</div>
+              <div class="quiz-results-breakdown">
+                <div class="quiz-stat correct">
+                  <div class="quiz-stat-val" id="quiz-correct-count">0</div>
+                  <div class="quiz-stat-label">Correct</div>
+                </div>
+                <div class="quiz-stat incorrect">
+                  <div class="quiz-stat-val" id="quiz-incorrect-count">0</div>
+                  <div class="quiz-stat-label">Incorrect</div>
+                </div>
+                <div class="quiz-stat">
+                  <div class="quiz-stat-val" id="quiz-total-count">0</div>
+                  <div class="quiz-stat-label">Total</div>
+                </div>
+              </div>
+              <div style="display:flex;gap:10px;justify-content:center">
+                <button class="quiz-btn ghost" onclick="showQuizSetup()">New Quiz</button>
+                <button class="quiz-btn primary" onclick="reviewQuizMistakes()">Review Mistakes</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PROFILE ── -->
+    <div class="app-view" id="view-profile">
+      <div class="view-header">
+        <div class="view-title">Profile</div>
+        <div class="view-sub">Manage your account details and preferences.</div>
+      </div>
+      <div class="profile-wrap">
+        <!-- Avatar + Name Header -->
+        <div class="profile-hero">
+          <div class="profile-avatar-lg" id="profile-avatar-lg">J</div>
+          <div class="profile-hero-info">
+            <div class="profile-hero-name" id="profile-hero-name">Jamie</div>
+            <div class="profile-hero-email" id="profile-hero-email"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="ef858e82868aaf8a978e829f838ac18c8082">[email&#160;protected]</a></div>
+          </div>
+        </div>
+
+        <!-- Personal Info Card -->
+        <div class="profile-card">
+          <div class="profile-card-header">
+            <span class="profile-card-title">Personal Information</span>
+            <button class="profile-edit-btn" id="profile-edit-info-btn" onclick="toggleProfileEdit('info')">Edit</button>
+          </div>
+          <div class="profile-form" id="profile-form-info">
+            <div class="profile-field">
+              <label class="profile-label">Full Name</label>
+              <input class="profile-input" id="profile-name" type="text" placeholder="Your full name" disabled/>
+            </div>
+            <div class="profile-field">
+              <label class="profile-label">Email Address</label>
+              <input class="profile-input" id="profile-email" type="email" placeholder="you@example.com" disabled/>
+            </div>
+          </div>
+          <div class="profile-actions" id="profile-actions-info" style="display:none">
+            <button class="profile-save-btn" onclick="saveProfileInfo()">Save changes</button>
+            <button class="profile-cancel-btn" onclick="toggleProfileEdit('info')">Cancel</button>
+          </div>
+          <div class="profile-msg" id="profile-msg-info"></div>
+        </div>
+
+        <!-- Password Card -->
+        <div class="profile-card">
+          <div class="profile-card-header">
+            <span class="profile-card-title">Password</span>
+            <button class="profile-edit-btn" id="profile-edit-pw-btn" onclick="toggleProfileEdit('pw')">Change</button>
+          </div>
+          <div class="profile-form" id="profile-form-pw" style="display:none">
+            <div class="profile-field">
+              <label class="profile-label">New Password</label>
+              <input class="profile-input" id="profile-pw-new" type="password" placeholder="New password (min. 6 characters)"/>
+            </div>
+            <div class="profile-field">
+              <label class="profile-label">Confirm New Password</label>
+              <input class="profile-input" id="profile-pw-confirm" type="password" placeholder="Confirm new password"/>
+            </div>
+          </div>
+          <div class="profile-actions" id="profile-actions-pw" style="display:none">
+            <button class="profile-save-btn" onclick="saveProfilePassword()">Update password</button>
+            <button class="profile-cancel-btn" onclick="toggleProfileEdit('pw')">Cancel</button>
+          </div>
+          <div class="profile-msg" id="profile-msg-pw"></div>
+          <div class="profile-pw-placeholder" id="profile-pw-placeholder">
+            <span style="font-size:13px;color:var(--t-3)">••••••••</span>
+            <span style="font-size:11px;color:var(--t-3);font-family:'Geist Mono',monospace">Last changed: unknown</span>
+          </div>
+        </div>
+
+        <!-- Danger Zone -->
+        <div class="profile-card" style="border-color:rgba(224,92,92,0.25)">
+          <div class="profile-card-header">
+            <span class="profile-card-title" style="color:var(--red)">Danger Zone</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:0 0 4px">
+            <div>
+              <div style="font-size:13px;font-weight:500;margin-bottom:2px">Sign out</div>
+              <div style="font-size:12px;color:var(--t-3)">Sign out of your account on this device.</div>
+            </div>
+            <button class="profile-danger-btn" onclick="doSignOut()">Sign out</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── INTERNSHIP TRACKER (APPLY) ── -->
+    <div class="app-view" id="view-apply">
+      <div class="view-header">
+        <div class="view-title">Internship Tracker</div>
+        <div class="view-sub">Summer 2027 IB internship deadlines. Track, filter, and never miss an application.</div>
+      </div>
+
+      <!-- Stats strip -->
+      <div class="apply-stats" id="apply-stats"></div>
+
+      <!-- Toolbar -->
+      <div class="apply-toolbar">
+        <input type="text" class="bank-search" id="apply-search" placeholder="Search firms…" oninput="renderApplyTracker()"/>
+        <div class="apply-filters" id="apply-filters">
+          <button class="bank-pill active" data-filter="all" onclick="setApplyFilter('all',this)">All</button>
+          <button class="bank-pill" data-filter="open" onclick="setApplyFilter('open',this)">Open</button>
+          <button class="bank-pill" data-filter="closed" onclick="setApplyFilter('closed',this)">Closed</button>
+          <button class="bank-pill" data-filter="upcoming" onclick="setApplyFilter('upcoming',this)">Upcoming</button>
+          <button class="bank-pill" data-filter="saved" onclick="setApplyFilter('saved',this)">★ Saved</button>
+        </div>
+        <div class="apply-type-filters" id="apply-type-filters">
+          <button class="bank-pill active" data-type="all" onclick="setApplyType('all',this)">All Types</button>
+          <button class="bank-pill" data-type="BB" onclick="setApplyType('BB',this)">Bulge Bracket</button>
+          <button class="bank-pill" data-type="EB" onclick="setApplyType('EB',this)">Elite Boutique</button>
+          <button class="bank-pill" data-type="MM" onclick="setApplyType('MM',this)">Middle Market</button>
+          <button class="bank-pill" data-type="Other" onclick="setApplyType('Other',this)">Other</button>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="apply-table-wrap">
+        <table class="apply-table">
+          <thead>
+            <tr>
+              <th class="apply-th-star"></th>
+              <th class="apply-th-sortable" onclick="sortApply('firm')">Firm <span class="apply-sort-icon">↕</span></th>
+              <th>Division</th>
+              <th>Type</th>
+              <th class="apply-th-sortable" onclick="sortApply('status')">Status <span class="apply-sort-icon">↕</span></th>
+              <th class="apply-th-sortable" onclick="sortApply('deadline')">Deadline <span class="apply-sort-icon">↕</span></th>
+              <th>Location</th>
+              <th>Link</th>
+            </tr>
+          </thead>
+          <tbody id="apply-tbody"></tbody>
+        </table>
+      </div>
+      <div class="apply-footer" id="apply-footer"></div>
+    </div>
+
+    <!-- ── MOCK INTERVIEW ── -->
+    <div class="app-view" id="view-mock">
+      <div class="view-header">
+        <div class="view-title">Mock Interview</div>
+        <div class="view-sub">Practice with Alex Chen, VP in M&A. Get scored on every answer.</div>
+      </div>
+      <div class="mock-wrap">
+        <div class="mock-config">
+          <select class="app-select" id="mock-cat">
+            <option value="tech">Technical</option>
+            <option value="beh">Behavioral</option>
+            <option value="brain">Brain Teasers</option>
+            <option value="deal">Deals &amp; Markets</option>
+          </select>
+          <select class="app-select" id="mock-firm">
+            <option>Goldman Sachs</option>
+            <option>J.P. Morgan</option>
+            <option>Morgan Stanley</option>
+            <option>Evercore</option>
+            <option>Lazard</option>
+            <option>Blackstone</option>
+          </select>
+          <button class="btn-start-mock" onclick="startMock()">Start Interview</button>
+        </div>
+        <div class="iv-card">
+          <div class="iv-topbar">
+            <div class="iv-persona">
+              <div class="iv-av">AC</div>
+              <div>
+                <div class="iv-name">Alex Chen</div>
+                <div class="iv-role">VP, M&A · Goldman Sachs</div>
+              </div>
+            </div>
+            <span class="iv-badge badge-idle" id="iv-badge">● IDLE</span>
+          </div>
+          <div class="chat-body" id="chat-body">
+            <div class="chat-start">
+              <h3>Ready when you are.</h3>
+              <p>Select a category and firm above, then start the interview. Alex will ask you questions and score your answers in real time.</p>
+              <button class="btn-primary" onclick="startMock()">Begin Interview →</button>
+            </div>
+          </div>
+          <div class="chat-input-bar">
+            <textarea class="chat-ta" id="chat-input" placeholder="Type your answer…" rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
+            <button class="chat-send" id="chat-send" onclick="sendMsg()">↑</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div><!-- /app -->
+
+<!-- STORY BANK FLOATING BUTTON -->
+<button class="story-bank-btn" id="story-bank-btn" onclick="toggleStoryPanel()" title="My Notes & Stories">📝</button>
+
+<!-- STORY BANK PANEL -->
+<div class="story-panel" id="story-panel">
+  <div class="story-panel-header">
+    <span class="story-panel-title">📝 My Notes & Stories</span>
+    <button class="story-panel-close" onclick="toggleStoryPanel()">✕</button>
+  </div>
+  <div class="story-panel-body" id="story-list">
+    <div class="story-empty">No notes yet. Add notes to questions while studying to build your personal story bank.</div>
+  </div>
+  <button class="story-add-btn" onclick="addNewStory()">+ Add Behavioral Story</button>
+</div>
+
+<!-- BEGINNER ON-RAMP OVERLAY -->
+<div class="onramp-overlay" id="onramp-overlay">
+  <div class="onramp-wrap">
+    <div class="onramp-progress">
+      <div class="onramp-dot active" data-step="1"></div>
+      <div class="onramp-dot" data-step="2"></div>
+      <div class="onramp-dot" data-step="3"></div>
+      <div class="onramp-dot" data-step="4"></div>
+    </div>
+    
+    <!-- Step 1: Background -->
+    <div class="onramp-step active" id="onramp-step-1">
+      <div class="onramp-card">
+        <div class="onramp-icon">🎓</div>
+        <div class="onramp-title">What's your background?</div>
+        <div class="onramp-desc">We'll customize your learning path based on your experience level.</div>
+        <div class="onramp-options">
+          <div class="onramp-option" onclick="selectOnramp(this, 'background', 'finance')">
+            <span class="onramp-option-icon">📊</span>
+            <span class="onramp-option-text">Finance / Accounting major</span>
+          </div>
+          <div class="onramp-option" onclick="selectOnramp(this, 'background', 'econ')">
+            <span class="onramp-option-icon">📈</span>
+            <span class="onramp-option-text">Economics / Business major</span>
+          </div>
+          <div class="onramp-option" onclick="selectOnramp(this, 'background', 'stem')">
+            <span class="onramp-option-icon">🔬</span>
+            <span class="onramp-option-text">STEM major (Engineering, CS, Math)</span>
+          </div>
+          <div class="onramp-option" onclick="selectOnramp(this, 'background', 'other')">
+            <span class="onramp-option-icon">📚</span>
+            <span class="onramp-option-text">Liberal Arts / Other</span>
+          </div>
+        </div>
+        <div class="onramp-actions">
+          <button class="quiz-btn primary" onclick="nextOnrampStep()">Continue →</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Step 2: Timeline -->
+    <div class="onramp-step" id="onramp-step-2">
+      <div class="onramp-card">
+        <div class="onramp-icon">⏰</div>
+        <div class="onramp-title">When's your interview?</div>
+        <div class="onramp-desc">We'll prioritize the highest-yield topics based on your timeline.</div>
+        <div class="onramp-options">
+          <div class="onramp-option" onclick="selectOnramp(this, 'timeline', '2weeks')">
+            <span class="onramp-option-icon">🔥</span>
+            <span class="onramp-option-text">Within 2 weeks — Crunch mode</span>
+          </div>
+          <div class="onramp-option" onclick="selectOnramp(this, 'timeline', '1month')">
+            <span class="onramp-option-icon">📅</span>
+            <span class="onramp-option-text">About 1 month out</span>
+          </div>
+          <div class="onramp-option" onclick="selectOnramp(this, 'timeline', '3months')">
+            <span class="onramp-option-icon">🌱</span>
+            <span class="onramp-option-text">3+ months — Building foundations</span>
+          </div>
+          <div class="onramp-option" onclick="selectOnramp(this, 'timeline', 'exploring')">
+            <span class="onramp-option-icon">🔍</span>
+            <span class="onramp-option-text">Just exploring IB careers</span>
+          </div>
+        </div>
+        <div class="onramp-actions">
+          <button class="quiz-btn ghost" onclick="prevOnrampStep()">← Back</button>
+          <button class="quiz-btn primary" onclick="nextOnrampStep()">Continue →</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Step 3: Target Banks -->
+    <div class="onramp-step" id="onramp-step-3">
+      <div class="onramp-card">
+        <div class="onramp-icon">🏦</div>
+        <div class="onramp-title">Target banks?</div>
+        <div class="onramp-desc">Different banks emphasize different question types. Select all that apply.</div>
+        <div class="onramp-options">
+          <div class="onramp-option" onclick="toggleOnrampMulti(this, 'banks', 'gs')">
+            <span class="onramp-option-icon">GS</span>
+            <span class="onramp-option-text">Goldman Sachs</span>
+          </div>
+          <div class="onramp-option" onclick="toggleOnrampMulti(this, 'banks', 'ms')">
+            <span class="onramp-option-icon">MS</span>
+            <span class="onramp-option-text">Morgan Stanley</span>
+          </div>
+          <div class="onramp-option" onclick="toggleOnrampMulti(this, 'banks', 'jpm')">
+            <span class="onramp-option-icon">JP</span>
+            <span class="onramp-option-text">J.P. Morgan</span>
+          </div>
+          <div class="onramp-option" onclick="toggleOnrampMulti(this, 'banks', 'elite')">
+            <span class="onramp-option-icon">EB</span>
+            <span class="onramp-option-text">Elite Boutiques (EVR, PJT, Lazard)</span>
+          </div>
+        </div>
+        <div class="onramp-actions">
+          <button class="quiz-btn ghost" onclick="prevOnrampStep()">← Back</button>
+          <button class="quiz-btn primary" onclick="nextOnrampStep()">Continue →</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Step 4: Ready -->
+    <div class="onramp-step" id="onramp-step-4">
+      <div class="onramp-card">
+        <div class="onramp-icon">🚀</div>
+        <div class="onramp-title">You're all set!</div>
+        <div class="onramp-desc" id="onramp-summary">We've built a personalized prep plan based on your profile. Let's get started.</div>
+        <div class="onramp-actions">
+          <button class="quiz-btn primary" style="width:100%" onclick="completeOnramp()">Start Preparing →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DIAGNOSTIC ASSESSMENT OVERLAY -->
+<div class="diagnostic-overlay" id="diagnostic-overlay">
+  <div class="diagnostic-wrap">
+    <!-- Welcome Screen -->
+    <div id="diagnostic-welcome">
+      <div class="diagnostic-header">
+        <div class="diagnostic-icon">🎯</div>
+        <div class="diagnostic-title">Let's calibrate your prep</div>
+        <div class="diagnostic-sub">Answer 10 quick questions so we can personalize your experience and focus on what you need most.</div>
+      </div>
+      <div class="diagnostic-card">
+        <div style="text-align:center">
+          <p style="font-size:14px;color:var(--t-2);margin-bottom:20px;line-height:1.6">
+            This 2-minute assessment covers accounting, valuation, LBO, behavioral, and market concepts. 
+            We'll place you in the right difficulty band and customize your learning path.
+          </p>
+          <button class="quiz-btn primary" style="width:100%" onclick="startDiagnostic()">Start Assessment →</button>
+          <button class="quiz-btn ghost" style="width:100%;margin-top:10px" onclick="skipDiagnostic()">Skip for now</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Assessment -->
+    <div id="diagnostic-active" style="display:none">
+      <div class="diagnostic-card">
+        <div class="quiz-progress" style="margin-bottom:20px">
+          <div class="quiz-progress-bar"><div class="quiz-progress-fill" id="diag-progress-fill"></div></div>
+          <div class="quiz-progress-text" id="diag-progress-text">1 / 10</div>
+        </div>
+        <div class="quiz-cat" id="diag-cat">ACCOUNTING</div>
+        <div class="quiz-question" id="diag-question">Loading...</div>
+        <div class="quiz-answers" id="diag-answers"></div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div id="diagnostic-results" style="display:none">
+      <div class="diagnostic-header">
+        <div class="diagnostic-icon">✨</div>
+        <div class="diagnostic-title">Assessment Complete</div>
+      </div>
+      <div class="diagnostic-card">
+        <div class="diagnostic-results">
+          <div class="diagnostic-band" id="diag-band">INTERMEDIATE</div>
+          <div class="diagnostic-score-big" id="diag-score">70%</div>
+          <div class="diagnostic-score-label">Overall Score</div>
+          <div class="diagnostic-breakdown">
+            <div class="diagnostic-breakdown-item">
+              <div class="diagnostic-breakdown-val" id="diag-tech-score">0%</div>
+              <div class="diagnostic-breakdown-label">Technical</div>
+            </div>
+            <div class="diagnostic-breakdown-item">
+              <div class="diagnostic-breakdown-val" id="diag-beh-score">0%</div>
+              <div class="diagnostic-breakdown-label">Behavioral</div>
+            </div>
+            <div class="diagnostic-breakdown-item">
+              <div class="diagnostic-breakdown-val" id="diag-deal-score">0%</div>
+              <div class="diagnostic-breakdown-label">Markets</div>
+            </div>
+          </div>
+          <p style="font-size:13px;color:var(--t-2);margin-bottom:20px;line-height:1.6" id="diag-recommendation">
+            Based on your results, we recommend focusing on technical accounting concepts.
+          </p>
+          <!-- Save results email capture (for direct/guest access) -->
+          <div id="diag-save-results" style="display:none;margin-bottom:16px;padding:16px;background:var(--bg-2);border-radius:var(--r);border:1px solid var(--line)">
+            <div style="font-size:12px;color:var(--t-2);margin-bottom:8px">Save your results and get a personalized plan:</div>
+            <div style="display:flex;gap:8px">
+              <input type="email" id="diag-email" placeholder="your@email.com" style="flex:1;padding:8px 12px;background:var(--bg-3);border:1px solid var(--line);border-radius:var(--r);font-size:13px;color:var(--t);outline:none"/>
+              <button class="quiz-btn primary" style="padding:8px 16px" onclick="saveDiagEmail()">Save →</button>
+            </div>
+          </div>
+          <button class="quiz-btn primary" style="width:100%" onclick="closeDiagnostic()">Start Learning →</button>
+          <button class="quiz-btn ghost" style="width:100%;margin-top:8px;display:none" id="diag-back-to-landing" onclick="closeDiagnosticToLanding()">← Back to homepage</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
