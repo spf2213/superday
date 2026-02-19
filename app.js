@@ -696,33 +696,37 @@ async function onSignedIn(user) {
 async function loadProgress() {
   if (!currentUser) return;
   try {
-    const { data } = await sb.from('progress').select('*').eq('user_id', currentUser.id).single();
+    const { data, error } = await sb.from('progress').select('*').eq('user_id', currentUser.id).single();
+    
+    if (error && error.code === 'PGRST116') {
+      // No row exists yet — create one
+      await sb.from('progress').insert({ user_id: currentUser.id });
+    }
+    
     if (data) {
-      progress.answered = new Set(JSON.parse(data.answered || '[]'));
-      progress.activityLog = JSON.parse(data.activity_log || '[]');
-      progress.mastery = JSON.parse(data.mastery || '{}');
+      progress.answered = new Set(data.answered || []);
+      progress.activityLog = data.activity_log || [];
+      progress.mastery = data.mastery || {};
       progress.diagnosticDone = data.diagnostic_done || false;
       progress.userBand = data.user_band || 'intermediate';
-      progress.diagnosticScores = data.diagnostic_scores ? JSON.parse(data.diagnostic_scores) : null;
+      progress.diagnosticScores = data.diagnostic_scores || null;
       progress.onrampComplete = data.onramp_complete || false;
-      progress.userProfile = data.user_profile ? JSON.parse(data.user_profile) : null;
-      progress.notes = data.notes ? JSON.parse(data.notes) : [];
-      progress.questionNotes = data.question_notes ? JSON.parse(data.question_notes) : {};
-      progress.completedTasks = data.completed_tasks ? JSON.parse(data.completed_tasks) : [];
-      progress.learnProgress = data.learn_progress ? JSON.parse(data.learn_progress) : {};
-      progress.completedCases = data.completed_cases ? JSON.parse(data.completed_cases) : [];
+      progress.userProfile = data.user_profile || null;
+      progress.notes = data.notes || [];
+      progress.questionNotes = data.question_notes || {};
+      progress.completedTasks = data.completed_tasks || [];
+      progress.learnProgress = data.learn_progress || {};
+      progress.completedCases = data.completed_cases || [];
+      applySaved = data.saved_firms || [];
     }
-  } catch(e) { /* first time user, no progress yet */ }
+  } catch(e) { console.error('loadProgress error:', e); }
   updateDashStats();
   updateMasteryStats();
   renderPrepPlan();
   
-  // Show story bank button if onramp complete
   if (progress.onrampComplete) {
     document.getElementById('story-bank-btn').classList.add('show');
   }
-  
-  // Check if we should show diagnostic
   if (!progress.diagnosticDone) {
     setTimeout(checkFirstVisit, 500);
   }
@@ -733,22 +737,22 @@ async function saveProgress() {
   try {
     await sb.from('progress').upsert({
       user_id: currentUser.id,
-      answered: JSON.stringify([...progress.answered]),
-      activity_log: JSON.stringify(progress.activityLog),
-      mastery: JSON.stringify(progress.mastery),
+      answered: [...progress.answered],
+      activity_log: progress.activityLog,
+      mastery: progress.mastery,
       diagnostic_done: progress.diagnosticDone,
       user_band: progress.userBand,
-      diagnostic_scores: progress.diagnosticScores ? JSON.stringify(progress.diagnosticScores) : null,
+      diagnostic_scores: progress.diagnosticScores,
       onramp_complete: progress.onrampComplete,
-      user_profile: progress.userProfile ? JSON.stringify(progress.userProfile) : null,
-      notes: JSON.stringify(progress.notes || []),
-      question_notes: JSON.stringify(progress.questionNotes || {}),
-      completed_tasks: JSON.stringify(progress.completedTasks || []),
-      learn_progress: JSON.stringify(progress.learnProgress || {}),
-      completed_cases: JSON.stringify(progress.completedCases || []),
-      updated_at: new Date().toISOString()
+      user_profile: progress.userProfile,
+      notes: progress.notes || [],
+      question_notes: progress.questionNotes || {},
+      completed_tasks: progress.completedTasks || [],
+      learn_progress: progress.learnProgress || {},
+      completed_cases: progress.completedCases || [],
+      saved_firms: applySaved || []
     }, { onConflict: 'user_id' });
-  } catch(e) { /* silent fail */ }
+  } catch(e) { console.error('saveProgress error:', e); }
 }
 
 /* ─── SCREENS ────────────────────────── */
@@ -3418,7 +3422,7 @@ let applyTypeFilter = 'all';
 let applySortField = 'deadline';
 let applySortDir = 1;
 let applySaved = [];
-try { applySaved = JSON.parse(localStorage.getItem('sd_apply_saved') || '[]'); } catch(e) {}
+try { let applySaved = [];
 
 function setApplyFilter(f, el) {
   applyFilter = f;
@@ -3441,7 +3445,7 @@ function toggleApplySave(firm) {
   const idx = applySaved.indexOf(firm);
   if (idx >= 0) applySaved.splice(idx, 1);
   else applySaved.push(firm);
-  try { localStorage.setItem('sd_apply_saved', JSON.stringify(applySaved)); } catch(e) {}
+  try { saveProgress();
   renderApplyTracker();
 }
 
