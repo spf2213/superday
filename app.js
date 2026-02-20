@@ -841,6 +841,7 @@ function capitalize(s) { return (s && typeof s === 'string') ? s.charAt(0).toUpp
 
 /* ─── VIEWS ──────────────────────────── */
 function showView(id) {
+  if (typeof caseTimerInterval !== 'undefined') clearInterval(caseTimerInterval);
   document.querySelectorAll('.app-view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.sb-item').forEach(n => n.classList.remove('active'));
   const view = document.getElementById('view-' + id);
@@ -1122,31 +1123,58 @@ function renderActivity() {
 }
 
 /* ─── NEWS ───────────────────────────── */
-async function loadNews() {
+const NEWS_POOL = [
+  {tag:'M&A',headline:'Goldman Sachs advises on $12B cross-border pharma merger'},
+  {tag:'MARKETS',headline:'S&P 500 closes at record high amid strong earnings season'},
+  {tag:'RATES',headline:'Fed signals potential rate hold at next FOMC meeting'},
+  {tag:'DEALS',headline:'JP Morgan leads $3.5B leveraged loan for PE-backed tech firm'},
+  {tag:'MACRO',headline:'US GDP growth revised upward to 2.8% for Q4'},
+  {tag:'M&A',headline:'Strategic acquirer pays 35% premium in hostile bid for industrial co'},
+  {tag:'DEALS',headline:'Record high-yield issuance as companies refinance ahead of maturity wall'},
+  {tag:'MARKETS',headline:'Tech sector rotation drives NASDAQ volatility this week'},
+  {tag:'MACRO',headline:'CPI comes in below expectations, boosting rate-cut sentiment'},
+  {tag:'M&A',headline:'PE consortium explores $8B take-private of mid-cap retailer'},
+  {tag:'RATES',headline:'10-year Treasury yield drops 15bps on soft jobs data'},
+  {tag:'DEALS',headline:'Morgan Stanley prices $2B convertible bond for AI startup'},
+  {tag:'MACRO',headline:'Euro-area PMI signals manufacturing recovery for third straight month'},
+  {tag:'M&A',headline:'Activist investor pushes for strategic review at consumer goods company'},
+  {tag:'MARKETS',headline:'IPO market rebounds with three high-profile listings this week'},
+  {tag:'DEALS',headline:'Citi leads $5B syndicated credit facility for energy major'},
+  {tag:'RATES',headline:'BoE holds rates steady, cites persistent services inflation'},
+  {tag:'MACRO',headline:'US unemployment claims fall to six-month low'},
+  {tag:'M&A',headline:'Cross-border healthcare deal collapses over antitrust concerns'},
+  {tag:'MARKETS',headline:'Small-cap rally extends gains as risk appetite returns'},
+  {tag:'DEALS',headline:'Evercore advises on landmark $6B infrastructure privatization'},
+  {tag:'MACRO',headline:'China cuts reserve requirement ratio to support slowing economy'},
+  {tag:'M&A',headline:'Media sector sees uptick in consolidation amid streaming wars'},
+  {tag:'RATES',headline:'Market prices in 75bps of cuts over the next 12 months'},
+  {tag:'DEALS',headline:'Lazard advises on $4B carve-out spin-off for conglomerate'}
+];
+
+function loadNews() {
   const el = document.getElementById('news-list');
   if (!el) return;
-  try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({
-        model:"claude-sonnet-4-5-20250929",
-        max_tokens:800,
-        messages:[{role:"user",content:"Generate 5 realistic market news headlines for today (" + new Date().toDateString() + ") relevant to IB candidates. Cover M&A, capital markets, macro, deals. Return ONLY a JSON array: [{tag,headline,time}]. tag: M&A|MARKETS|RATES|DEALS|MACRO. time: Xm ago or Xh ago. No markdown."}]
-      })
-    });
-    const data = await res.json();
-    const raw = data.content?.map(c=>c.text||'').join('')||'[]';
-    const items = JSON.parse(raw.replace(/```json|```/g,'').trim());
-    el.innerHTML = items.map(n =>
-      '<div class="news-item-row">' +
-      '<span class="news-tag-pill">' + n.tag + '</span>' +
-      '<span class="news-hl">' + n.headline + '</span>' +
-      '<span class="news-time-sm">' + n.time + '</span></div>'
-    ).join('');
-  } catch(e) {
-    el.innerHTML = '<div style="padding:24px;text-align:center;font-size:12px;color:var(--t-3)">Market news unavailable.</div>';
+  const cached = localStorage.getItem('superday_news');
+  const cacheTime = localStorage.getItem('superday_news_time');
+  if (cached && cacheTime && (Date.now() - parseInt(cacheTime)) < 30*60*1000) {
+    el.innerHTML = cached; return;
   }
+  const today = new Date().toDateString();
+  let seed = 0;
+  for (let i = 0; i < today.length; i++) seed += today.charCodeAt(i);
+  const shuffled = [...NEWS_POOL].map((item,idx) => ({item, sort:(seed*31+idx*7)%997}))
+    .sort((a,b) => a.sort - b.sort).map(x => x.item);
+  const items = shuffled.slice(0,5);
+  const times = ['12m ago','34m ago','1h ago','2h ago','3h ago'];
+  const html = items.map((n,i) =>
+    '<div class="news-item-row">' +
+    '<span class="news-tag-pill">' + n.tag + '</span>' +
+    '<span class="news-hl">' + n.headline + '</span>' +
+    '<span class="news-time-sm">' + times[i] + '</span></div>'
+  ).join('');
+  el.innerHTML = html;
+  localStorage.setItem('superday_news', html);
+  localStorage.setItem('superday_news_time', Date.now().toString());
 }
 
 /* ─── QUESTION BANK ──────────────────── */
