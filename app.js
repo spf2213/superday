@@ -998,46 +998,40 @@ function markAnswered(id) {
 function updateDashStats() {
   const total = QUESTIONS.length;
   const ans = progress.answered.size;
+  const circumference = 2 * Math.PI * 26; // 163.36 for r=26
+
+  // Answered ring
   const ka = document.getElementById('kpi-answered');
   const kt = document.getElementById('kpi-total');
-  const kaf = document.getElementById('kpi-answered-fill');
+  const ringAnswered = document.getElementById('ring-answered');
   if (ka) ka.textContent = ans;
   if (kt) kt.textContent = total;
-  if (kaf) kaf.style.width = (ans/total*100) + '%';
+  if (ringAnswered) ringAnswered.style.strokeDashoffset = circumference * (1 - ans / total);
 
-  const cats = ['tech','beh','brain','deal'];
-  const done = cats.filter(c => QUESTIONS.filter(q=>q.cat===c).some(q=>progress.answered.has(q.id)));
-  const kc = document.getElementById('kpi-cats');
-  const kcf = document.getElementById('kpi-cats-fill');
-  if (kc) kc.textContent = done.length;
-  if (kcf) kcf.style.width = (done.length/4*100) + '%';
-
-  // Due for review
-  const dueCount = getDueCount();
-  const kd = document.getElementById('kpi-due');
-  const kdf = document.getElementById('kpi-due-fill');
-  if (kd) kd.textContent = dueCount;
-  if (kdf) kdf.style.width = (dueCount/total*100) + '%';
-
-  // Mastered count
+  // Mastered ring
   const masteredCount = QUESTIONS.filter(q => getMasteryClass(q.id) === 'mastered').length;
   const km = document.getElementById('kpi-mastered');
-  const kmf = document.getElementById('kpi-mastered-fill');
+  const ringMastered = document.getElementById('ring-mastered');
   if (km) km.textContent = masteredCount;
-  if (kmf) kmf.style.width = (masteredCount/total*100) + '%';
+  if (ringMastered) ringMastered.style.strokeDashoffset = circumference * (1 - masteredCount / total);
+
+  // Due count (for CTA text)
+  const dueCount = getDueCount();
 
   // Update practice button text
   const practiceBtn = document.getElementById('practice-btn-text');
   if (practiceBtn) {
     if (dueCount > 0) {
-      practiceBtn.textContent = 'Review ' + dueCount + ' due cards →';
+      practiceBtn.textContent = 'Review ' + dueCount + ' due cards';
     } else if (masteredCount < total) {
-      practiceBtn.textContent = 'Continue learning →';
+      practiceBtn.textContent = 'Continue Learning';
     } else {
-      practiceBtn.textContent = 'Practice today →';
+      practiceBtn.textContent = 'Practice Today';
     }
   }
 
+  // Category progress
+  const cats = ['tech','beh','brain','deal'];
   cats.forEach(c => {
     const pool = QUESTIONS.filter(q=>q.cat===c);
     const n = pool.filter(q=>progress.answered.has(q.id)).length;
@@ -1201,6 +1195,17 @@ function updateStreakDisplay() {
   const streak = calculateStreak();
   const ks = document.getElementById('kpi-streak');
   if (ks) ks.textContent = streak;
+
+  // Hero streak badge
+  const heroStreakNum = document.getElementById('hero-streak-num');
+  if (heroStreakNum) heroStreakNum.textContent = streak;
+
+  // Streak ring (show streak out of 7 as a visual week indicator)
+  const circumference = 2 * Math.PI * 26;
+  const ringStreak = document.getElementById('ring-streak');
+  if (ringStreak) ringStreak.style.strokeDashoffset = circumference * (1 - Math.min(streak, 7) / 7);
+
+  // Weekly dots
   const days = ['M','T','W','T','F','S','S'];
   const sd = document.getElementById('streak-dots');
   if (sd) {
@@ -1235,6 +1240,13 @@ function updateDailyGoal() {
   if (fillEl) fillEl.style.width = pct + '%';
   if (textEl) textEl.textContent = todayCount >= goal ? 'Daily goal reached! Great work.' : 'Answer ' + (goal - todayCount) + ' more to hit your goal.';
   if (labelEl) labelEl.textContent = todayCount + '/' + goal + ' today';
+
+  // Hero goal ring (circumference for r=20 = 125.66)
+  var heroRing = document.getElementById('hero-goal-ring');
+  var heroText = document.getElementById('hero-goal-text');
+  if (heroRing) heroRing.style.strokeDashoffset = 125.66 * (1 - pct / 100);
+  if (heroText) heroText.textContent = todayCount + '/' + goal;
+
   if (todayCount >= goal && !sessionStorage.getItem('goal_celebrated_' + today)) {
     showToast('Daily goal reached! Well done.', '🎯', 4000);
     sessionStorage.setItem('goal_celebrated_' + today, '1');
@@ -1296,7 +1308,7 @@ function renderDashPipeline() {
       const dlClass = d.daysLeft <= 7 ? 'urgent' : 'soon';
       const dlText = d.daysLeft === 0 ? 'Today' : d.daysLeft === 1 ? '1 day left' : d.daysLeft + ' days left';
       return '<div class="pipeline-urgent-row" onclick="showView(\'apply\')">' +
-        '<div class="pipeline-urgent-logo">' + d.abbr.substring(0,3) + '</div>' +
+        getFirmLogoHTML(d, 26, 'pipeline-urgent-logo') +
         '<div class="pipeline-urgent-info">' +
           '<div class="pipeline-urgent-firm">' + d.firm + '</div>' +
           '<div class="pipeline-urgent-div">' + d.division + '</div>' +
@@ -1358,7 +1370,7 @@ function renderActivity() {
   }
   const icons = { tech:'📊', beh:'💬', brain:'🧠', deal:'📈' };
   const colors = { tech:'var(--accent-dim)', beh:'var(--green-dim)', brain:'var(--amber-dim)', deal:'var(--blue-dim)' };
-  el.innerHTML = progress.activityLog.map(a =>
+  el.innerHTML = progress.activityLog.slice(0, 3).map(a =>
     '<div class="act-item">' +
     '<div class="act-icon" style="background:' + (colors[a.cat]||'var(--bg-3)') + '">' + (icons[a.cat]||'📋') + '</div>' +
     '<div class="act-text">' + (a.title.length > 55 ? a.title.slice(0,55)+'…' : a.title) + '</div>' +
@@ -4386,33 +4398,43 @@ function clearProfileMsg(section) {
 
 /* ─── INTERNSHIP TRACKER ────────────── */
 const INTERNSHIP_DATA = [
-  { firm:'J.P. Morgan', abbr:'JPM', division:'Investment Banking', type:'BB', status:'open', deadline:'2026-03-14', location:'New York, NY', url:'https://careers.jpmorgan.com' },
-  { firm:'Goldman Sachs', abbr:'GS', division:'Investment Banking', type:'BB', status:'open', deadline:'2026-03-21', location:'New York, NY', url:'https://www.goldmansachs.com/careers' },
-  { firm:'Morgan Stanley', abbr:'MS', division:'Investment Banking', type:'BB', status:'upcoming', deadline:'2026-04-01', location:'New York, NY', url:'https://www.morganstanley.com/careers' },
-  { firm:'Bank of America', abbr:'BofA', division:'Global Corporate & IB', type:'BB', status:'open', deadline:'2026-03-07', location:'New York, NY', url:'https://campus.bankofamerica.com' },
-  { firm:'Citigroup', abbr:'C', division:'Banking, Capital Markets', type:'BB', status:'open', deadline:'2026-03-10', location:'New York, NY', url:'https://www.citigroup.com/careers' },
-  { firm:'Barclays', abbr:'BCS', division:'Investment Banking', type:'BB', status:'open', deadline:'2026-02-28', location:'New York, NY', url:'https://joinus.barclays.com' },
-  { firm:'Deutsche Bank', abbr:'DB', division:'Investment Banking', type:'BB', status:'open', deadline:'2026-03-01', location:'New York, NY', url:'https://careers.db.com' },
-  { firm:'UBS', abbr:'UBS', division:'Global Banking', type:'BB', status:'closed', deadline:'2026-01-31', location:'New York, NY', url:'https://www.ubs.com/careers' },
-  { firm:'HSBC', abbr:'HSBC', division:'Global Banking & Markets', type:'BB', status:'closed', deadline:'2026-02-01', location:'New York, NY', url:'https://www.hsbc.com/careers' },
-  { firm:'Lazard', abbr:'LAZ', division:'Financial Advisory', type:'EB', status:'open', deadline:'2026-03-15', location:'New York, NY', url:'https://www.lazard.com/careers' },
-  { firm:'Evercore', abbr:'EVR', division:'Advisory', type:'EB', status:'open', deadline:'2026-03-20', location:'New York, NY', url:'https://www.evercore.com/careers' },
-  { firm:'Centerview Partners', abbr:'CV', division:'Advisory', type:'EB', status:'open', deadline:'2026-03-31', location:'New York, NY', url:'https://www.centerviewpartners.com/careers' },
-  { firm:'Moelis & Co.', abbr:'MC', division:'Advisory', type:'EB', status:'open', deadline:'2026-03-08', location:'New York, NY', url:'https://www.moelis.com/careers' },
-  { firm:'PJT Partners', abbr:'PJT', division:'Advisory', type:'EB', status:'upcoming', deadline:'2026-04-15', location:'New York, NY', url:'https://www.pjtpartners.com/careers' },
-  { firm:'Perella Weinberg', abbr:'PWP', division:'Advisory', type:'EB', status:'open', deadline:'2026-03-12', location:'New York, NY', url:'https://www.pwpartners.com/careers' },
-  { firm:'Rothschild & Co.', abbr:'RCo', division:'Global Advisory', type:'EB', status:'closed', deadline:'2026-02-10', location:'New York, NY', url:'https://www.rothschildandco.com/careers' },
-  { firm:'Houlihan Lokey', abbr:'HL', division:'Corporate Finance', type:'MM', status:'open', deadline:'2026-03-18', location:'Los Angeles, CA', url:'https://www.hl.com/careers' },
-  { firm:'Jefferies', abbr:'JEF', division:'Investment Banking', type:'MM', status:'open', deadline:'2026-03-05', location:'New York, NY', url:'https://www.jefferies.com/careers' },
-  { firm:'William Blair', abbr:'WB', division:'Investment Banking', type:'MM', status:'open', deadline:'2026-03-25', location:'Chicago, IL', url:'https://www.williamblair.com/careers' },
-  { firm:'Raymond James', abbr:'RJ', division:'Investment Banking', type:'MM', status:'open', deadline:'2026-04-01', location:'St. Petersburg, FL', url:'https://www.raymondjames.com/careers' },
-  { firm:'Baird', abbr:'RWB', division:'Investment Banking', type:'MM', status:'upcoming', deadline:'2026-04-10', location:'Milwaukee, WI', url:'https://www.rwbaird.com/careers' },
-  { firm:'Lincoln International', abbr:'LI', division:'Advisory', type:'MM', status:'open', deadline:'2026-03-22', location:'Chicago, IL', url:'https://www.lincolninternational.com/careers' },
-  { firm:'Guggenheim Securities', abbr:'GUG', division:'Investment Banking', type:'MM', status:'upcoming', deadline:'2026-04-20', location:'New York, NY', url:'https://www.guggenheimpartners.com/careers' },
-  { firm:'KKR', abbr:'KKR', division:'Capital Markets', type:'Other', status:'upcoming', deadline:'2026-04-05', location:'New York, NY', url:'https://www.kkr.com/careers' },
-  { firm:'Blackstone', abbr:'BX', division:'Advisory', type:'Other', status:'upcoming', deadline:'2026-05-01', location:'New York, NY', url:'https://www.blackstone.com/careers' },
-  { firm:'Apollo Global', abbr:'APO', division:'Capital Markets', type:'Other', status:'upcoming', deadline:'2026-04-15', location:'New York, NY', url:'https://www.apollo.com/careers' },
+  { firm:'J.P. Morgan', abbr:'JPM', division:'Investment Banking', type:'BB', status:'open', deadline:'2026-03-14', location:'New York, NY', url:'https://careers.jpmorgan.com', logoDomain:'jpmorgan.com' },
+  { firm:'Goldman Sachs', abbr:'GS', division:'Investment Banking', type:'BB', status:'open', deadline:'2026-03-21', location:'New York, NY', url:'https://www.goldmansachs.com/careers', logoDomain:'goldmansachs.com' },
+  { firm:'Morgan Stanley', abbr:'MS', division:'Investment Banking', type:'BB', status:'upcoming', deadline:'2026-04-01', location:'New York, NY', url:'https://www.morganstanley.com/careers', logoDomain:'morganstanley.com' },
+  { firm:'Bank of America', abbr:'BofA', division:'Global Corporate & IB', type:'BB', status:'open', deadline:'2026-03-07', location:'New York, NY', url:'https://campus.bankofamerica.com', logoDomain:'bankofamerica.com' },
+  { firm:'Citigroup', abbr:'C', division:'Banking, Capital Markets', type:'BB', status:'open', deadline:'2026-03-10', location:'New York, NY', url:'https://www.citigroup.com/careers', logoDomain:'citigroup.com' },
+  { firm:'Barclays', abbr:'BCS', division:'Investment Banking', type:'BB', status:'open', deadline:'2026-02-28', location:'New York, NY', url:'https://joinus.barclays.com', logoDomain:'barclays.com' },
+  { firm:'Deutsche Bank', abbr:'DB', division:'Investment Banking', type:'BB', status:'open', deadline:'2026-03-01', location:'New York, NY', url:'https://careers.db.com', logoDomain:'db.com' },
+  { firm:'UBS', abbr:'UBS', division:'Global Banking', type:'BB', status:'closed', deadline:'2026-01-31', location:'New York, NY', url:'https://www.ubs.com/careers', logoDomain:'ubs.com' },
+  { firm:'HSBC', abbr:'HSBC', division:'Global Banking & Markets', type:'BB', status:'closed', deadline:'2026-02-01', location:'New York, NY', url:'https://www.hsbc.com/careers', logoDomain:'hsbc.com' },
+  { firm:'Lazard', abbr:'LAZ', division:'Financial Advisory', type:'EB', status:'open', deadline:'2026-03-15', location:'New York, NY', url:'https://www.lazard.com/careers', logoDomain:'lazard.com' },
+  { firm:'Evercore', abbr:'EVR', division:'Advisory', type:'EB', status:'open', deadline:'2026-03-20', location:'New York, NY', url:'https://www.evercore.com/careers', logoDomain:'evercore.com' },
+  { firm:'Centerview Partners', abbr:'CV', division:'Advisory', type:'EB', status:'open', deadline:'2026-03-31', location:'New York, NY', url:'https://www.centerviewpartners.com/careers', logoDomain:'centerviewpartners.com' },
+  { firm:'Moelis & Co.', abbr:'MC', division:'Advisory', type:'EB', status:'open', deadline:'2026-03-08', location:'New York, NY', url:'https://www.moelis.com/careers', logoDomain:'moelis.com' },
+  { firm:'PJT Partners', abbr:'PJT', division:'Advisory', type:'EB', status:'upcoming', deadline:'2026-04-15', location:'New York, NY', url:'https://www.pjtpartners.com/careers', logoDomain:'pjtpartners.com' },
+  { firm:'Perella Weinberg', abbr:'PWP', division:'Advisory', type:'EB', status:'open', deadline:'2026-03-12', location:'New York, NY', url:'https://www.pwpartners.com/careers', logoDomain:'pwpartners.com' },
+  { firm:'Rothschild & Co.', abbr:'RCo', division:'Global Advisory', type:'EB', status:'closed', deadline:'2026-02-10', location:'New York, NY', url:'https://www.rothschildandco.com/careers', logoDomain:'rothschildandco.com' },
+  { firm:'Houlihan Lokey', abbr:'HL', division:'Corporate Finance', type:'MM', status:'open', deadline:'2026-03-18', location:'Los Angeles, CA', url:'https://www.hl.com/careers', logoDomain:'hl.com' },
+  { firm:'Jefferies', abbr:'JEF', division:'Investment Banking', type:'MM', status:'open', deadline:'2026-03-05', location:'New York, NY', url:'https://www.jefferies.com/careers', logoDomain:'jefferies.com' },
+  { firm:'William Blair', abbr:'WB', division:'Investment Banking', type:'MM', status:'open', deadline:'2026-03-25', location:'Chicago, IL', url:'https://www.williamblair.com/careers', logoDomain:'williamblair.com' },
+  { firm:'Raymond James', abbr:'RJ', division:'Investment Banking', type:'MM', status:'open', deadline:'2026-04-01', location:'St. Petersburg, FL', url:'https://www.raymondjames.com/careers', logoDomain:'raymondjames.com' },
+  { firm:'Baird', abbr:'RWB', division:'Investment Banking', type:'MM', status:'upcoming', deadline:'2026-04-10', location:'Milwaukee, WI', url:'https://www.rwbaird.com/careers', logoDomain:'rwbaird.com' },
+  { firm:'Lincoln International', abbr:'LI', division:'Advisory', type:'MM', status:'open', deadline:'2026-03-22', location:'Chicago, IL', url:'https://www.lincolninternational.com/careers', logoDomain:'lincolninternational.com' },
+  { firm:'Guggenheim Securities', abbr:'GUG', division:'Investment Banking', type:'MM', status:'upcoming', deadline:'2026-04-20', location:'New York, NY', url:'https://www.guggenheimpartners.com/careers', logoDomain:'guggenheimpartners.com' },
+  { firm:'KKR', abbr:'KKR', division:'Capital Markets', type:'Other', status:'upcoming', deadline:'2026-04-05', location:'New York, NY', url:'https://www.kkr.com/careers', logoDomain:'kkr.com' },
+  { firm:'Blackstone', abbr:'BX', division:'Advisory', type:'Other', status:'upcoming', deadline:'2026-05-01', location:'New York, NY', url:'https://www.blackstone.com/careers', logoDomain:'blackstone.com' },
+  { firm:'Apollo Global', abbr:'APO', division:'Capital Markets', type:'Other', status:'upcoming', deadline:'2026-04-15', location:'New York, NY', url:'https://www.apollo.com/careers', logoDomain:'apollo.com' },
 ];
+
+function getFirmLogoHTML(d, size, cssClass) {
+  size = size || 28;
+  cssClass = cssClass || 'apply-firm-logo';
+  var logoUrl = 'https://logo.clearbit.com/' + d.logoDomain + '?size=' + (size * 2);
+  return '<img src="' + logoUrl + '" alt="' + d.abbr + '" width="' + size + '" height="' + size + '" ' +
+    'style="border-radius:6px;object-fit:contain;background:var(--bg-1);flex-shrink:0;border:1px solid var(--line)" ' +
+    'onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'" loading="lazy"/>' +
+    '<div class="' + cssClass + '" style="display:none">' + d.abbr.substring(0, 3) + '</div>';
+}
 
 let applyFilter = 'all';
 let applyTypeFilter = 'all';
@@ -4528,7 +4550,7 @@ function renderApplyTracker() {
 
       return '<tr>' +
         '<td><button class="apply-star-btn ' + (isSaved?'saved':'') + '" onclick="toggleApplySave(\'' + d.firm.replace(/'/g,"\\'") + '\')">' + (isSaved?'★':'☆') + '</button></td>' +
-        '<td><div class="apply-firm"><div class="apply-firm-logo">' + d.abbr.substring(0,3) + '</div><span class="apply-firm-name">' + d.firm + '</span></div></td>' +
+        '<td><div class="apply-firm">' + getFirmLogoHTML(d, 28) + '<span class="apply-firm-name">' + d.firm + '</span></div></td>' +
         '<td class="apply-division">' + d.division + '</td>' +
         '<td><span class="apply-type-badge ' + typeClass + '">' + typeLabel + '</span></td>' +
         '<td><span class="apply-status ' + statusClass + '">' + statusLabel + '</span></td>' +

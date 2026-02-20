@@ -801,13 +801,13 @@
       <div class="sb-item active" onclick="showView('dashboard')"><span class="sb-icon">◈</span>Dashboard</div>
       <div class="sb-section">Learn</div>
       <div class="sb-item" onclick="showView('learn')"><span class="sb-icon">📖</span>Concepts</div>
-      <div class="sb-item" onclick="showView('cases')"><span class="sb-icon">🧮</span>Mini-Cases</div>
       <div class="sb-item" onclick="showView('map')"><span class="sb-icon">◉</span>Knowledge Map</div>
-      <div class="sb-section">Practice</div>
       <div class="sb-item" onclick="showView('bank')"><span class="sb-icon">☰</span>Question Bank</div>
+      <div class="sb-section">Practice</div>
+      <div class="sb-item" onclick="showView('cases')"><span class="sb-icon">🧮</span>Mini-Cases</div>
+      <div class="sb-item" onclick="showView('quiz')"><span class="sb-icon">✓</span>Quiz Mode</div>
       <div class="sb-item" onclick="showView('flash')"><span class="sb-icon">⧉</span>Flashcards</div>
       <div class="sb-section">Test</div>
-      <div class="sb-item" onclick="showView('quiz')"><span class="sb-icon">✓</span>Quiz Mode</div>
       <div class="sb-item" onclick="showView('mock')"><span class="sb-icon">◎</span>Mock Interview</div>
       <div class="sb-section">Apply</div>
       <div class="sb-item" onclick="showView('apply')"><span class="sb-icon">⊞</span>Internship Tracker</div>
@@ -842,15 +842,35 @@
 
     <!-- ── DASHBOARD ── -->
     <div class="app-view active" id="view-dashboard">
-      <div class="dash-welcome">
-        <div>
+
+      <!-- HERO: Welcome + Streak + Daily Goal Ring -->
+      <div class="dash-hero">
+        <div class="dash-hero-left">
           <div class="dash-h">Good morning, <span id="greeting-name">Jamie</span>.</div>
           <div class="dash-date" id="dash-date"></div>
         </div>
-        <button class="dash-today-btn" id="dash-practice-btn" onclick="smartPractice()">
-          <span>📋</span><span id="practice-btn-text">Practice today →</span>
-        </button>
+        <div class="dash-hero-right">
+          <div class="dash-hero-streak" id="dash-hero-streak">
+            <span class="streak-flame">🔥</span>
+            <span class="streak-num" id="hero-streak-num">0</span>
+            <span class="streak-label">day streak</span>
+          </div>
+          <div class="dash-hero-goal" id="dash-hero-goal">
+            <svg class="goal-ring" width="48" height="48" viewBox="0 0 48 48">
+              <circle cx="24" cy="24" r="20" fill="none" stroke="var(--bg-4)" stroke-width="4"/>
+              <circle class="goal-ring-fill" id="hero-goal-ring" cx="24" cy="24" r="20" fill="none" stroke="var(--green)" stroke-width="4" stroke-linecap="round" stroke-dasharray="125.66" stroke-dashoffset="125.66" transform="rotate(-90 24 24)"/>
+            </svg>
+            <span class="goal-ring-text" id="hero-goal-text">0/5</span>
+          </div>
+        </div>
       </div>
+
+      <!-- PRIMARY CTA -->
+      <button class="dash-primary-cta" id="dash-practice-btn" onclick="smartPractice()">
+        <span class="cta-icon">▶</span>
+        <span id="practice-btn-text">Continue Learning</span>
+        <span class="cta-arrow">→</span>
+      </button>
 
       <!-- Personalized Prep Plan -->
       <div id="prep-plan-container"></div>
@@ -860,42 +880,61 @@
 
         <!-- LEFT: Study Progress -->
         <div class="dash-col-left">
-          <div class="kpi-row" style="grid-template-columns:1fr 1fr 1fr">
-            <div class="kpi-card">
-              <div class="kpi-label">Answered</div>
-              <div class="kpi-val" id="kpi-answered">0</div>
-              <div class="kpi-sub">of <span id="kpi-total">120</span> total</div>
-              <div class="kpi-bar"><div class="kpi-fill" id="kpi-answered-fill" style="width:0%"></div></div>
-            </div>
-            <div class="kpi-card" style="cursor:pointer" onclick="goToDueReview()">
-              <div class="kpi-label">Due for Review</div>
-              <div class="kpi-val" id="kpi-due" style="color:var(--amber)">0</div>
-              <div class="kpi-sub">cards to review</div>
-              <div class="kpi-bar"><div class="kpi-fill" id="kpi-due-fill" style="width:0%;background:var(--amber)"></div></div>
-            </div>
-            <div class="kpi-card">
-              <div class="kpi-label">Mastered</div>
-              <div class="kpi-val" id="kpi-mastered" style="color:var(--green)">0</div>
-              <div class="kpi-sub">of 250 questions</div>
-              <div class="kpi-bar"><div class="kpi-fill green" id="kpi-mastered-fill" style="width:0%"></div></div>
-            </div>
-          </div>
 
-          <div class="kpi-row" style="grid-template-columns:1fr 1fr;margin-top:0">
-            <div class="kpi-card">
-              <div class="kpi-label">Current Streak</div>
-              <div class="kpi-val" id="kpi-streak">0</div>
-              <div class="kpi-sub">days in a row</div>
+          <!-- 3 KPI Cards with Circular Progress Rings -->
+          <div class="kpi-row" style="grid-template-columns:1fr 1fr 1fr">
+            <div class="kpi-card kpi-card-ring">
+              <svg class="kpi-ring" width="64" height="64" viewBox="0 0 64 64">
+                <circle cx="32" cy="32" r="26" fill="none" stroke="var(--bg-4)" stroke-width="5"/>
+                <circle class="kpi-ring-fill" id="ring-answered" cx="32" cy="32" r="26" fill="none" stroke="var(--accent)" stroke-width="5" stroke-linecap="round" stroke-dasharray="163.36" stroke-dashoffset="163.36" transform="rotate(-90 32 32)"/>
+              </svg>
+              <div class="kpi-ring-inner">
+                <div class="kpi-val" id="kpi-answered">0</div>
+                <div class="kpi-label">Answered</div>
+                <div class="kpi-sub">of <span id="kpi-total">250</span></div>
+              </div>
+            </div>
+            <div class="kpi-card kpi-card-ring">
+              <svg class="kpi-ring" width="64" height="64" viewBox="0 0 64 64">
+                <circle cx="32" cy="32" r="26" fill="none" stroke="var(--bg-4)" stroke-width="5"/>
+                <circle class="kpi-ring-fill" id="ring-mastered" cx="32" cy="32" r="26" fill="none" stroke="var(--green)" stroke-width="5" stroke-linecap="round" stroke-dasharray="163.36" stroke-dashoffset="163.36" transform="rotate(-90 32 32)"/>
+              </svg>
+              <div class="kpi-ring-inner">
+                <div class="kpi-val" id="kpi-mastered" style="color:var(--green)">0</div>
+                <div class="kpi-label">Mastered</div>
+                <div class="kpi-sub">of 250</div>
+              </div>
+            </div>
+            <div class="kpi-card kpi-card-ring">
+              <svg class="kpi-ring" width="64" height="64" viewBox="0 0 64 64">
+                <circle cx="32" cy="32" r="26" fill="none" stroke="var(--bg-4)" stroke-width="5"/>
+                <circle class="kpi-ring-fill" id="ring-streak" cx="32" cy="32" r="26" fill="none" stroke="var(--amber)" stroke-width="5" stroke-linecap="round" stroke-dasharray="163.36" stroke-dashoffset="163.36" transform="rotate(-90 32 32)"/>
+              </svg>
+              <div class="kpi-ring-inner">
+                <div class="kpi-val" id="kpi-streak" style="color:var(--amber)">0</div>
+                <div class="kpi-label">Streak</div>
+                <div class="kpi-sub">days in a row</div>
+              </div>
               <div class="streak-row" id="streak-dots"></div>
             </div>
-            <div class="kpi-card">
-              <div class="kpi-label">Categories</div>
-              <div class="kpi-val" id="kpi-cats">0</div>
-              <div class="kpi-sub">of 4 practiced</div>
-              <div class="kpi-bar"><div class="kpi-fill green" id="kpi-cats-fill" style="width:0%"></div></div>
-            </div>
           </div>
 
+          <!-- Daily Goal + Learning Path Side-by-Side -->
+          <div class="dash-goal-path-row">
+            <div class="dash-panel dash-daily-goal-card" id="daily-goal-panel">
+              <div class="daily-goal-header">
+                <span class="daily-goal-title">Daily Goal</span>
+                <span class="daily-goal-count" id="daily-goal-label">0/5 today</span>
+              </div>
+              <div class="daily-goal-wrap">
+                <div class="daily-goal-bar"><div class="daily-goal-fill" id="daily-goal-fill" style="width:0%"></div></div>
+                <div class="daily-goal-text" id="daily-goal-text">Answer 5 questions to hit your daily goal.</div>
+              </div>
+            </div>
+            <div id="learning-path-container" class="dash-learning-path-slot"></div>
+          </div>
+
+          <!-- Category Progress -->
           <div class="dash-panel">
             <div class="dp-header">
               <span class="dp-title">Category Progress</span>
@@ -903,34 +942,39 @@
             </div>
             <div class="cat-grid">
               <div class="cat-item" onclick="filterBankNav('tech')">
-                <div class="cat-name">Technical</div>
-                <div class="cat-pct" id="pct-tech">0%</div>
+                <div class="cat-header-row">
+                  <div class="cat-name">Technical</div>
+                  <div class="cat-pct" id="pct-tech">0%</div>
+                </div>
                 <div class="cat-bar"><div class="cat-fill fill-acc" id="fill-tech" style="width:0%"></div></div>
                 <div style="font-size:10.5px;color:var(--t-3);margin-top:4px;font-family:'Geist Mono',monospace" id="count-tech">0 answered</div>
               </div>
               <div class="cat-item" onclick="filterBankNav('beh')">
-                <div class="cat-name">Behavioral</div>
-                <div class="cat-pct" id="pct-beh">0%</div>
+                <div class="cat-header-row">
+                  <div class="cat-name">Behavioral</div>
+                  <div class="cat-pct" id="pct-beh">0%</div>
+                </div>
                 <div class="cat-bar"><div class="cat-fill fill-grn" id="fill-beh" style="width:0%"></div></div>
                 <div style="font-size:10.5px;color:var(--t-3);margin-top:4px;font-family:'Geist Mono',monospace" id="count-beh">0 answered</div>
               </div>
               <div class="cat-item" onclick="filterBankNav('brain')">
-                <div class="cat-name">Brain Teasers</div>
-                <div class="cat-pct" id="pct-brain">0%</div>
+                <div class="cat-header-row">
+                  <div class="cat-name">Brain Teasers</div>
+                  <div class="cat-pct" id="pct-brain">0%</div>
+                </div>
                 <div class="cat-bar"><div class="cat-fill fill-amb" id="fill-brain" style="width:0%"></div></div>
                 <div style="font-size:10.5px;color:var(--t-3);margin-top:4px;font-family:'Geist Mono',monospace" id="count-brain">0 answered</div>
               </div>
               <div class="cat-item" onclick="filterBankNav('deal')">
-                <div class="cat-name">Deals & Markets</div>
-                <div class="cat-pct" id="pct-deal">0%</div>
+                <div class="cat-header-row">
+                  <div class="cat-name">Deals & Markets</div>
+                  <div class="cat-pct" id="pct-deal">0%</div>
+                </div>
                 <div class="cat-bar"><div class="cat-fill fill-blu" id="fill-deal" style="width:0%"></div></div>
                 <div style="font-size:10.5px;color:var(--t-3);margin-top:4px;font-family:'Geist Mono',monospace" id="count-deal">0 answered</div>
               </div>
             </div>
           </div>
-
-          <!-- Learning Path Suggestion -->
-          <div id="learning-path-container"></div>
 
           <!-- Technical Breakdown Analytics -->
           <div class="dash-panel" id="analytics-panel" style="display:none">
@@ -942,18 +986,6 @@
             <div id="weak-area-callout"></div>
           </div>
 
-          <!-- Daily Goal -->
-          <div class="dash-panel" id="daily-goal-panel">
-            <div class="dp-header">
-              <span class="dp-title">Daily Goal</span>
-              <span class="dp-action" id="daily-goal-label">0/5 today</span>
-            </div>
-            <div class="daily-goal-wrap">
-              <div class="daily-goal-bar"><div class="daily-goal-fill" id="daily-goal-fill" style="width:0%"></div></div>
-              <div class="daily-goal-text" id="daily-goal-text">Answer 5 questions to hit your daily goal.</div>
-            </div>
-          </div>
-
           <!-- Achievements -->
           <div class="dash-panel" id="badges-panel" style="display:none">
             <div class="dp-header">
@@ -963,11 +995,12 @@
             <div class="badge-grid" id="badge-grid"></div>
           </div>
 
+          <!-- Recent Activity (compact) -->
           <div class="dash-panel">
             <div class="dp-header">
               <span class="dp-title">Recent Activity</span>
             </div>
-            <div class="activity-list" id="activity-list">
+            <div class="activity-list activity-list-compact" id="activity-list">
               <div style="padding:32px 16px;text-align:center;font-size:12.5px;color:var(--t-3)">No activity yet — start practicing.</div>
             </div>
           </div>

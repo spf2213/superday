@@ -857,20 +857,8 @@ body {
 .view-sub{font-size:13.5px;color:var(--t-3)}
 
 /* DASHBOARD */
-.dash-welcome{
-  display:flex;align-items:flex-start;justify-content:space-between;
-  margin-bottom:28px;flex-wrap:wrap;gap:12px;
-}
 .dash-h{font-size:22px;font-weight:600;letter-spacing:-0.025em;line-height:1.2}
 .dash-date{font-size:11.5px;color:var(--t-3);font-family:'Geist Mono',monospace;margin-top:4px}
-.dash-today-btn{
-  display:flex;align-items:center;gap:6px;
-  padding:7px 14px;border-radius:var(--r);
-  background:var(--bg-2);border:1px solid var(--line);
-  font-size:12.5px;color:var(--t-2);cursor:pointer;
-  transition:var(--trans);
-}
-.dash-today-btn:hover{background:var(--bg-3);color:var(--t)}
 
 .kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:24px}
 .kpi-card{
@@ -901,6 +889,72 @@ body {
 .s-dot.done{background:var(--accent-dim);color:var(--accent);border:1px solid rgba(94,106,210,0.25)}
 .s-dot.today{background:var(--accent);color:white}
 .s-dot.empty{background:var(--bg-3);color:var(--t-3);border:1px solid var(--line)}
+
+/* ── DASHBOARD HERO ── */
+.dash-hero{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:16px;flex-wrap:wrap;gap:12px;
+}
+.dash-hero-left{flex:1;min-width:0}
+.dash-hero-right{display:flex;align-items:center;gap:16px}
+.dash-hero-streak{
+  display:flex;align-items:center;gap:6px;
+  padding:6px 14px;background:var(--amber-dim);
+  border:1px solid rgba(224,154,59,0.2);border-radius:20px;
+}
+.streak-flame{font-size:18px;line-height:1}
+.streak-num{
+  font-size:18px;font-weight:700;color:var(--amber);
+  font-family:'Geist Mono',monospace;letter-spacing:-0.02em;
+}
+.streak-label{font-size:11px;color:var(--t-3);font-family:'Geist Mono',monospace}
+.dash-hero-goal{position:relative;width:48px;height:48px}
+.goal-ring{display:block}
+.goal-ring-fill{transition:stroke-dashoffset 1s cubic-bezier(0.4,0,0.2,1)}
+.goal-ring-text{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  font-size:10px;font-weight:600;color:var(--t);
+  font-family:'Geist Mono',monospace;
+}
+
+/* ── PRIMARY CTA ── */
+.dash-primary-cta{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  width:100%;padding:14px 24px;margin-bottom:24px;
+  border-radius:var(--r-lg);background:var(--accent);color:white;
+  font-size:15px;font-weight:600;letter-spacing:-0.01em;
+  border:none;cursor:pointer;transition:var(--trans);
+}
+.dash-primary-cta:hover{
+  background:var(--accent-h);transform:translateY(-1px);
+  box-shadow:0 4px 16px var(--accent-glow);
+}
+.cta-icon{font-size:14px}
+.cta-arrow{font-size:16px;opacity:0.7;transition:transform 0.15s}
+.dash-primary-cta:hover .cta-arrow{transform:translateX(3px)}
+
+/* ── KPI CARDS WITH CIRCULAR RINGS ── */
+.kpi-card-ring{display:flex;align-items:center;gap:14px;padding:18px 20px}
+.kpi-ring{flex-shrink:0}
+.kpi-ring-fill{transition:stroke-dashoffset 1s cubic-bezier(0.4,0,0.2,1) 0.3s}
+.kpi-ring-inner{flex:1;min-width:0}
+
+/* ── DAILY GOAL + LEARNING PATH ROW ── */
+.dash-goal-path-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.dash-daily-goal-card{display:flex;flex-direction:column}
+.daily-goal-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;border-bottom:1px solid var(--line);
+}
+.daily-goal-title{font-size:12.5px;font-weight:500;color:var(--t)}
+.daily-goal-count{font-size:11.5px;color:var(--accent);font-family:'Geist Mono',monospace}
+.dash-learning-path-slot .learning-path-card{margin-bottom:0;height:100%}
+
+/* ── CATEGORY HEADER ROW ── */
+.cat-header-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+
+/* ── COMPACT ACTIVITY LIST ── */
+.activity-list-compact{max-height:180px;overflow:hidden}
 
 .dash-two-col{display:grid;grid-template-columns:1fr 380px;gap:20px;align-items:start}
 .dash-col-left{display:flex;flex-direction:column;gap:12px;min-width:0}
@@ -2179,6 +2233,8 @@ body {
   .dash-two-col{grid-template-columns:1fr}
   .dash-col-right{position:static}
   .dash-grid{grid-template-columns:1fr}
+  .dash-goal-path-row{grid-template-columns:1fr}
+  .dash-hero-right{flex-wrap:wrap}
   .app-main .app-view{padding:24px 20px}
   .feat-section{padding:48px 20px}
 }
