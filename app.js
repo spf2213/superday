@@ -4482,14 +4482,22 @@ const INTERNSHIP_DATA = [
   { firm:'Apollo Global', abbr:'APO', division:'Capital Markets', type:'Other', status:'upcoming', deadline:'2026-04-15', location:'New York, NY', url:'https://www.apollo.com/careers', logoDomain:'apollo.com' },
 ];
 
+var FIRM_BRAND_COLORS = {
+  'JPM':'#003A70','GS':'#6F9FD8','MS':'#002856','BofA':'#C41230','C':'#003B70',
+  'BCS':'#00AEEF','DB':'#0018A8','UBS':'#E60000','HSBC':'#DB0011','LAZ':'#003DA5',
+  'EVR':'#1B365D','CV':'#1C2841','MC':'#1A1A2E','PJT':'#002D72','PWP':'#0C2340',
+  'RCo':'#002B5C','HL':'#003366','JEF':'#512D6D','WB':'#003B5C','RJ':'#003865',
+  'RWB':'#00305E','LI':'#0072CE','GUG':'#1A1A2E','KKR':'#003A5D','BX':'#000000',
+  'APO':'#002855'
+};
+
 function getFirmLogoHTML(d, size, cssClass) {
   size = size || 28;
   cssClass = cssClass || 'apply-firm-logo';
-  var logoUrl = 'https://logo.clearbit.com/' + d.logoDomain + '?size=' + (size * 2);
-  return '<img src="' + logoUrl + '" alt="' + d.abbr + '" width="' + size + '" height="' + size + '" ' +
-    'style="border-radius:6px;object-fit:contain;background:var(--bg-1);flex-shrink:0;border:1px solid var(--line)" ' +
-    'onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'" loading="lazy"/>' +
-    '<div class="' + cssClass + '" style="display:none">' + d.abbr.substring(0, 3) + '</div>';
+  var bg = FIRM_BRAND_COLORS[d.abbr] || '#333';
+  var label = d.abbr.substring(0, 3);
+  var fontSize = size <= 26 ? 8 : (label.length > 2 ? 8.5 : 10);
+  return '<div class="' + cssClass + '" style="background:' + bg + ';color:#fff;border:none;font-size:' + fontSize + 'px;width:' + size + 'px;height:' + size + 'px">' + label + '</div>';
 }
 
 let applyFilter = 'all';
