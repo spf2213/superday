@@ -1805,6 +1805,8 @@ let mockHistory = [], mockActive = false;
 
 function startMock() {
   mockActive = true;
+  mockCurrentQ = null;
+  mockAskedIds = [];
   const badge = document.getElementById('iv-badge');
   if (badge) { badge.className = 'iv-badge badge-live'; badge.textContent = '● LIVE'; }
   mockHistory = [];
@@ -1819,8 +1821,11 @@ function startMock() {
 }
 
 function askQuestion(cat) {
-  const pool = QUESTIONS.filter(q=>q.cat===cat);
-  const q = pool[Math.floor(Math.random()*pool.length)];
+  const pool = QUESTIONS.filter(q=>q.cat===cat && !mockAskedIds.includes(q.id));
+  const usePool = pool.length > 0 ? pool : QUESTIONS.filter(q=>q.cat===cat);
+  const q = usePool[Math.floor(Math.random()*usePool.length)];
+  mockCurrentQ = q;
+  mockAskedIds.push(q.id);
   mockHistory.push({role:'assistant', content:q.q});
   appendMsg('ai', q.q);
 }
@@ -1848,59 +1853,110 @@ function showTyping() {
 
 function removeTyping() { document.getElementById('typing-indicator')?.remove(); }
 
+let mockCurrentQ = null;
+let mockAskedIds = [];
+
+function scoreMockAnswer(userText, correctAnswer) {
+  var userWords = userText.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(function(w) { return w.length > 2; });
+  var ansWords = correctAnswer.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(function(w) { return w.length > 2; });
+  var keyTerms = ansWords.filter(function(w) {
+    return !['the','and','are','for','that','this','with','from','have','has','its','not','but','can','will','was','were','been','they','their','what','when','how','which','would','could','should','also','than','more','into','over','such','about'].includes(w);
+  });
+  if (keyTerms.length === 0) return { tech: 5, structure: 5, confidence: 5 };
+  var matched = 0;
+  keyTerms.forEach(function(term) {
+    if (userWords.some(function(uw) { return uw === term || uw.includes(term) || term.includes(uw); })) matched++;
+  });
+  var coverage = matched / keyTerms.length;
+  var tech = Math.min(10, Math.max(2, Math.round(coverage * 10)));
+  var wordCount = userWords.length;
+  var structure = wordCount >= 20 ? Math.min(10, 6 + Math.floor(Math.random() * 3)) : wordCount >= 10 ? Math.min(9, 5 + Math.floor(Math.random() * 3)) : Math.min(7, 3 + Math.floor(Math.random() * 3));
+  var confidence = wordCount >= 15 ? Math.min(10, 5 + Math.floor(Math.random() * 4)) : Math.min(8, 4 + Math.floor(Math.random() * 3));
+  if (tech >= 7) { structure = Math.max(structure, 6); confidence = Math.max(confidence, 6); }
+  return { tech: tech, structure: structure, confidence: confidence };
+}
+
+function getMockFeedback(scores, correctAnswer, tip) {
+  var feedbacks = [];
+  if (scores.tech >= 8) {
+    feedbacks.push('Strong answer — you hit the key points accurately.');
+  } else if (scores.tech >= 6) {
+    feedbacks.push('Decent attempt, but you missed some important details.');
+  } else if (scores.tech >= 4) {
+    feedbacks.push('You\'re on the right track but need to be more precise.');
+  } else {
+    feedbacks.push('That needs work. Let me walk you through the right approach.');
+  }
+  if (scores.tech < 8) {
+    feedbacks.push('The model answer is: ' + correctAnswer);
+  }
+  if (tip && scores.tech < 7) {
+    feedbacks.push('Tip: ' + tip);
+  }
+  if (scores.structure <= 5) {
+    feedbacks.push('Try to structure your answer more clearly — use a framework or walk through it step by step.');
+  }
+  return feedbacks.join('<br><br>');
+}
+
 async function sendMsg() {
   if (!mockActive) return;
-  const ta = document.getElementById('chat-input');
+  var ta = document.getElementById('chat-input');
   if (!ta) return;
-  const text = ta.value.trim();
+  var text = ta.value.trim();
   if (!text) return;
   ta.value = ''; ta.style.height = 'auto';
-  const sendBtn = document.getElementById('chat-send');
+  var sendBtn = document.getElementById('chat-send');
   if (sendBtn) sendBtn.disabled = true;
   appendMsg('user', text);
   mockHistory.push({role:'user', content:text});
   showTyping();
-  const catEl = document.getElementById('mock-cat');
-  const firmEl = document.getElementById('mock-firm');
-  const cat = catEl ? catEl.value : 'tech';
-  const firm = firmEl ? firmEl.value : 'Goldman Sachs';
-  try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({
-        model:"claude-sonnet-4-5-20250929",
-        max_tokens:600,
-        system: "You are Alex Chen, VP in M&A at " + firm + ". Conduct a rigorous IB interview. After the candidate's answer, give brief feedback and scores: 'Technical: X/10 | Structure: X/10 | Confidence: X/10'. Then ask a follow-up. Keep it concise and challenging.",
-        messages: mockHistory.map(m=>({role:m.role,content:m.content}))
-      })
-    });
-    const data = await res.json();
-    removeTyping();
-    const reply = data.content?.map(c=>c.text||'').join('')||'Could not get response.';
-    mockHistory.push({role:'assistant',content:reply});
-    const scoreMatch = reply.match(/Technical:\s*(\d+)\/10.*?Structure:\s*(\d+)\/10.*?Confidence:\s*(\d+)\/10/i);
-    let displayReply = reply.replace(/\n/g,'<br>');
-    if (scoreMatch) {
-      const t=scoreMatch[1], s=scoreMatch[2], c=scoreMatch[3];
-      const cc = n => parseInt(n)>=8?'sc-g':parseInt(n)>=6?'sc-y':'sc-r';
-      const sh = '<div class="score-block" style="margin-top:8px">' +
-        '<div class="score-line"><span class="sc-label">Technical Accuracy</span><span class="sc-val ' + cc(t) + '">' + t + '/10</span></div>' +
-        '<div class="score-line"><span class="sc-label">Structure &amp; Clarity</span><span class="sc-val ' + cc(s) + '">' + s + '/10</span></div>' +
-        '<div class="score-line"><span class="sc-label">Confidence</span><span class="sc-val ' + cc(c) + '">' + c + '/10</span></div></div>';
-      displayReply = reply.replace(/Technical:\s*\d+\/10.*?Confidence:\s*\d+\/10/i,'').replace(/\n/g,'<br>') + sh;
-    }
-    const body = document.getElementById('chat-body');
-    if (body) {
-      const div = document.createElement('div');
-      div.className = 'chat-msg';
-      div.innerHTML = '<div class="cm-av ai">AC</div><div class="cm-bubble ai">' + displayReply + '</div>';
-      body.appendChild(div);
-      body.scrollTop = body.scrollHeight;
-    }
-  } catch(e) {
-    removeTyping();
-    appendMsg('ai', 'Connection error. Please try again.');
+
+  var catEl = document.getElementById('mock-cat');
+  var cat = catEl ? catEl.value : 'tech';
+
+  // Simulate brief thinking delay
+  await new Promise(function(r) { setTimeout(r, 800 + Math.random() * 1200); });
+  removeTyping();
+
+  // Score the answer against the current question
+  var scores = { tech: 6, structure: 6, confidence: 6 };
+  if (mockCurrentQ) {
+    scores = scoreMockAnswer(text, mockCurrentQ.a);
+  }
+
+  // Build feedback
+  var feedback = getMockFeedback(scores, mockCurrentQ ? mockCurrentQ.a : '', mockCurrentQ ? mockCurrentQ.tip : '');
+
+  // Score display
+  var cc = function(n) { return n >= 8 ? 'sc-g' : n >= 6 ? 'sc-y' : 'sc-r'; };
+  var scoreHTML = '<div class="score-block" style="margin-top:8px">' +
+    '<div class="score-line"><span class="sc-label">Technical Accuracy</span><span class="sc-val ' + cc(scores.tech) + '">' + scores.tech + '/10</span></div>' +
+    '<div class="score-line"><span class="sc-label">Structure &amp; Clarity</span><span class="sc-val ' + cc(scores.structure) + '">' + scores.structure + '/10</span></div>' +
+    '<div class="score-line"><span class="sc-label">Confidence</span><span class="sc-val ' + cc(scores.confidence) + '">' + scores.confidence + '/10</span></div></div>';
+
+  // Pick next question (avoid repeats within session)
+  var pool = QUESTIONS.filter(function(q) { return q.cat === cat && !mockAskedIds.includes(q.id); });
+  if (pool.length === 0) {
+    mockAskedIds = [];
+    pool = QUESTIONS.filter(function(q) { return q.cat === cat; });
+  }
+  var nextQ = pool[Math.floor(Math.random() * pool.length)];
+  mockAskedIds.push(nextQ.id);
+  mockCurrentQ = nextQ;
+
+  var followUp = '<br><br>Next question: ' + nextQ.q;
+
+  var displayReply = feedback + scoreHTML + followUp;
+  mockHistory.push({role:'assistant', content: feedback + ' Next question: ' + nextQ.q});
+
+  var body = document.getElementById('chat-body');
+  if (body) {
+    var div = document.createElement('div');
+    div.className = 'chat-msg';
+    div.innerHTML = '<div class="cm-av ai">AC</div><div class="cm-bubble ai">' + displayReply + '</div>';
+    body.appendChild(div);
+    body.scrollTop = body.scrollHeight;
   }
   if (sendBtn) sendBtn.disabled = false;
 }
