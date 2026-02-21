@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
@@ -89,7 +89,7 @@
     </div>
     <div class="nav-right">
       <button class="theme-btn" onclick="toggleTheme()" title="Toggle theme">
-        <span id="theme-icon">☀</span>
+        <span id="theme-icon">☽</span>
       </button>
       <button class="nav-login" onclick="showAuthTab('login')">Log in</button>
       <button class="nav-cta" onclick="showAuthTab('signup')">Start free →</button>
@@ -153,7 +153,7 @@
             <div class="pm-stats" style="flex-shrink:0">
               <div class="pm-stat">
                 <div class="pm-stat-label">Answered</div>
-                <div class="pm-stat-val" style="color:var(--accent)">14</div>
+                <div class="pm-stat-val" style="color:var(--t)">14</div>
                 <div class="pm-stat-sub">of 250 questions</div>
                 <div class="pm-stat-bar"><div class="pm-stat-fill" style="width:22%"></div></div>
               </div>
@@ -183,7 +183,7 @@
                 <span style="font-size:10px;color:var(--accent)">→</span>
               </div>
               <div class="pm-qitem" style="cursor:pointer;transition:var(--trans)" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background=''">
-                <span class="pm-qpill" style="background:rgba(240,180,40,0.12);color:#e0a820">Behavioral</span>
+                <span class="pm-qpill" style="background:var(--amber-dim);color:var(--amber)">Behavioral</span>
                 <span class="pm-qtxt">Why investment banking? Why this firm?</span>
                 <span style="font-size:10px;color:var(--accent)">→</span>
               </div>
@@ -237,7 +237,7 @@
               </div>
               <div class="pm-qitem pv-q-item" data-cat="beh" style="flex-direction:column;align-items:stretch;cursor:pointer" onclick="pvToggleQ(this)">
                 <div style="display:flex;align-items:center;gap:8px">
-                  <span class="pm-qpill" style="background:rgba(240,180,40,0.12);color:#e0a820;font-size:9px;padding:2px 7px;border-radius:4px;font-family:'Geist Mono',monospace;font-weight:500;white-space:nowrap">Behavioral</span>
+                  <span class="pm-qpill" style="background:var(--amber-dim);color:var(--amber);font-size:9px;padding:2px 7px;border-radius:4px;font-family:'Geist Mono',monospace;font-weight:500;white-space:nowrap">Behavioral</span>
                   <span class="pm-qtxt">Why investment banking? Why this firm specifically?</span>
                   <span class="pv-caret" style="font-size:10px;color:var(--t-3);flex-shrink:0;transition:transform 0.2s">⌄</span>
                 </div>
@@ -275,7 +275,7 @@
                 <div style="
                   position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
                   transform:rotateY(180deg);
-                  background:rgba(94,106,210,0.08);border:1px solid rgba(94,106,210,0.25);
+                  background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);
                   border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;
                 ">
                   <div style="font-size:9px;font-family:'Geist Mono',monospace;color:var(--green);letter-spacing:0.06em">ANSWER</div>
@@ -286,7 +286,7 @@
             <!-- Nav -->
             <div style="flex-shrink:0;display:flex;gap:6px;margin-top:10px;justify-content:center">
               <button onclick="pvFCNav(-1)" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);border-radius:5px;padding:5px 12px;font-size:11px;color:var(--t-2);cursor:pointer;transition:var(--trans)" onmouseover="this.style.background='rgba(255,255,255,0.11)'" onmouseout="this.style.background='rgba(255,255,255,0.06)'">← Prev</button>
-              <button onclick="pvFlipCard()" style="background:var(--accent);border:none;border-radius:5px;padding:5px 14px;font-size:11px;color:white;cursor:pointer">Flip</button>
+              <button onclick="pvFlipCard()" style="background:var(--t);border:none;border-radius:5px;padding:5px 14px;font-size:11px;color:var(--t-inv);cursor:pointer">Flip</button>
               <button onclick="pvFCNav(1)"  style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);border-radius:5px;padding:5px 12px;font-size:11px;color:var(--t-2);cursor:pointer;transition:var(--trans)" onmouseover="this.style.background='rgba(255,255,255,0.11)'" onmouseout="this.style.background='rgba(255,255,255,0.06)'">Next →</button>
             </div>
           </div>
@@ -295,7 +295,7 @@
           <div id="pv-mock" style="display:none;flex-direction:column;height:100%">
             <!-- Header -->
             <div style="flex-shrink:0;display:flex;align-items:center;gap:8px;padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:10px">
-              <div style="width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#5E6AD2,#8b8ff8);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:white;flex-shrink:0">AC</div>
+              <div style="width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#71717A,#A1A1AA);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:white;flex-shrink:0">AC</div>
               <div>
                 <div style="font-size:12px;font-weight:600;color:var(--t);letter-spacing:-0.01em">Alex Chen</div>
                 <div style="font-size:10px;color:var(--t-3)">VP, M&amp;A · Goldman Sachs</div>
@@ -307,7 +307,7 @@
             <!-- Chat log -->
             <div id="pv-mock-chat" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:2px;min-height:0">
               <div style="display:flex;gap:7px;align-items:flex-start">
-                <div style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#5E6AD2,#8b8ff8);display:flex;align-items:center;justify-content:center;font-size:7.5px;font-weight:700;color:white;flex-shrink:0;margin-top:1px">AC</div>
+                <div style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#71717A,#A1A1AA);display:flex;align-items:center;justify-content:center;font-size:7.5px;font-weight:700;color:white;flex-shrink:0;margin-top:1px">AC</div>
                 <div style="background:rgba(255,255,255,0.05);border:1px solid var(--line);border-radius:0 8px 8px 8px;padding:8px 10px;font-size:11px;color:var(--t-2);line-height:1.55;max-width:88%">Walk me through a DCF. Which assumptions have the biggest impact on value?</div>
               </div>
             </div>
@@ -316,7 +316,7 @@
               <input id="pv-mock-input" type="text" placeholder="Type your answer and hit Enter…" onkeydown="if(event.key==='Enter')pvMockSend()"
                 style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--t);outline:none;min-width:0"
                 onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='rgba(255,255,255,0.09)'"/>
-              <button onclick="pvMockSend()" style="flex-shrink:0;background:var(--accent);border:none;border-radius:6px;padding:6px 12px;font-size:11px;color:white;cursor:pointer;white-space:nowrap;font-weight:500">Send →</button>
+              <button onclick="pvMockSend()" style="flex-shrink:0;background:var(--t);border:none;border-radius:6px;padding:6px 12px;font-size:11px;color:var(--t-inv);cursor:pointer;white-space:nowrap;font-weight:500">Send →</button>
             </div>
           </div>
 
@@ -484,7 +484,7 @@
                 </div>
                 <div style="position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
                   transform:rotateY(180deg);
-                  background:rgba(94,106,210,0.08);border:1px solid rgba(94,106,210,0.3);
+                  background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);
                   border-radius:var(--r-lg);padding:24px;display:flex;flex-direction:column;gap:10px;overflow:hidden">
                   <div style="font-size:10px;font-family:'Geist Mono',monospace;color:var(--accent);letter-spacing:0.08em;text-transform:uppercase">Answer</div>
                   <div id="demo-fc-a" style="font-size:13px;color:var(--t-2);line-height:1.65;flex:1"></div>
@@ -530,7 +530,7 @@
               style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);border-radius:var(--r);padding:8px 12px;font-size:13px;color:var(--t);outline:none;transition:var(--trans)"
               onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='rgba(255,255,255,0.09)'"
               onkeydown="if(event.key==='Enter')demoChatSend()"/>
-            <button onclick="demoChatSend()" style="background:var(--accent);border:none;border-radius:var(--r);padding:8px 14px;font-size:13px;color:white;cursor:pointer;transition:var(--trans);white-space:nowrap" onmouseover="this.style.background='var(--accent-h)'" onmouseout="this.style.background='var(--accent)'">Send →</button>
+            <button onclick="demoChatSend()" style="background:var(--t);border:none;border-radius:var(--r);padding:8px 14px;font-size:13px;color:var(--t-inv);cursor:pointer;transition:var(--trans);white-space:nowrap" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">Send →</button>
           </div>
         </div>
       </div>

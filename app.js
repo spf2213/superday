@@ -447,7 +447,7 @@ function pvMockSend() {
   const typId = 'pvtyp_' + Date.now();
   chat.innerHTML += `
     <div id="${typId}" style="display:flex;gap:7px;align-items:flex-start">
-      <div style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#5E6AD2,#8b8ff8);display:flex;align-items:center;justify-content:center;font-size:7.5px;font-weight:700;color:white;flex-shrink:0;margin-top:1px">AC</div>
+      <div style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#71717A,#A1A1AA);display:flex;align-items:center;justify-content:center;font-size:7.5px;font-weight:700;color:white;flex-shrink:0;margin-top:1px">AC</div>
       <div style="background:rgba(255,255,255,0.05);border:1px solid var(--line);border-radius:0 8px 8px 8px;padding:8px 12px;font-size:13px;color:var(--t-3);letter-spacing:2px">···</div>
     </div>`;
   chat.scrollTop = chat.scrollHeight;
@@ -457,11 +457,11 @@ function pvMockSend() {
     if (typ) typ.remove();
     const r = PV_MOCK_REPLIES[pvMockRound % PV_MOCK_REPLIES.length];
     pvMockRound++;
-    const sc = (n) => `<span style="color:${n>=8?'var(--green)':'#e0a820'};font-weight:600">${n}/10</span>`;
+    const sc = (n) => `<span style="color:${n>=8?'var(--green)':'var(--amber)'};font-weight:600">${n}/10</span>`;
     const scores = `<div style="display:flex;gap:10px;margin-top:5px;font-size:10px;color:var(--t-3)">Technical ${sc(r.t)} · Structure ${sc(r.s)} · Confidence ${sc(r.c)}</div>`;
     chat.innerHTML += `
       <div style="display:flex;gap:7px;align-items:flex-start">
-        <div style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#5E6AD2,#8b8ff8);display:flex;align-items:center;justify-content:center;font-size:7.5px;font-weight:700;color:white;flex-shrink:0;margin-top:1px">AC</div>
+        <div style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#71717A,#A1A1AA);display:flex;align-items:center;justify-content:center;font-size:7.5px;font-weight:700;color:white;flex-shrink:0;margin-top:1px">AC</div>
         <div style="background:rgba(255,255,255,0.05);border:1px solid var(--line);border-radius:0 8px 8px 8px;padding:8px 10px;font-size:11px;color:var(--t-2);line-height:1.55;max-width:88%">
           ${r.text}${scores}
         </div>
@@ -525,7 +525,7 @@ function demoToggleQ(el) {
   document.querySelectorAll('#demo-qb-list .qb-item').forEach(i => i.style.background = '');
   if (!isOpen) {
     ans.style.display = 'block';
-    el.style.background = 'rgba(94,106,210,0.06)';
+    el.style.background = 'var(--accent-dim)';
   }
 }
 function demoFilterBank(pill, cat) {
@@ -2177,7 +2177,7 @@ function mapUpdateMinimap() {
   // Draw dots
   KNOWLEDGE_NODES.forEach(node => {
     const status = getNodeStatus(node);
-    ctx.fillStyle = node.central ? '#5E6AD2' : status === 'mastered' ? '#2CB67D' : status === 'learning' ? '#E09A3B' : 'rgba(255,255,255,0.2)';
+    ctx.fillStyle = node.central ? '#B0B0B8' : status === 'mastered' ? '#3DD68C' : status === 'learning' ? '#E4A853' : 'rgba(255,255,255,0.2)';
     ctx.beginPath();
     ctx.arc(node.x * sx, node.y * sy, node.central ? 3 : 2, 0, Math.PI * 2);
     ctx.fill();
