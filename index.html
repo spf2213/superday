@@ -87,11 +87,11 @@
       <div class="nav-link nav-active" onclick="setNavActive(this);navScrollTo('product-section')">Product</div>
       <div class="nav-link" onclick="setNavActive(this);navScrollTo('section-pricing')">Pricing</div>
       <div class="nav-link" onclick="setNavActive(this);navScrollTo('section-faq')">FAQ</div>
-    </div>
-    <div class="nav-right">
       <button class="theme-btn" onclick="toggleTheme()" title="Toggle theme">
         <span id="theme-icon">☀</span>
       </button>
+    </div>
+    <div class="nav-right">
       <button class="nav-login" onclick="showAuthTab('login')">Log in</button>
       <button class="nav-cta" onclick="showAuthTab('signup')">Start free →</button>
     </div>
@@ -104,11 +104,11 @@
       <span class="badge-dot"></span>
       <span>The smarter way to prep for finance interviews</span>
     </div>
-    <h1 data-reveal="up" data-delay="250">Win your next<br><span class="grad">finance internship.</span></h1>
-    <p data-reveal="up" data-delay="400">250+ real interview questions. Adaptive learning paths. AI mock interviews that score like a VP. Built for students breaking into IB, PE, ER, and beyond.</p>
+    <h1 data-reveal="up" data-delay="250">Ace your<br><span class="grad">finance interviews.</span></h1>
+    <p data-reveal="up" data-delay="400">Adaptive prep that meets you where you are. AI-driven plans, real questions, smarter every session.</p>
     <div class="hero-actions" data-reveal="up" data-delay="550">
-      <button class="btn-primary" onclick="startDirectDiagnostic()">Take the diagnostic test →</button>
-      <button class="btn-ghost" onclick="document.getElementById('demo-section').scrollIntoView({behavior:'smooth'})">See it in action</button>
+      <button class="btn-primary" onclick="startDirectDiagnostic()">Start Learning →</button>
+      <button class="btn-ghost" onclick="document.getElementById('demo-section').scrollIntoView({behavior:'smooth'})">Learn More</button>
     </div>
 
     <!-- INTERACTIVE MINI APP PREVIEW -->
@@ -331,28 +331,84 @@
     <div class="logos-section">
       <div class="logos-label" data-reveal="fade" data-delay="0">Candidates interviewing at</div>
       <div class="logos-strip" data-stagger-children="80">
-        <div class="wm-logo wm-text" title="Goldman Sachs"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:11px;font-weight:700;letter-spacing:-0.02em">Goldman Sachs</span></div>
-        <div class="wm-logo wm-text" title="J.P. Morgan"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:11.5px;font-weight:700;letter-spacing:-0.01em">J.P. Morgan</span></div>
-        <div class="wm-logo wm-text" title="Morgan Stanley"><span class="wm-wordmark" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:10.5px;font-weight:600;letter-spacing:0.01em">Morgan Stanley</span></div>
-        <div class="wm-logo wm-text" title="Lazard"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:12px;font-weight:700;letter-spacing:0.03em">LAZARD</span></div>
-        <div class="wm-logo wm-text" title="Blackstone"><span class="wm-wordmark" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:10.5px;font-weight:700;letter-spacing:0.02em">Blackstone</span></div>
-        <div class="wm-logo wm-text" title="KKR"><span class="wm-wordmark" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;font-weight:800;letter-spacing:0.06em">KKR</span></div>
-        <div class="wm-logo wm-text" title="Evercore"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:11px;font-weight:700;letter-spacing:0.02em">EVERCORE</span></div>
-        <div class="wm-logo wm-text" title="Jefferies"><span class="wm-wordmark" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.01em">Jefferies</span></div>
+        <div class="wm-logo" title="Goldman Sachs">
+          <svg viewBox="0 0 120 20" height="16" fill="currentColor" class="wm-svg"><text x="0" y="15" font-family="Georgia,serif" font-size="14" font-weight="700" letter-spacing="-0.3">Goldman Sachs</text></svg>
+        </div>
+        <div class="wm-logo" title="J.P. Morgan">
+          <svg viewBox="0 0 100 20" height="16" fill="currentColor" class="wm-svg"><text x="0" y="15" font-family="Georgia,serif" font-size="14" font-weight="700" letter-spacing="-0.2">J.P. Morgan</text></svg>
+        </div>
+        <div class="wm-logo" title="Morgan Stanley">
+          <svg viewBox="0 0 120 20" height="15" fill="currentColor" class="wm-svg"><text x="0" y="15" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" letter-spacing="0.2">Morgan Stanley</text></svg>
+        </div>
+        <div class="wm-logo" title="Lazard">
+          <svg viewBox="0 0 68 20" height="15" fill="currentColor" class="wm-svg"><text x="0" y="15" font-family="Georgia,serif" font-size="14.5" font-weight="700" letter-spacing="1.5">LAZARD</text></svg>
+        </div>
+        <div class="wm-logo" title="Blackstone">
+          <svg viewBox="0 0 92 20" height="15" fill="currentColor" class="wm-svg"><text x="0" y="15" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" font-size="14" font-weight="700" letter-spacing="0.3">Blackstone</text></svg>
+        </div>
+        <div class="wm-logo" title="KKR">
+          <svg viewBox="0 0 40 20" height="15" fill="currentColor" class="wm-svg"><text x="0" y="15" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="800" letter-spacing="1.5">KKR</text></svg>
+        </div>
+        <div class="wm-logo" title="Evercore">
+          <svg viewBox="0 0 90 20" height="15" fill="currentColor" class="wm-svg"><text x="0" y="15" font-family="Georgia,serif" font-size="14" font-weight="700" letter-spacing="0.8">EVERCORE</text></svg>
+        </div>
+        <div class="wm-logo" title="Jefferies">
+          <svg viewBox="0 0 72 20" height="15" fill="currentColor" class="wm-svg"><text x="0" y="15" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" font-size="14" font-weight="600" letter-spacing="0.2">Jefferies</text></svg>
+        </div>
       </div>
     </div>
     <div class="logos-divider" data-reveal="fade" data-delay="200"></div>
     <div class="logos-section">
       <div class="logos-label" data-reveal="fade" data-delay="0">Students from</div>
       <div class="logos-strip" data-stagger-children="80">
-        <div class="wm-logo wm-text sq-text" title="Harvard"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:10px;font-weight:700;letter-spacing:0em">Harvard</span></div>
-        <div class="wm-logo wm-text sq-text" title="Yale"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:10.5px;font-weight:700;letter-spacing:0em">Yale</span></div>
-        <div class="wm-logo wm-text sq-text" title="Princeton"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:9.5px;font-weight:700;letter-spacing:0em">Princeton</span></div>
-        <div class="wm-logo wm-text sq-text" title="Columbia"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:9.5px;font-weight:700;letter-spacing:0em">Columbia</span></div>
-        <div class="wm-logo wm-text sq-text" title="Penn"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:10.5px;font-weight:700;letter-spacing:0em">Penn</span></div>
-        <div class="wm-logo wm-text sq-text" title="Brown"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:10.5px;font-weight:700;letter-spacing:0em">Brown</span></div>
-        <div class="wm-logo wm-text sq-text" title="Dartmouth"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:9px;font-weight:700;letter-spacing:0em">Dartmouth</span></div>
-        <div class="wm-logo wm-text sq-text" title="Cornell"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:10px;font-weight:700;letter-spacing:0em">Cornell</span></div>
+        <div class="wm-logo sq-logo" title="Harvard">
+          <svg viewBox="0 0 24 28" height="22" class="wm-svg crest-svg">
+            <path d="M12 0L0 6v16l12 6 12-6V6L12 0z" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="12" y="18" text-anchor="middle" font-family="Georgia,serif" font-size="11" font-weight="700" fill="currentColor">H</text>
+          </svg>
+        </div>
+        <div class="wm-logo sq-logo" title="Yale">
+          <svg viewBox="0 0 24 28" height="22" class="wm-svg crest-svg">
+            <path d="M12 0L0 6v16l12 6 12-6V6L12 0z" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="12" y="18" text-anchor="middle" font-family="Georgia,serif" font-size="11" font-weight="700" fill="currentColor">Y</text>
+          </svg>
+        </div>
+        <div class="wm-logo sq-logo" title="Princeton">
+          <svg viewBox="0 0 24 28" height="22" class="wm-svg crest-svg">
+            <path d="M12 0L0 6v16l12 6 12-6V6L12 0z" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="12" y="18" text-anchor="middle" font-family="Georgia,serif" font-size="11" font-weight="700" fill="currentColor">P</text>
+          </svg>
+        </div>
+        <div class="wm-logo sq-logo" title="Columbia">
+          <svg viewBox="0 0 24 28" height="22" class="wm-svg crest-svg">
+            <path d="M12 0L0 6v16l12 6 12-6V6L12 0z" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="12" y="18" text-anchor="middle" font-family="Georgia,serif" font-size="11" font-weight="700" fill="currentColor">C</text>
+          </svg>
+        </div>
+        <div class="wm-logo sq-logo" title="Penn">
+          <svg viewBox="0 0 24 28" height="22" class="wm-svg crest-svg">
+            <path d="M12 0L0 6v16l12 6 12-6V6L12 0z" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="12" y="18" text-anchor="middle" font-family="Georgia,serif" font-size="11" font-weight="700" fill="currentColor">P</text>
+          </svg>
+        </div>
+        <div class="wm-logo sq-logo" title="Brown">
+          <svg viewBox="0 0 24 28" height="22" class="wm-svg crest-svg">
+            <path d="M12 0L0 6v16l12 6 12-6V6L12 0z" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="12" y="18" text-anchor="middle" font-family="Georgia,serif" font-size="11" font-weight="700" fill="currentColor">B</text>
+          </svg>
+        </div>
+        <div class="wm-logo sq-logo" title="Dartmouth">
+          <svg viewBox="0 0 24 28" height="22" class="wm-svg crest-svg">
+            <path d="M12 0L0 6v16l12 6 12-6V6L12 0z" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="12" y="18" text-anchor="middle" font-family="Georgia,serif" font-size="11" font-weight="700" fill="currentColor">D</text>
+          </svg>
+        </div>
+        <div class="wm-logo sq-logo" title="Cornell">
+          <svg viewBox="0 0 24 28" height="22" class="wm-svg crest-svg">
+            <path d="M12 0L0 6v16l12 6 12-6V6L12 0z" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="12" y="18" text-anchor="middle" font-family="Georgia,serif" font-size="11" font-weight="700" fill="currentColor">C</text>
+          </svg>
+        </div>
       </div>
     </div>
   </div>
@@ -365,10 +421,10 @@
     <section class="feat-section">
       <div class="feat-two">
         <div data-reveal="left" data-dur="slow">
-          <div class="feat-tag">Question Bank</div>
-          <h2 class="feat-h">Master what's coming. Before you walk in.</h2>
-          <p class="feat-p">250+ questions pulled from real IB interviews. Every answer written the way a banker wants to hear it.</p>
-          <button class="btn-primary" onclick="showAuthTab('signup')">Explore all 250+ questions →</button>
+          <div class="feat-tag">Learn Effortlessly</div>
+          <h2 class="feat-h">Start anywhere. Master everything.</h2>
+          <p class="feat-p">250+ real interview questions with expert answers. Firm-specific question sets for Goldman, Morgan Stanley, and more. Learn at your pace — Superday does the heavy lifting.</p>
+          <button class="btn-primary" onclick="showAuthTab('signup')">Start learning →</button>
         </div>
         <div class="demo-card" data-reveal="right" data-dur="slow">
           <div class="qb-demo">
@@ -457,10 +513,10 @@
     <section class="feat-section">
       <div class="feat-two rev">
         <div data-reveal="right" data-dur="slow">
-          <div class="feat-tag">Flashcards</div>
-          <h2 class="feat-h">Recall beats recognition. Every time.</h2>
-          <p class="feat-p">Knowing the answer isn't enough. Superday drills you to deliver it cold, under pressure — automatically, every time. No hesitation.</p>
-          <button class="btn-primary" onclick="showAuthTab('signup')">Try the flashcards →</button>
+          <div class="feat-tag">Adaptive to You</div>
+          <h2 class="feat-h">It learns how you learn.</h2>
+          <p class="feat-p">Superday adapts to your skill level in real time. Weak on valuation? It drills you harder. Strong on accounting? It moves you forward. Every session is built for where you are right now.</p>
+          <button class="btn-primary" onclick="showAuthTab('signup')">See how it works →</button>
         </div>
         <div class="demo-card" data-reveal="left" data-dur="slow">
           <div class="fc-demo">
@@ -507,10 +563,10 @@
     <section class="feat-section">
       <div class="feat-two">
         <div data-reveal="left" data-dur="slow">
-          <div class="feat-tag">Mock Interview</div>
-          <h2 class="feat-h">Simulate real interviews. Get better each time.</h2>
-          <p class="feat-p">Win by practicing real interview scenarios again and again — until your answers come out clean, confident, and automatic. Alex Chen, VP in M&A, scores every answer on three dimensions and asks harder follow-ups.</p>
-          <button class="btn-primary" onclick="showAuthTab('signup')">Start your mock now →</button>
+          <div class="feat-tag">Built-In Interviewer</div>
+          <h2 class="feat-h">Practice with an AI that scores like a VP.</h2>
+          <p class="feat-p">Mock interviews with real-time scoring across three dimensions. An internship tracker to manage your pipeline. Firm-specific prep so you walk in ready for that bank, not just any bank.</p>
+          <button class="btn-primary" onclick="showAuthTab('signup')">Try a mock interview →</button>
         </div>
         <div class="demo-card" data-reveal="right" data-dur="slow" style="display:flex;flex-direction:column">
           <div class="iv-topbar">
@@ -542,16 +598,16 @@
   <div class="stats-band">
     <div class="stats-inner stats-animate" id="stats-inner">
       <div class="stat-block">
-        <div class="stat-num">250<span>+</span></div>
-        <div class="stat-desc">questions that actually get asked</div>
+        <div class="stat-num">2,400<span>+</span></div>
+        <div class="stat-desc">students prepping with Superday</div>
       </div>
       <div class="stat-block">
-        <div class="stat-num">3<span>×</span></div>
-        <div class="stat-desc">dimensions. scored like a banker scores you</div>
+        <div class="stat-num">93<span>%</span></div>
+        <div class="stat-desc">felt more confident after one week</div>
       </div>
       <div class="stat-block">
-        <div class="stat-num">$0</div>
-        <div class="stat-desc">to start. no card. no catch</div>
+        <div class="stat-num">4.9<span>/5</span></div>
+        <div class="stat-desc">average rating from users</div>
       </div>
     </div>
   </div>
@@ -603,11 +659,11 @@
         <div class="pricing-name">Weekly</div>
         <div class="pricing-price">
           <span class="pricing-currency">$</span>
-          <span class="pricing-amount">3.99</span>
+          <span class="pricing-amount">5</span>
         </div>
-        <div class="pricing-period">per week</div>
+        <div class="pricing-period">per week · first week free</div>
         <div class="pricing-desc">One focused sprint. Everything you need for the week before interviews.</div>
-        <button class="pricing-btn ghost" onclick="showAuthTab('signup')">Start sprinting</button>
+        <button class="pricing-btn ghost" onclick="showAuthTab('signup')">Try free for a week</button>
         <div class="pricing-divider"></div>
         <div class="pricing-features">
           <div class="pf-item"><span class="pf-check">✓</span>Full question bank (250+ questions)</div>
@@ -624,7 +680,7 @@
         <div class="pricing-name">Monthly</div>
         <div class="pricing-price">
           <span class="pricing-currency">$</span>
-          <span class="pricing-amount">10</span>
+          <span class="pricing-amount">15</span>
         </div>
         <div class="pricing-period">per month · cancel anytime</div>
         <div class="pricing-desc">The whole season. From first application to final round.</div>
@@ -644,7 +700,7 @@
         <div class="pricing-name">Lifetime</div>
         <div class="pricing-price">
           <span class="pricing-currency">$</span>
-          <span class="pricing-amount">100</span>
+          <span class="pricing-amount">99</span>
         </div>
         <div class="pricing-period">one-time · yours forever</div>
         <div class="pricing-desc">Pay once. Prep for every cycle, every lateral move, every promotion conversation.</div>
@@ -668,7 +724,7 @@
       <div style="margin-bottom:32px" data-reveal="up">
         <div class="feat-tag">The Math</div>
         <h2 class="feat-h">A Wall Street career — for less than a coffee?</h2>
-        <p class="feat-p" style="margin-bottom:0">First-year IB analysts earn $150k+. Win that offer for $3.</p>
+        <p class="feat-p" style="margin-bottom:0">First-year IB analysts earn $150k+. Win that offer for $5.</p>
       </div>
       <div class="roi-card" data-reveal="scale" data-delay="200" data-dur="slow">
         <div class="roi-grid">
@@ -766,10 +822,10 @@
 
   <div class="cta-section">
     <div class="cta-glow"></div>
-    <h2 class="cta-h" data-reveal="up">Win your next<br>finance internship.</h2>
-    <p class="cta-p" data-reveal="up" data-delay="120">Built for candidates who don't leave offers to chance.</p>
+    <h2 class="cta-h" data-reveal="up">Win Your Offer.</h2>
+    <p class="cta-p" data-reveal="up" data-delay="120">Start prepping in 30 seconds. No card required.</p>
     <div data-reveal="up" data-delay="240" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-      <button class="btn-primary" onclick="startDirectDiagnostic()">Take the diagnostic test →</button>
+      <button class="btn-primary" onclick="startDirectDiagnostic()">Start Learning →</button>
       <button class="btn-ghost" onclick="showAuthTab('signup')">Create account</button>
     </div>
   </div>
@@ -779,7 +835,7 @@
       <div class="logo-mark">S</div>
       <span class="logo-wordmark">Superday</span>
     </div>
-    <div class="footer-copy">© 2026 Superday. Built for candidates who don't leave offers to chance.</div>
+    <div class="footer-copy">© 2026 Superday. All rights reserved.</div>
     <div class="footer-links">
       <span class="footer-link">Privacy</span>
       <span class="footer-link">Terms</span>

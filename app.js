@@ -471,7 +471,7 @@ function pvMockSend() {
 }
 
 /* ─── ROI CALCULATOR ─────────────────── */
-const PLANS = [{ name:'Weekly', cost:3.99 }, { name:'Monthly', cost:10 }, { name:'Lifetime', cost:100 }];
+const PLANS = [{ name:'Weekly', cost:5 }, { name:'Monthly', cost:15 }, { name:'Lifetime', cost:99 }];
 function calcROI() {
   const salaryEl = document.getElementById('roi-salary');
   const bonusEl  = document.getElementById('roi-bonus');
