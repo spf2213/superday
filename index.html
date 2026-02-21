@@ -12,6 +12,7 @@
 </head>
 <body>
 <div class="grid-bg"></div>
+<div id="toast-container" class="toast-container"></div>
 
 <!-- ══════════════════════════════════════
      AUTH SCREEN
@@ -86,11 +87,11 @@
       <div class="nav-link nav-active" onclick="setNavActive(this);navScrollTo('product-section')">Product</div>
       <div class="nav-link" onclick="setNavActive(this);navScrollTo('section-pricing')">Pricing</div>
       <div class="nav-link" onclick="setNavActive(this);navScrollTo('section-faq')">FAQ</div>
-    </div>
-    <div class="nav-right">
       <button class="theme-btn" onclick="toggleTheme()" title="Toggle theme">
         <span id="theme-icon">☽</span>
       </button>
+    </div>
+    <div class="nav-right">
       <button class="nav-login" onclick="showAuthTab('login')">Log in</button>
       <button class="nav-cta" onclick="showAuthTab('signup')">Start free →</button>
     </div>
@@ -103,11 +104,11 @@
       <span class="badge-dot"></span>
       <span>The smarter way to prep for finance interviews</span>
     </div>
-    <h1 data-reveal="up" data-delay="250">Win your next<br><span class="grad">finance internship.</span></h1>
-    <p data-reveal="up" data-delay="400">250+ real interview questions. Adaptive learning paths. AI mock interviews that score like a VP. Built for students breaking into IB, PE, ER, and beyond.</p>
+    <h1 data-reveal="up" data-delay="250">Ace your<br><span class="grad">finance interviews.</span></h1>
+    <p data-reveal="up" data-delay="400">Adaptive prep that meets you where you are. AI-driven plans, real questions, smarter every session.</p>
     <div class="hero-actions" data-reveal="up" data-delay="550">
-      <button class="btn-primary" onclick="startDirectDiagnostic()">Take the diagnostic test →</button>
-      <button class="btn-ghost" onclick="document.getElementById('demo-section').scrollIntoView({behavior:'smooth'})">See it in action</button>
+      <button class="btn-primary" onclick="startDirectDiagnostic()">Start Learning →</button>
+      <button class="btn-ghost" onclick="document.getElementById('demo-section').scrollIntoView({behavior:'smooth'})">Learn More</button>
     </div>
 
     <!-- INTERACTIVE MINI APP PREVIEW -->
@@ -125,19 +126,19 @@
             Superday
           </div>
           <div class="ps-item ps-active" id="pnav-dashboard" onclick="prevNav('dashboard',this)">
-            <span class="ps-icon">◈</span>Dashboard
+            <span class="ps-icon">◇</span>Dashboard
           </div>
           <div class="ps-section">Learn</div>
           <div class="ps-item" id="pnav-bank" onclick="prevNav('bank',this)">
-            <span class="ps-icon">📖</span>Concepts
+            <span class="ps-icon">□</span>Concepts
           </div>
           <div class="ps-section">Practice</div>
           <div class="ps-item" id="pnav-flash" onclick="prevNav('flash',this)">
-            <span class="ps-icon">⧉</span>Flashcards
+            <span class="ps-icon">⬡</span>Flashcards
           </div>
           <div class="ps-section">Test</div>
           <div class="ps-item" id="pnav-mock" onclick="prevNav('mock',this)">
-            <span class="ps-icon">✓</span>Quiz Mode
+            <span class="ps-icon">◇</span>Quiz Mode
           </div>
         </div>
 
@@ -275,7 +276,7 @@
                 <div style="
                   position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
                   transform:rotateY(180deg);
-                  background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);
+                  background:rgba(26,109,255,0.08);border:1px solid rgba(26,109,255,0.25);
                   border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;
                 ">
                   <div style="font-size:9px;font-family:'Geist Mono',monospace;color:var(--green);letter-spacing:0.06em">ANSWER</div>
@@ -295,7 +296,7 @@
           <div id="pv-mock" style="display:none;flex-direction:column;height:100%">
             <!-- Header -->
             <div style="flex-shrink:0;display:flex;align-items:center;gap:8px;padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:10px">
-              <div style="width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#71717A,#A1A1AA);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:white;flex-shrink:0">AC</div>
+              <div style="width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#1A6DFF,#4D8FFF);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:white;flex-shrink:0">AC</div>
               <div>
                 <div style="font-size:12px;font-weight:600;color:var(--t);letter-spacing:-0.01em">Alex Chen</div>
                 <div style="font-size:10px;color:var(--t-3)">VP, M&amp;A · Goldman Sachs</div>
@@ -307,7 +308,7 @@
             <!-- Chat log -->
             <div id="pv-mock-chat" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:2px;min-height:0">
               <div style="display:flex;gap:7px;align-items:flex-start">
-                <div style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#71717A,#A1A1AA);display:flex;align-items:center;justify-content:center;font-size:7.5px;font-weight:700;color:white;flex-shrink:0;margin-top:1px">AC</div>
+                <div style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#1A6DFF,#4D8FFF);display:flex;align-items:center;justify-content:center;font-size:7.5px;font-weight:700;color:white;flex-shrink:0;margin-top:1px">AC</div>
                 <div style="background:rgba(255,255,255,0.05);border:1px solid var(--line);border-radius:0 8px 8px 8px;padding:8px 10px;font-size:11px;color:var(--t-2);line-height:1.55;max-width:88%">Walk me through a DCF. Which assumptions have the biggest impact on value?</div>
               </div>
             </div>
@@ -330,28 +331,84 @@
     <div class="logos-section">
       <div class="logos-label" data-reveal="fade" data-delay="0">Candidates interviewing at</div>
       <div class="logos-strip" data-stagger-children="80">
-        <div class="wm-logo wm-text" title="Goldman Sachs"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:11px;font-weight:700;letter-spacing:-0.02em">Goldman Sachs</span></div>
-        <div class="wm-logo wm-text" title="J.P. Morgan"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:11.5px;font-weight:700;letter-spacing:-0.01em">J.P. Morgan</span></div>
-        <div class="wm-logo wm-text" title="Morgan Stanley"><span class="wm-wordmark" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:10.5px;font-weight:600;letter-spacing:0.01em">Morgan Stanley</span></div>
-        <div class="wm-logo wm-text" title="Lazard"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:12px;font-weight:700;letter-spacing:0.03em">LAZARD</span></div>
-        <div class="wm-logo wm-text" title="Blackstone"><span class="wm-wordmark" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:10.5px;font-weight:700;letter-spacing:0.02em">Blackstone</span></div>
-        <div class="wm-logo wm-text" title="KKR"><span class="wm-wordmark" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;font-weight:800;letter-spacing:0.06em">KKR</span></div>
-        <div class="wm-logo wm-text" title="Evercore"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:11px;font-weight:700;letter-spacing:0.02em">EVERCORE</span></div>
-        <div class="wm-logo wm-text" title="Jefferies"><span class="wm-wordmark" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.01em">Jefferies</span></div>
+        <div class="wm-logo" title="Goldman Sachs">
+          <svg viewBox="0 0 120 20" height="16" fill="currentColor" class="wm-svg"><text x="0" y="15" font-family="Georgia,serif" font-size="14" font-weight="700" letter-spacing="-0.3">Goldman Sachs</text></svg>
+        </div>
+        <div class="wm-logo" title="J.P. Morgan">
+          <svg viewBox="0 0 100 20" height="16" fill="currentColor" class="wm-svg"><text x="0" y="15" font-family="Georgia,serif" font-size="14" font-weight="700" letter-spacing="-0.2">J.P. Morgan</text></svg>
+        </div>
+        <div class="wm-logo" title="Morgan Stanley">
+          <svg viewBox="0 0 120 20" height="15" fill="currentColor" class="wm-svg"><text x="0" y="15" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" letter-spacing="0.2">Morgan Stanley</text></svg>
+        </div>
+        <div class="wm-logo" title="Lazard">
+          <svg viewBox="0 0 68 20" height="15" fill="currentColor" class="wm-svg"><text x="0" y="15" font-family="Georgia,serif" font-size="14.5" font-weight="700" letter-spacing="1.5">LAZARD</text></svg>
+        </div>
+        <div class="wm-logo" title="Blackstone">
+          <svg viewBox="0 0 92 20" height="15" fill="currentColor" class="wm-svg"><text x="0" y="15" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" font-size="14" font-weight="700" letter-spacing="0.3">Blackstone</text></svg>
+        </div>
+        <div class="wm-logo" title="KKR">
+          <svg viewBox="0 0 40 20" height="15" fill="currentColor" class="wm-svg"><text x="0" y="15" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="800" letter-spacing="1.5">KKR</text></svg>
+        </div>
+        <div class="wm-logo" title="Evercore">
+          <svg viewBox="0 0 90 20" height="15" fill="currentColor" class="wm-svg"><text x="0" y="15" font-family="Georgia,serif" font-size="14" font-weight="700" letter-spacing="0.8">EVERCORE</text></svg>
+        </div>
+        <div class="wm-logo" title="Jefferies">
+          <svg viewBox="0 0 72 20" height="15" fill="currentColor" class="wm-svg"><text x="0" y="15" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" font-size="14" font-weight="600" letter-spacing="0.2">Jefferies</text></svg>
+        </div>
       </div>
     </div>
     <div class="logos-divider" data-reveal="fade" data-delay="200"></div>
     <div class="logos-section">
       <div class="logos-label" data-reveal="fade" data-delay="0">Students from</div>
       <div class="logos-strip" data-stagger-children="80">
-        <div class="wm-logo wm-text sq-text" title="Harvard"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:10px;font-weight:700;letter-spacing:0em">Harvard</span></div>
-        <div class="wm-logo wm-text sq-text" title="Yale"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:10.5px;font-weight:700;letter-spacing:0em">Yale</span></div>
-        <div class="wm-logo wm-text sq-text" title="Princeton"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:9.5px;font-weight:700;letter-spacing:0em">Princeton</span></div>
-        <div class="wm-logo wm-text sq-text" title="Columbia"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:9.5px;font-weight:700;letter-spacing:0em">Columbia</span></div>
-        <div class="wm-logo wm-text sq-text" title="Penn"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:10.5px;font-weight:700;letter-spacing:0em">Penn</span></div>
-        <div class="wm-logo wm-text sq-text" title="Brown"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:10.5px;font-weight:700;letter-spacing:0em">Brown</span></div>
-        <div class="wm-logo wm-text sq-text" title="Dartmouth"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:9px;font-weight:700;letter-spacing:0em">Dartmouth</span></div>
-        <div class="wm-logo wm-text sq-text" title="Cornell"><span class="wm-wordmark" style="font-family:Georgia,'Times New Roman',serif;font-size:10px;font-weight:700;letter-spacing:0em">Cornell</span></div>
+        <div class="wm-logo sq-logo" title="Harvard">
+          <svg viewBox="0 0 24 28" height="22" class="wm-svg crest-svg">
+            <path d="M12 0L0 6v16l12 6 12-6V6L12 0z" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="12" y="18" text-anchor="middle" font-family="Georgia,serif" font-size="11" font-weight="700" fill="currentColor">H</text>
+          </svg>
+        </div>
+        <div class="wm-logo sq-logo" title="Yale">
+          <svg viewBox="0 0 24 28" height="22" class="wm-svg crest-svg">
+            <path d="M12 0L0 6v16l12 6 12-6V6L12 0z" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="12" y="18" text-anchor="middle" font-family="Georgia,serif" font-size="11" font-weight="700" fill="currentColor">Y</text>
+          </svg>
+        </div>
+        <div class="wm-logo sq-logo" title="Princeton">
+          <svg viewBox="0 0 24 28" height="22" class="wm-svg crest-svg">
+            <path d="M12 0L0 6v16l12 6 12-6V6L12 0z" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="12" y="18" text-anchor="middle" font-family="Georgia,serif" font-size="11" font-weight="700" fill="currentColor">P</text>
+          </svg>
+        </div>
+        <div class="wm-logo sq-logo" title="Columbia">
+          <svg viewBox="0 0 24 28" height="22" class="wm-svg crest-svg">
+            <path d="M12 0L0 6v16l12 6 12-6V6L12 0z" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="12" y="18" text-anchor="middle" font-family="Georgia,serif" font-size="11" font-weight="700" fill="currentColor">C</text>
+          </svg>
+        </div>
+        <div class="wm-logo sq-logo" title="Penn">
+          <svg viewBox="0 0 24 28" height="22" class="wm-svg crest-svg">
+            <path d="M12 0L0 6v16l12 6 12-6V6L12 0z" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="12" y="18" text-anchor="middle" font-family="Georgia,serif" font-size="11" font-weight="700" fill="currentColor">P</text>
+          </svg>
+        </div>
+        <div class="wm-logo sq-logo" title="Brown">
+          <svg viewBox="0 0 24 28" height="22" class="wm-svg crest-svg">
+            <path d="M12 0L0 6v16l12 6 12-6V6L12 0z" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="12" y="18" text-anchor="middle" font-family="Georgia,serif" font-size="11" font-weight="700" fill="currentColor">B</text>
+          </svg>
+        </div>
+        <div class="wm-logo sq-logo" title="Dartmouth">
+          <svg viewBox="0 0 24 28" height="22" class="wm-svg crest-svg">
+            <path d="M12 0L0 6v16l12 6 12-6V6L12 0z" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="12" y="18" text-anchor="middle" font-family="Georgia,serif" font-size="11" font-weight="700" fill="currentColor">D</text>
+          </svg>
+        </div>
+        <div class="wm-logo sq-logo" title="Cornell">
+          <svg viewBox="0 0 24 28" height="22" class="wm-svg crest-svg">
+            <path d="M12 0L0 6v16l12 6 12-6V6L12 0z" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="12" y="18" text-anchor="middle" font-family="Georgia,serif" font-size="11" font-weight="700" fill="currentColor">C</text>
+          </svg>
+        </div>
       </div>
     </div>
   </div>
@@ -364,10 +421,10 @@
     <section class="feat-section">
       <div class="feat-two">
         <div data-reveal="left" data-dur="slow">
-          <div class="feat-tag">Question Bank</div>
-          <h2 class="feat-h">Master what's coming. Before you walk in.</h2>
-          <p class="feat-p">250+ questions pulled from real IB interviews. Every answer written the way a banker wants to hear it.</p>
-          <button class="btn-primary" onclick="showAuthTab('signup')">Explore all 250+ questions →</button>
+          <div class="feat-tag">Learn Effortlessly</div>
+          <h2 class="feat-h">Start anywhere. Master everything.</h2>
+          <p class="feat-p">250+ real interview questions with expert answers. Firm-specific question sets for Goldman, Morgan Stanley, and more. Learn at your pace — Superday does the heavy lifting.</p>
+          <button class="btn-primary" onclick="showAuthTab('signup')">Start learning →</button>
         </div>
         <div class="demo-card" data-reveal="right" data-dur="slow">
           <div class="qb-demo">
@@ -456,10 +513,10 @@
     <section class="feat-section">
       <div class="feat-two rev">
         <div data-reveal="right" data-dur="slow">
-          <div class="feat-tag">Flashcards</div>
-          <h2 class="feat-h">Recall beats recognition. Every time.</h2>
-          <p class="feat-p">Knowing the answer isn't enough. Superday drills you to deliver it cold, under pressure — automatically, every time. No hesitation.</p>
-          <button class="btn-primary" onclick="showAuthTab('signup')">Try the flashcards →</button>
+          <div class="feat-tag">Adaptive to You</div>
+          <h2 class="feat-h">It learns how you learn.</h2>
+          <p class="feat-p">Superday adapts to your skill level in real time. Weak on valuation? It drills you harder. Strong on accounting? It moves you forward. Every session is built for where you are right now.</p>
+          <button class="btn-primary" onclick="showAuthTab('signup')">See how it works →</button>
         </div>
         <div class="demo-card" data-reveal="left" data-dur="slow">
           <div class="fc-demo">
@@ -484,7 +541,7 @@
                 </div>
                 <div style="position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
                   transform:rotateY(180deg);
-                  background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);
+                  background:rgba(26,109,255,0.08);border:1px solid rgba(26,109,255,0.3);
                   border-radius:var(--r-lg);padding:24px;display:flex;flex-direction:column;gap:10px;overflow:hidden">
                   <div style="font-size:10px;font-family:'Geist Mono',monospace;color:var(--accent);letter-spacing:0.08em;text-transform:uppercase">Answer</div>
                   <div id="demo-fc-a" style="font-size:13px;color:var(--t-2);line-height:1.65;flex:1"></div>
@@ -506,10 +563,10 @@
     <section class="feat-section">
       <div class="feat-two">
         <div data-reveal="left" data-dur="slow">
-          <div class="feat-tag">Mock Interview</div>
-          <h2 class="feat-h">Simulate real interviews. Get better each time.</h2>
-          <p class="feat-p">Win by practicing real interview scenarios again and again — until your answers come out clean, confident, and automatic. Alex Chen, VP in M&A, scores every answer on three dimensions and asks harder follow-ups.</p>
-          <button class="btn-primary" onclick="showAuthTab('signup')">Start your mock now →</button>
+          <div class="feat-tag">Built-In Interviewer</div>
+          <h2 class="feat-h">Practice with an AI that scores like a VP.</h2>
+          <p class="feat-p">Mock interviews with real-time scoring across three dimensions. An internship tracker to manage your pipeline. Firm-specific prep so you walk in ready for that bank, not just any bank.</p>
+          <button class="btn-primary" onclick="showAuthTab('signup')">Try a mock interview →</button>
         </div>
         <div class="demo-card" data-reveal="right" data-dur="slow" style="display:flex;flex-direction:column">
           <div class="iv-topbar">
@@ -541,16 +598,16 @@
   <div class="stats-band">
     <div class="stats-inner stats-animate" id="stats-inner">
       <div class="stat-block">
-        <div class="stat-num">250<span>+</span></div>
-        <div class="stat-desc">questions that actually get asked</div>
+        <div class="stat-num">2,400<span>+</span></div>
+        <div class="stat-desc">students prepping with Superday</div>
       </div>
       <div class="stat-block">
-        <div class="stat-num">3<span>×</span></div>
-        <div class="stat-desc">dimensions. scored like a banker scores you</div>
+        <div class="stat-num">93<span>%</span></div>
+        <div class="stat-desc">felt more confident after one week</div>
       </div>
       <div class="stat-block">
-        <div class="stat-num">$0</div>
-        <div class="stat-desc">to start. no card. no catch</div>
+        <div class="stat-num">4.9<span>/5</span></div>
+        <div class="stat-desc">average rating from users</div>
       </div>
     </div>
   </div>
@@ -602,11 +659,11 @@
         <div class="pricing-name">Weekly</div>
         <div class="pricing-price">
           <span class="pricing-currency">$</span>
-          <span class="pricing-amount">3.99</span>
+          <span class="pricing-amount">5</span>
         </div>
-        <div class="pricing-period">per week</div>
+        <div class="pricing-period">per week · first week free</div>
         <div class="pricing-desc">One focused sprint. Everything you need for the week before interviews.</div>
-        <button class="pricing-btn ghost" onclick="showAuthTab('signup')">Start sprinting</button>
+        <button class="pricing-btn ghost" onclick="showAuthTab('signup')">Try free for a week</button>
         <div class="pricing-divider"></div>
         <div class="pricing-features">
           <div class="pf-item"><span class="pf-check">✓</span>Full question bank (250+ questions)</div>
@@ -623,7 +680,7 @@
         <div class="pricing-name">Monthly</div>
         <div class="pricing-price">
           <span class="pricing-currency">$</span>
-          <span class="pricing-amount">10</span>
+          <span class="pricing-amount">15</span>
         </div>
         <div class="pricing-period">per month · cancel anytime</div>
         <div class="pricing-desc">The whole season. From first application to final round.</div>
@@ -643,7 +700,7 @@
         <div class="pricing-name">Lifetime</div>
         <div class="pricing-price">
           <span class="pricing-currency">$</span>
-          <span class="pricing-amount">100</span>
+          <span class="pricing-amount">99</span>
         </div>
         <div class="pricing-period">one-time · yours forever</div>
         <div class="pricing-desc">Pay once. Prep for every cycle, every lateral move, every promotion conversation.</div>
@@ -667,7 +724,7 @@
       <div style="margin-bottom:32px" data-reveal="up">
         <div class="feat-tag">The Math</div>
         <h2 class="feat-h">A Wall Street career — for less than a coffee?</h2>
-        <p class="feat-p" style="margin-bottom:0">First-year IB analysts earn $150k+. Win that offer for $3.</p>
+        <p class="feat-p" style="margin-bottom:0">First-year IB analysts earn $150k+. Win that offer for $5.</p>
       </div>
       <div class="roi-card" data-reveal="scale" data-delay="200" data-dur="slow">
         <div class="roi-grid">
@@ -765,10 +822,10 @@
 
   <div class="cta-section">
     <div class="cta-glow"></div>
-    <h2 class="cta-h" data-reveal="up">Win your next<br>finance internship.</h2>
-    <p class="cta-p" data-reveal="up" data-delay="120">Built for candidates who don't leave offers to chance.</p>
+    <h2 class="cta-h" data-reveal="up">Win Your Offer.</h2>
+    <p class="cta-p" data-reveal="up" data-delay="120">Start prepping in 30 seconds. No card required.</p>
     <div data-reveal="up" data-delay="240" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-      <button class="btn-primary" onclick="startDirectDiagnostic()">Take the diagnostic test →</button>
+      <button class="btn-primary" onclick="startDirectDiagnostic()">Start Learning →</button>
       <button class="btn-ghost" onclick="showAuthTab('signup')">Create account</button>
     </div>
   </div>
@@ -778,7 +835,7 @@
       <div class="logo-mark">S</div>
       <span class="logo-wordmark">Superday</span>
     </div>
-    <div class="footer-copy">© 2026 Superday. Built for candidates who don't leave offers to chance.</div>
+    <div class="footer-copy">© 2026 Superday. All rights reserved.</div>
     <div class="footer-links">
       <span class="footer-link">Privacy</span>
       <span class="footer-link">Terms</span>
@@ -797,19 +854,19 @@
   <aside class="app-sidebar">
     <div class="sb-top">
       <div class="sb-brand"><div class="logo-mark" style="width:20px;height:20px;border-radius:5px;font-size:10px">S</div>Superday</div>
-      <div class="sb-item active" onclick="showView('dashboard')"><span class="sb-icon">◈</span>Dashboard</div>
+      <div class="sb-item active" onclick="showView('dashboard')"><span class="sb-icon">◇</span>Dashboard</div>
       <div class="sb-section">Learn</div>
-      <div class="sb-item" onclick="showView('learn')"><span class="sb-icon">📖</span>Concepts</div>
-      <div class="sb-item" onclick="showView('cases')"><span class="sb-icon">🧮</span>Mini-Cases</div>
-      <div class="sb-item" onclick="showView('map')"><span class="sb-icon">◉</span>Knowledge Map</div>
+      <div class="sb-item" onclick="showView('learn')"><span class="sb-icon">□</span>Concepts</div>
+      <div class="sb-item" onclick="showView('map')"><span class="sb-icon">○</span>Knowledge Map</div>
+      <div class="sb-item" onclick="showView('bank')"><span class="sb-icon">≡</span>Question Bank</div>
       <div class="sb-section">Practice</div>
-      <div class="sb-item" onclick="showView('bank')"><span class="sb-icon">☰</span>Question Bank</div>
-      <div class="sb-item" onclick="showView('flash')"><span class="sb-icon">⧉</span>Flashcards</div>
+      <div class="sb-item" onclick="showView('cases')"><span class="sb-icon">△</span>Mini-Cases</div>
+      <div class="sb-item" onclick="showView('quiz')"><span class="sb-icon">◇</span>Quiz Mode</div>
+      <div class="sb-item" onclick="showView('flash')"><span class="sb-icon">⬡</span>Flashcards</div>
       <div class="sb-section">Test</div>
-      <div class="sb-item" onclick="showView('quiz')"><span class="sb-icon">✓</span>Quiz Mode</div>
       <div class="sb-item" onclick="showView('mock')"><span class="sb-icon">◎</span>Mock Interview</div>
       <div class="sb-section">Apply</div>
-      <div class="sb-item" onclick="showView('apply')"><span class="sb-icon">⊞</span>Internship Tracker</div>
+      <div class="sb-item" onclick="showView('apply')"><span class="sb-icon">→</span>Internship Tracker</div>
     </div>
     <div class="sb-spacer"></div>
     <div class="sb-bottom">
@@ -841,15 +898,35 @@
 
     <!-- ── DASHBOARD ── -->
     <div class="app-view active" id="view-dashboard">
-      <div class="dash-welcome">
-        <div>
+
+      <!-- HERO: Welcome + Streak + Daily Goal Ring -->
+      <div class="dash-hero">
+        <div class="dash-hero-left">
           <div class="dash-h">Good morning, <span id="greeting-name">Jamie</span>.</div>
           <div class="dash-date" id="dash-date"></div>
         </div>
-        <button class="dash-today-btn" id="dash-practice-btn" onclick="smartPractice()">
-          <span>📋</span><span id="practice-btn-text">Practice today →</span>
-        </button>
+        <div class="dash-hero-right">
+          <div class="dash-hero-streak" id="dash-hero-streak">
+            <span class="streak-flame">●</span>
+            <span class="streak-num" id="hero-streak-num">0</span>
+            <span class="streak-label">day streak</span>
+          </div>
+          <div class="dash-hero-goal" id="dash-hero-goal">
+            <svg class="goal-ring" width="48" height="48" viewBox="0 0 48 48">
+              <circle cx="24" cy="24" r="20" fill="none" stroke="var(--bg-4)" stroke-width="4"/>
+              <circle class="goal-ring-fill" id="hero-goal-ring" cx="24" cy="24" r="20" fill="none" stroke="var(--green)" stroke-width="4" stroke-linecap="round" stroke-dasharray="125.66" stroke-dashoffset="125.66" transform="rotate(-90 24 24)"/>
+            </svg>
+            <span class="goal-ring-text" id="hero-goal-text">0/5</span>
+          </div>
+        </div>
       </div>
+
+      <!-- PRIMARY CTA -->
+      <button class="dash-primary-cta" id="dash-practice-btn" onclick="smartPractice()">
+        <span class="cta-icon">→</span>
+        <span id="practice-btn-text">Continue Learning</span>
+        <span class="cta-arrow">→</span>
+      </button>
 
       <!-- Personalized Prep Plan -->
       <div id="prep-plan-container"></div>
@@ -859,42 +936,61 @@
 
         <!-- LEFT: Study Progress -->
         <div class="dash-col-left">
-          <div class="kpi-row" style="grid-template-columns:1fr 1fr 1fr">
-            <div class="kpi-card">
-              <div class="kpi-label">Answered</div>
-              <div class="kpi-val" id="kpi-answered">0</div>
-              <div class="kpi-sub">of <span id="kpi-total">120</span> total</div>
-              <div class="kpi-bar"><div class="kpi-fill" id="kpi-answered-fill" style="width:0%"></div></div>
-            </div>
-            <div class="kpi-card" style="cursor:pointer" onclick="goToDueReview()">
-              <div class="kpi-label">Due for Review</div>
-              <div class="kpi-val" id="kpi-due" style="color:var(--amber)">0</div>
-              <div class="kpi-sub">cards to review</div>
-              <div class="kpi-bar"><div class="kpi-fill" id="kpi-due-fill" style="width:0%;background:var(--amber)"></div></div>
-            </div>
-            <div class="kpi-card">
-              <div class="kpi-label">Mastered</div>
-              <div class="kpi-val" id="kpi-mastered" style="color:var(--green)">0</div>
-              <div class="kpi-sub">of 250 questions</div>
-              <div class="kpi-bar"><div class="kpi-fill green" id="kpi-mastered-fill" style="width:0%"></div></div>
-            </div>
-          </div>
 
-          <div class="kpi-row" style="grid-template-columns:1fr 1fr;margin-top:0">
-            <div class="kpi-card">
-              <div class="kpi-label">Current Streak</div>
-              <div class="kpi-val" id="kpi-streak">0</div>
-              <div class="kpi-sub">days in a row</div>
+          <!-- 3 KPI Cards with Circular Progress Rings -->
+          <div class="kpi-row" style="grid-template-columns:1fr 1fr 1fr">
+            <div class="kpi-card kpi-card-ring">
+              <svg class="kpi-ring" width="64" height="64" viewBox="0 0 64 64">
+                <circle cx="32" cy="32" r="26" fill="none" stroke="var(--bg-4)" stroke-width="5"/>
+                <circle class="kpi-ring-fill" id="ring-answered" cx="32" cy="32" r="26" fill="none" stroke="var(--accent)" stroke-width="5" stroke-linecap="round" stroke-dasharray="163.36" stroke-dashoffset="163.36" transform="rotate(-90 32 32)"/>
+              </svg>
+              <div class="kpi-ring-inner">
+                <div class="kpi-val" id="kpi-answered">0</div>
+                <div class="kpi-label">Answered</div>
+                <div class="kpi-sub">of <span id="kpi-total">250</span></div>
+              </div>
+            </div>
+            <div class="kpi-card kpi-card-ring">
+              <svg class="kpi-ring" width="64" height="64" viewBox="0 0 64 64">
+                <circle cx="32" cy="32" r="26" fill="none" stroke="var(--bg-4)" stroke-width="5"/>
+                <circle class="kpi-ring-fill" id="ring-mastered" cx="32" cy="32" r="26" fill="none" stroke="var(--green)" stroke-width="5" stroke-linecap="round" stroke-dasharray="163.36" stroke-dashoffset="163.36" transform="rotate(-90 32 32)"/>
+              </svg>
+              <div class="kpi-ring-inner">
+                <div class="kpi-val" id="kpi-mastered" style="color:var(--green)">0</div>
+                <div class="kpi-label">Mastered</div>
+                <div class="kpi-sub">of 250</div>
+              </div>
+            </div>
+            <div class="kpi-card kpi-card-ring">
+              <svg class="kpi-ring" width="64" height="64" viewBox="0 0 64 64">
+                <circle cx="32" cy="32" r="26" fill="none" stroke="var(--bg-4)" stroke-width="5"/>
+                <circle class="kpi-ring-fill" id="ring-streak" cx="32" cy="32" r="26" fill="none" stroke="var(--amber)" stroke-width="5" stroke-linecap="round" stroke-dasharray="163.36" stroke-dashoffset="163.36" transform="rotate(-90 32 32)"/>
+              </svg>
+              <div class="kpi-ring-inner">
+                <div class="kpi-val" id="kpi-streak" style="color:var(--amber)">0</div>
+                <div class="kpi-label">Streak</div>
+                <div class="kpi-sub">days in a row</div>
+              </div>
               <div class="streak-row" id="streak-dots"></div>
             </div>
-            <div class="kpi-card">
-              <div class="kpi-label">Categories</div>
-              <div class="kpi-val" id="kpi-cats">0</div>
-              <div class="kpi-sub">of 4 practiced</div>
-              <div class="kpi-bar"><div class="kpi-fill green" id="kpi-cats-fill" style="width:0%"></div></div>
-            </div>
           </div>
 
+          <!-- Daily Goal + Learning Path Side-by-Side -->
+          <div class="dash-goal-path-row">
+            <div class="dash-panel dash-daily-goal-card" id="daily-goal-panel">
+              <div class="daily-goal-header">
+                <span class="daily-goal-title">Daily Goal</span>
+                <span class="daily-goal-count" id="daily-goal-label">0/5 today</span>
+              </div>
+              <div class="daily-goal-wrap">
+                <div class="daily-goal-bar"><div class="daily-goal-fill" id="daily-goal-fill" style="width:0%"></div></div>
+                <div class="daily-goal-text" id="daily-goal-text">Answer 5 questions to hit your daily goal.</div>
+              </div>
+            </div>
+            <div id="learning-path-container" class="dash-learning-path-slot"></div>
+          </div>
+
+          <!-- Category Progress -->
           <div class="dash-panel">
             <div class="dp-header">
               <span class="dp-title">Category Progress</span>
@@ -902,37 +998,65 @@
             </div>
             <div class="cat-grid">
               <div class="cat-item" onclick="filterBankNav('tech')">
-                <div class="cat-name">Technical</div>
-                <div class="cat-pct" id="pct-tech">0%</div>
+                <div class="cat-header-row">
+                  <div class="cat-name">Technical</div>
+                  <div class="cat-pct" id="pct-tech">0%</div>
+                </div>
                 <div class="cat-bar"><div class="cat-fill fill-acc" id="fill-tech" style="width:0%"></div></div>
                 <div style="font-size:10.5px;color:var(--t-3);margin-top:4px;font-family:'Geist Mono',monospace" id="count-tech">0 answered</div>
               </div>
               <div class="cat-item" onclick="filterBankNav('beh')">
-                <div class="cat-name">Behavioral</div>
-                <div class="cat-pct" id="pct-beh">0%</div>
+                <div class="cat-header-row">
+                  <div class="cat-name">Behavioral</div>
+                  <div class="cat-pct" id="pct-beh">0%</div>
+                </div>
                 <div class="cat-bar"><div class="cat-fill fill-grn" id="fill-beh" style="width:0%"></div></div>
                 <div style="font-size:10.5px;color:var(--t-3);margin-top:4px;font-family:'Geist Mono',monospace" id="count-beh">0 answered</div>
               </div>
               <div class="cat-item" onclick="filterBankNav('brain')">
-                <div class="cat-name">Brain Teasers</div>
-                <div class="cat-pct" id="pct-brain">0%</div>
+                <div class="cat-header-row">
+                  <div class="cat-name">Brain Teasers</div>
+                  <div class="cat-pct" id="pct-brain">0%</div>
+                </div>
                 <div class="cat-bar"><div class="cat-fill fill-amb" id="fill-brain" style="width:0%"></div></div>
                 <div style="font-size:10.5px;color:var(--t-3);margin-top:4px;font-family:'Geist Mono',monospace" id="count-brain">0 answered</div>
               </div>
               <div class="cat-item" onclick="filterBankNav('deal')">
-                <div class="cat-name">Deals & Markets</div>
-                <div class="cat-pct" id="pct-deal">0%</div>
+                <div class="cat-header-row">
+                  <div class="cat-name">Deals & Markets</div>
+                  <div class="cat-pct" id="pct-deal">0%</div>
+                </div>
                 <div class="cat-bar"><div class="cat-fill fill-blu" id="fill-deal" style="width:0%"></div></div>
                 <div style="font-size:10.5px;color:var(--t-3);margin-top:4px;font-family:'Geist Mono',monospace" id="count-deal">0 answered</div>
               </div>
             </div>
           </div>
 
+          <!-- Technical Breakdown Analytics -->
+          <div class="dash-panel" id="analytics-panel" style="display:none">
+            <div class="dp-header">
+              <span class="dp-title">Technical Breakdown</span>
+              <span class="dp-action" onclick="showView('learn')">Study concepts →</span>
+            </div>
+            <div id="subcategory-stats"></div>
+            <div id="weak-area-callout"></div>
+          </div>
+
+          <!-- Achievements -->
+          <div class="dash-panel" id="badges-panel" style="display:none">
+            <div class="dp-header">
+              <span class="dp-title">Achievements</span>
+              <span class="dp-action" id="badge-count">0/14</span>
+            </div>
+            <div class="badge-grid" id="badge-grid"></div>
+          </div>
+
+          <!-- Recent Activity (compact) -->
           <div class="dash-panel">
             <div class="dp-header">
               <span class="dp-title">Recent Activity</span>
             </div>
-            <div class="activity-list" id="activity-list">
+            <div class="activity-list activity-list-compact" id="activity-list">
               <div style="padding:32px 16px;text-align:center;font-size:12.5px;color:var(--t-3)">No activity yet — start practicing.</div>
             </div>
           </div>
@@ -996,13 +1120,13 @@
             <span class="mode-icon">📚</span>All Cards<span class="mode-count" id="mode-count-all">120/span>
           </button>
           <button class="mode-btn" data-mode="due" onclick="setStudyMode('due')">
-            <span class="mode-icon">🔄</span>Due for Review<span class="mode-count" id="mode-count-due">0</span>
+            <span class="mode-icon">○</span>Due for Review<span class="mode-count" id="mode-count-due">0</span>
           </button>
           <button class="mode-btn" data-mode="weak" onclick="setStudyMode('weak')">
-            <span class="mode-icon">🎯</span>Weak Spots<span class="mode-count" id="mode-count-weak">0</span>
+            <span class="mode-icon">◇</span>Weak Spots<span class="mode-count" id="mode-count-weak">0</span>
           </button>
           <button class="mode-btn" data-mode="quick" onclick="setStudyMode('quick')">
-            <span class="mode-icon">⚡</span>Quick 10
+            <span class="mode-icon">›</span>Quick 10
           </button>
         </div>
 
@@ -1457,19 +1581,19 @@
         <div class="onramp-desc">We'll customize your learning path based on your experience level.</div>
         <div class="onramp-options">
           <div class="onramp-option" onclick="selectOnramp(this, 'background', 'finance')">
-            <span class="onramp-option-icon">📊</span>
+            <span class="onramp-option-icon">◆</span>
             <span class="onramp-option-text">Finance / Accounting major</span>
           </div>
           <div class="onramp-option" onclick="selectOnramp(this, 'background', 'econ')">
-            <span class="onramp-option-icon">📈</span>
+            <span class="onramp-option-icon">◇</span>
             <span class="onramp-option-text">Economics / Business major</span>
           </div>
           <div class="onramp-option" onclick="selectOnramp(this, 'background', 'stem')">
-            <span class="onramp-option-icon">🔬</span>
+            <span class="onramp-option-icon">○</span>
             <span class="onramp-option-text">STEM major (Engineering, CS, Math)</span>
           </div>
           <div class="onramp-option" onclick="selectOnramp(this, 'background', 'other')">
-            <span class="onramp-option-icon">📚</span>
+            <span class="onramp-option-icon">□</span>
             <span class="onramp-option-text">Liberal Arts / Other</span>
           </div>
         </div>
@@ -1482,20 +1606,20 @@
     <!-- Step 2: Timeline -->
     <div class="onramp-step" id="onramp-step-2">
       <div class="onramp-card">
-        <div class="onramp-icon">⏰</div>
+        <div class="onramp-icon">◎</div>
         <div class="onramp-title">When's your interview?</div>
         <div class="onramp-desc">We'll prioritize the highest-yield topics based on your timeline.</div>
         <div class="onramp-options">
           <div class="onramp-option" onclick="selectOnramp(this, 'timeline', '2weeks')">
-            <span class="onramp-option-icon">🔥</span>
+            <span class="onramp-option-icon">●</span>
             <span class="onramp-option-text">Within 2 weeks — Crunch mode</span>
           </div>
           <div class="onramp-option" onclick="selectOnramp(this, 'timeline', '1month')">
-            <span class="onramp-option-icon">📅</span>
+            <span class="onramp-option-icon">◐</span>
             <span class="onramp-option-text">About 1 month out</span>
           </div>
           <div class="onramp-option" onclick="selectOnramp(this, 'timeline', '3months')">
-            <span class="onramp-option-icon">🌱</span>
+            <span class="onramp-option-icon">○</span>
             <span class="onramp-option-text">3+ months — Building foundations</span>
           </div>
           <div class="onramp-option" onclick="selectOnramp(this, 'timeline', 'exploring')">
@@ -1561,7 +1685,7 @@
     <!-- Welcome Screen -->
     <div id="diagnostic-welcome">
       <div class="diagnostic-header">
-        <div class="diagnostic-icon">🎯</div>
+        <div class="diagnostic-icon">◎</div>
         <div class="diagnostic-title">Let's calibrate your prep</div>
         <div class="diagnostic-sub">Answer 10 quick questions so we can personalize your experience and focus on what you need most.</div>
       </div>
@@ -1593,7 +1717,7 @@
     <!-- Results -->
     <div id="diagnostic-results" style="display:none">
       <div class="diagnostic-header">
-        <div class="diagnostic-icon">✨</div>
+        <div class="diagnostic-icon">◇</div>
         <div class="diagnostic-title">Assessment Complete</div>
       </div>
       <div class="diagnostic-card">
