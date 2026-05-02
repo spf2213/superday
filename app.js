@@ -4,19 +4,6 @@ import { LEARN_MODULES } from './src/data/learnModules.js';
 import { setNavActive, toggleTheme } from './src/theme.js';
 import { renderKnowledgeMap, mapZoom, mapFitAll, mapResetView, setMapDeps } from './src/map.js';
 import './src/animations.js';
-/* ─── GUEST LOGIN (testing bypass) ───── */
-function guestLogin() {
-  const greeting = document.getElementById('greeting-name');
-  const sbName = document.getElementById('sb-name');
-  const sbAvatar = document.getElementById('sb-avatar');
-  if (greeting) greeting.textContent = 'there';
-  if (sbName) sbName.textContent = 'Guest';
-  if (sbAvatar) sbAvatar.textContent = 'G';
-  const emailEl = document.getElementById('sb-email-display');
-  if (emailEl) emailEl.textContent = 'guest mode';
-  showScreen('app');
-}
-
 /* ─── SCROLL HELPERS ─────────────────── */
 function navScrollTo(id) {
   const el = document.getElementById(id);
@@ -345,8 +332,11 @@ function demoChatSend() {
 }
 
 /* ─── SUPABASE ────────────────────────── */
-const SUPABASE_URL = 'https://tetpqitwoprytartedxy.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRldHBxaXR3b3ByeXRhcnRlZHh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExMTI4NDgsImV4cCI6MjA4NjY4ODg0OH0.DOHqrfIaOlUROyZCDDISZfmTSfXOjfYu3cDYijAY44E';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY env vars.');
+}
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let currentUser = null;
@@ -2306,7 +2296,7 @@ Object.assign(window, {
   closeDiagnosticToLanding, closeLearnModule, completeOnramp, demoChatSend,
   demoFilterBank, demoFlipCard, demoFCNav, demoFCShuffle, demoToggleQ,
   doLogin, doSignOut, doSignup, filterBank, filterBankNav, filterSub,
-  flipCard, goToDueReview, guestLogin, mapFitAll, mapResetView, mapZoom,
+  flipCard, goToDueReview, mapFitAll, mapResetView, mapZoom,
   navScrollTo, nextCard, nextLearnSection, nextOnrampStep, nextQuizQuestion,
   openLearnModule, prevCard, prevLearnSection, prevOnrampStep, prevNav,
   pvBankFilter, pvFlipCard, pvFCNav, pvMockSend, pvToggleQ, rateCard,
