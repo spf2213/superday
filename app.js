@@ -2168,6 +2168,18 @@ window.addEventListener('DOMContentLoaded', async function() {
 
   let pendingRecovery = urlType === 'recovery';
 
+  // Handle expired/invalid auth links from Supabase
+  if (hashParams.get('error_code') === 'otp_expired' || hashParams.get('error') === 'access_denied') {
+    showScreen('auth');
+    switchAuthTab('login');
+    const forgotForm = document.getElementById('auth-forgot-form');
+    const loginForm = document.getElementById('auth-login-form');
+    if (loginForm) loginForm.style.display = 'none';
+    if (forgotForm) forgotForm.style.display = 'block';
+    const msg = document.getElementById('forgot-msg');
+    if (msg) showMsg(msg, 'error', 'Your reset link has expired. Request a new one below.');
+  }
+
   function showNewPasswordForm() {
     pendingRecovery = true;
     showScreen('auth');
