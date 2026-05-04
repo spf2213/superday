@@ -509,19 +509,21 @@ async function loadProgress() {
     }
     
     if (data) {
-      progress.answered = new Set(data.answered || []);
-      progress.activityLog = data.activity_log || [];
-      progress.mastery = data.mastery || {};
+      const arr = v => Array.isArray(v) ? v : [];
+      const obj = v => (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
+      progress.answered = new Set(arr(data.answered));
+      progress.activityLog = arr(data.activity_log);
+      progress.mastery = obj(data.mastery);
       progress.diagnosticDone = data.diagnostic_done || false;
       progress.userBand = data.user_band || 'intermediate';
       progress.diagnosticScores = data.diagnostic_scores || null;
       progress.onrampComplete = data.onramp_complete || false;
       progress.userProfile = data.user_profile || null;
-      progress.notes = data.notes || [];
-      progress.questionNotes = data.question_notes || {};
-      progress.completedTasks = data.completed_tasks || [];
-      progress.learnProgress = data.learn_progress || {};
-      progress.completedCases = data.completed_cases || [];
+      progress.notes = arr(data.notes);
+      progress.questionNotes = obj(data.question_notes);
+      progress.completedTasks = arr(data.completed_tasks);
+      progress.learnProgress = obj(data.learn_progress);
+      progress.completedCases = arr(data.completed_cases);
     }
   } catch(e) { console.error('loadProgress error:', e); }
   updateDashStats();
