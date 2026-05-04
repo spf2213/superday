@@ -530,7 +530,6 @@ async function loadProgress() {
       progress.completedTasks = arr(data.completed_tasks);
       progress.learnProgress = obj(data.learn_progress);
       progress.completedCases = arr(data.completed_cases);
-      triggerDiagnostic = !progress.diagnosticDone;
     }
   } catch(e) { console.error('loadProgress error:', e); }
   updateDashStats();
