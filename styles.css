@@ -988,7 +988,7 @@ body {
 .kpi-ring-inner{flex:1;min-width:0}
 
 /* ── DAILY GOAL + LEARNING PATH ROW ── */
-.dash-goal-path-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.dash-goal-path-row{display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:12px}
 .dash-daily-goal-card{display:flex;flex-direction:column}
 .daily-goal-header{
   display:flex;align-items:center;justify-content:space-between;
@@ -1004,9 +1004,9 @@ body {
 /* ── COMPACT ACTIVITY LIST ── */
 .activity-list-compact{max-height:180px;overflow:hidden}
 
-.dash-two-col{display:grid;grid-template-columns:1fr 380px;gap:20px;align-items:start}
+.dash-two-col{display:grid;grid-template-columns:1fr 380px;gap:20px;align-items:stretch}
 .dash-col-left{display:flex;flex-direction:column;gap:12px;min-width:0}
-.dash-col-right{display:flex;flex-direction:column;gap:12px;min-width:0;position:sticky;top:20px}
+.dash-col-right{display:flex;flex-direction:column;gap:12px;min-width:0;position:sticky;top:20px;height:fit-content;align-self:stretch}
 .dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px}
 .dash-panel{
   background:var(--bg-1);border:1px solid var(--line);
@@ -1053,8 +1053,10 @@ body {
 /* NEWS */
 .news-panel{
   background:var(--bg-1);border:1px solid var(--line);
-  border-radius:var(--r-lg);overflow:hidden;margin-bottom:24px;
+  border-radius:var(--r-lg);overflow:hidden;margin-bottom:0;
+  flex:1;display:flex;flex-direction:column;
 }
+.news-list-inner{flex:1}
 .news-list-inner{padding:4px 8px}
 .news-item-row{
   padding:10px 10px;border-radius:var(--r);cursor:pointer;

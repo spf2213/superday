@@ -820,8 +820,8 @@ async function loadNews() {
       headers:{"Content-Type":"application/json"},
       body: JSON.stringify({
         model:"claude-haiku-4-5-20251001",
-        max_tokens:800,
-        messages:[{role:"user",content:"Generate 5 realistic market news headlines for today (" + new Date().toDateString() + ") relevant to IB candidates. Cover M&A, capital markets, macro, deals. Return ONLY a JSON array: [{tag,headline,time}]. tag: M&A|MARKETS|RATES|DEALS|MACRO. time: Xm ago or Xh ago. No markdown."}]
+        max_tokens:1200,
+        messages:[{role:"user",content:"Generate 10 realistic market news headlines for today (" + new Date().toDateString() + ") relevant to IB candidates. Cover M&A, capital markets, macro, deals. Return ONLY a JSON array: [{tag,headline,time}]. tag: M&A|MARKETS|RATES|DEALS|MACRO. time: Xm ago or Xh ago. No markdown."}]
       })
     });
     const data = await res.json();
