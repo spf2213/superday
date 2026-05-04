@@ -2159,10 +2159,14 @@ window.addEventListener('DOMContentLoaded', async function() {
   }
 
   const hashParams = new URLSearchParams(window.location.hash.slice(1));
-  const pkceCode = new URLSearchParams(window.location.search).get('code');
+  const searchParams = new URLSearchParams(window.location.search);
 
-  // Detect implicit-flow recovery immediately, before any auth events fire
-  let pendingRecovery = hashParams.get('type') === 'recovery';
+  // Supabase sends type=recovery in hash (implicit) or query string (PKCE)
+  const urlType = hashParams.get('type') || searchParams.get('type');
+  const tokenHash = searchParams.get('token_hash');
+  const pkceCode = searchParams.get('code');
+
+  let pendingRecovery = urlType === 'recovery';
 
   function showNewPasswordForm() {
     pendingRecovery = true;
@@ -2177,9 +2181,10 @@ window.addEventListener('DOMContentLoaded', async function() {
     document.getElementById('tab-signup')?.classList.remove('active');
   }
 
+  // Show form immediately if URL signals recovery — blocks session restore below
   if (pendingRecovery) showNewPasswordForm();
 
-  // Register listener FIRST so it catches events from exchangeCodeForSession
+  // Register listener FIRST so it catches events from token exchange
   sb.auth.onAuthStateChange(async (event, session) => {
     if (event === 'PASSWORD_RECOVERY') {
       showNewPasswordForm();
@@ -2191,15 +2196,22 @@ window.addEventListener('DOMContentLoaded', async function() {
     }
   });
 
-  if (pkceCode) {
-    // PKCE flow: exchange code — fires PASSWORD_RECOVERY or SIGNED_IN above
+  if (tokenHash) {
+    // PKCE with token_hash (Supabase default for recent projects)
+    try {
+      await sb.auth.verifyOtp({ token_hash: tokenHash, type: urlType });
+    } catch (e) {
+      console.error('Token verification error:', e);
+    }
+  } else if (pkceCode) {
+    // PKCE with code
     try {
       await sb.auth.exchangeCodeForSession(pkceCode);
     } catch (e) {
       console.error('Code exchange error:', e);
     }
   } else {
-    // Normal session restore (also sets up session for implicit recovery flow)
+    // Normal session restore
     try {
       const { data: { session } } = await sb.auth.getSession();
       if (session?.user && !pendingRecovery) {
