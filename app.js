@@ -405,7 +405,7 @@ async function doSetNewPassword() {
   if (error) { if (msg) showMsg(msg, 'error', error.message); return; }
   if (msg) showMsg(msg, 'success', 'Password updated! Logging you in…');
   setTimeout(() => {
-    const { data: { session } } = sb.auth.getSession().then(({ data: { session } }) => {
+    sb.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) onSignedIn(session.user);
     });
   }, 1200);
@@ -502,14 +502,18 @@ async function onSignedIn(user) {
 /* ─── PROGRESS PERSISTENCE ───────────────── */
 async function loadProgress() {
   if (!currentUser) return;
+  let triggerDiagnostic = false;
   try {
     const { data, error } = await sb.from('progress').select('*').eq('user_id', currentUser.id).single();
-    
+
     if (error && error.code === 'PGRST116') {
       // No row exists yet — create one
       await sb.from('progress').insert({ user_id: currentUser.id });
+      triggerDiagnostic = true;
+    } else if (error) {
+      console.error('loadProgress query error:', error);
     }
-    
+
     if (data) {
       const arr = v => Array.isArray(v) ? v : [];
       const obj = v => (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
@@ -526,17 +530,18 @@ async function loadProgress() {
       progress.completedTasks = arr(data.completed_tasks);
       progress.learnProgress = obj(data.learn_progress);
       progress.completedCases = arr(data.completed_cases);
+      triggerDiagnostic = !progress.diagnosticDone;
     }
   } catch(e) { console.error('loadProgress error:', e); }
   updateDashStats();
   updateMasteryStats();
   renderPrepPlan();
-  
+
   if (progress.onrampComplete) {
     const btn = document.getElementById('story-bank-btn');
     if (btn) btn.classList.add('show');
   }
-  if (!progress.diagnosticDone) {
+  if (triggerDiagnostic) {
     setTimeout(checkFirstVisit, 500);
   }
 }
@@ -2200,8 +2205,10 @@ window.addEventListener('DOMContentLoaded', async function() {
   sb.auth.onAuthStateChange(async (event, session) => {
     if (event === 'PASSWORD_RECOVERY') {
       showNewPasswordForm();
-    } else if (event === 'SIGNED_IN' && session?.user && !pendingRecovery) {
-      try { await onSignedIn(session.user); } catch (e) { console.error('onSignedIn error:', e); }
+    } else if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user && !pendingRecovery) {
+      if (!currentUser) {
+        try { await onSignedIn(session.user); } catch (e) { console.error('onSignedIn error:', e); }
+      }
     } else if (event === 'SIGNED_OUT') {
       pendingRecovery = false;
       showScreen('landing');
@@ -2221,16 +2228,6 @@ window.addEventListener('DOMContentLoaded', async function() {
       await sb.auth.exchangeCodeForSession(pkceCode);
     } catch (e) {
       console.error('Code exchange error:', e);
-    }
-  } else {
-    // Normal session restore
-    try {
-      const { data: { session } } = await sb.auth.getSession();
-      if (session?.user && !pendingRecovery) {
-        await onSignedIn(session.user);
-      }
-    } catch (e) {
-      console.error('Auth session restore error:', e);
     }
   }
 });
