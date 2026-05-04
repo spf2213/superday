@@ -485,8 +485,8 @@ function showMsg(el, type, text) {
 
 async function onSignedIn(user) {
   currentUser = user;
-  const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
-  const cap = capitalize(name);
+  const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
+  const cap = capitalize(fullName.split(' ')[0]);
   const greetingEl = document.getElementById('greeting-name');
   const sbNameEl = document.getElementById('sb-name');
   const sbAvatarEl = document.getElementById('sb-avatar');
@@ -2252,9 +2252,9 @@ let profileEditing = { info: false, pw: false };
 
 function renderProfile() {
   const user = currentUser;
-  const name = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Guest';
+  const fullName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Guest';
   const email = user?.email || 'guest mode';
-  const cap = capitalize(name);
+  const cap = capitalize(fullName.split(' ')[0]);
 
   const avatarEl = document.getElementById('profile-avatar-lg');
   const nameEl = document.getElementById('profile-hero-name');
@@ -2347,7 +2347,7 @@ async function saveProfileInfo() {
     if (error) throw error;
 
     // Update UI everywhere
-    const cap = capitalize(nameVal);
+    const cap = capitalize(nameVal.split(' ')[0]);
     const g = document.getElementById('greeting-name');
     const n = document.getElementById('sb-name');
     const a = document.getElementById('sb-avatar');
