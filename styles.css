@@ -275,12 +275,93 @@ body {
 .nav-login:hover{color:var(--t)}
 
 /* HERO */
+/* ─── DSS-MODE LANDING ─────────────────────── */
+.dss-mode { height:100vh;overflow:hidden;display:flex;flex-direction:column }
+.dss-mode .land-nav { display:none }
+.dss-mode .grid-bg { display:none }
+.dss-mode > *:not(#product-section):not(nav) { display:none !important }
+.dss-mode .hero-preview { display:none }
+.dss-mode#screen-landing::before { display:none }
+body:has(.dss-mode.active) { overflow:hidden }
+
 .hero {
-  flex:1;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;
-  padding:110px 24px 48px;
-  position:relative;text-align:center;
+  flex:1;display:flex;flex-direction:row;
+  align-items:stretch;
+  gap:48px;
+  padding:40px 48px;
+  position:relative;
+  min-height:0;
 }
+.hero-left {
+  flex:0 0 340px;
+  display:flex;flex-direction:column;
+  height:100%;
+}
+.hero-mid { margin-top:80px }
+.hero-bottom { margin-top:auto }
+
+/* TOP */
+.hero-top {
+  display:flex;align-items:center;justify-content:space-between;gap:24px;
+}
+.hero-brand {
+  display:flex;align-items:center;gap:10px;
+  font-size:20px;font-weight:600;letter-spacing:-0.02em;color:var(--t);
+  line-height:1.2;
+}
+.hero-brand .logo-dot { width:10px;height:10px }
+.hero-top-ctas { display:flex;gap:6px;align-items:center }
+.hero-cta {
+  padding:6px 12px;border-radius:var(--r);
+  background:var(--t);color:var(--t-inv);
+  font-size:12px;font-weight:500;cursor:pointer;
+  border:1px solid var(--t);
+  font-family:inherit;
+  transition:var(--trans);
+}
+.hero-cta:hover { opacity:0.85 }
+.hero-cta-ghost {
+  background:transparent;color:var(--t);
+  border:1px solid var(--line-strong);
+}
+.hero-cta-ghost:hover { background:var(--bg-2);opacity:1 }
+
+/* MIDDLE */
+.hero-mid {
+  display:flex;flex-direction:column;gap:0;
+  max-width:320px;
+}
+.hero-tagline {
+  font-size:15px;color:var(--t);font-weight:500;
+  line-height:1.5;letter-spacing:-0.005em;
+  margin-bottom:24px;
+}
+.hero-neg {
+  font-size:15px;color:var(--t-3);line-height:1.5;
+  font-weight:400;margin:0;
+}
+.hero-close {
+  font-size:15px;color:var(--t);font-weight:500;
+  line-height:1.5;letter-spacing:-0.005em;
+  margin-top:24px;
+}
+.hero-social {
+  font-size:15px;color:var(--t-3);line-height:1.5;
+  margin-top:24px;
+}
+
+/* BOTTOM */
+.hero-bottom {
+  display:flex;flex-direction:column;gap:0;
+}
+.hero-meta {
+  font-size:13px;color:var(--t-3);line-height:1.5;
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+}
+.hero-meta-sep { color:var(--t-3);opacity:0.5 }
+.hero-meta-link { color:var(--t-3);text-decoration:none;transition:color 0.15s }
+.hero-meta-link:hover { color:var(--t) }
+#hero-live-time { font-variant-numeric:tabular-nums }
 .hero-glow {
   position:absolute;top:-40px;left:50%;transform:translateX(-50%);
   width:900px;height:600px;
@@ -309,19 +390,7 @@ body {
 .badge-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse-dot 2s ease infinite}
 @keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.85)}}
 
-.hero h1 {
-  font-size:clamp(44px,6.5vw,80px);font-weight:600;letter-spacing:-0.04em;
-  line-height:1.02;max-width:780px;margin-bottom:24px;
-}
-.hero h1 .grad {
-  background:linear-gradient(135deg,var(--t) 0%,var(--t-3) 100%);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-}
-.hero p {
-  font-size:17px;color:var(--t-3);line-height:1.7;
-  max-width:500px;margin-bottom:40px;font-weight:400;
-}
-.hero-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center}
+.hero-actions{display:flex;gap:16px;align-items:center;flex-wrap:wrap;justify-content:flex-start}
 .btn-primary{
   padding:11px 22px;border-radius:var(--r);
   background:var(--t);color:var(--t-inv);
@@ -340,7 +409,7 @@ body {
 
 /* APP PREVIEW WINDOW */
 .hero-preview {
-  margin-top:48px;width:100%;max-width:1060px;
+  flex:1;min-width:0;max-width:760px;
   border-radius:var(--r-xl);
   border:1px solid rgba(255,255,255,0.12);
   background:rgba(255,255,255,0.04);
@@ -2022,8 +2091,8 @@ body {
   .land-nav{padding:6px 10px 6px 14px;max-width:calc(100vw - 20px)}
   .nav-links{display:none}
   .nav-login{display:none}
-  .hero{padding:100px 20px 40px}
-  .hero h1{font-size:36px}
+  .hero{padding:100px 20px 40px;flex-direction:column;gap:40px}
+  .hero-left{flex:none;width:100%}
   .kpi-row{grid-template-columns:1fr}
   .dash-two-col{grid-template-columns:1fr}
   .dash-col-right{position:static}

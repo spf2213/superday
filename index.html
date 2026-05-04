@@ -107,7 +107,7 @@
 <!-- ══════════════════════════════════════
      LANDING PAGE
 ══════════════════════════════════════ -->
-<div class="screen active" id="screen-landing">
+<div class="screen active dss-mode" id="screen-landing">
 
   <nav class="land-nav">
     <div class="nav-logo">
@@ -129,16 +129,39 @@
 
   <!-- HERO -->
   <section class="hero" id="product-section">
-    <div class="hero-glow"></div>
-    <div class="hero-badge" data-reveal="down" data-delay="100">
-      <span class="badge-dot"></span>
-      <span>The smarter way to prep for finance interviews</span>
-    </div>
-    <h1 data-reveal="up" data-delay="250">Ace your<br><span class="grad">finance interviews.</span></h1>
-    <p data-reveal="up" data-delay="400">Adaptive prep that meets you where you are. AI-driven plans, real questions, smarter every session.</p>
-    <div class="hero-actions" data-reveal="up" data-delay="550">
-      <button class="btn-primary" onclick="startDirectDiagnostic()">Start Learning →</button>
-      <button class="btn-ghost" onclick="document.getElementById('demo-section').scrollIntoView({behavior:'smooth'})">Learn More</button>
+
+    <!-- LEFT PANEL -->
+    <div class="hero-left">
+
+      <!-- TOP: brand + auth CTAs -->
+      <div class="hero-top">
+        <div class="hero-brand"><span class="logo-dot"></span>Superday</div>
+        <div class="hero-top-ctas">
+          <button class="hero-cta" onclick="showAuthTab('signup')">Sign up</button>
+          <button class="hero-cta hero-cta-ghost" onclick="showAuthTab('login')">Log in</button>
+        </div>
+      </div>
+
+      <!-- MIDDLE: tagline, negatives, close, social -->
+      <div class="hero-mid">
+        <p class="hero-tagline">Superday is the fastest way to prep for finance interviews and land top jobs on Wall Street.</p>
+        <p class="hero-neg">No 87-page PDFs.</p>
+        <p class="hero-neg">No hour-long study guides.</p>
+        <p class="hero-neg">No bullshit.</p>
+        <p class="hero-close">Just a personalized plan, real interview questions, and instant feedback. Learn the 400 in 4 Weeks.</p>
+      </div>
+
+      <!-- BOTTOM: footer meta -->
+      <div class="hero-bottom">
+        <div class="hero-meta">
+          <span>Superday © 2026</span>
+          <span class="hero-meta-sep">//</span>
+          <span id="hero-live-time">—</span>
+          <span class="hero-meta-sep">//</span>
+          <a href="#" class="hero-meta-link" onclick="return false">Terms &amp; Legal</a>
+        </div>
+      </div>
+
     </div>
 
     <!-- INTERACTIVE MINI APP PREVIEW -->
@@ -1664,5 +1687,17 @@
 </div>
 
 <script type="module" src="/app.js"></script>
+<script>
+(function tickLiveTime(){
+  const el = document.getElementById('hero-live-time');
+  if (!el) return;
+  const update = () => {
+    const d = new Date();
+    el.textContent = d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  };
+  update();
+  setInterval(update, 1000);
+})();
+</script>
 </body>
 </html>
