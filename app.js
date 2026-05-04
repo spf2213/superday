@@ -2204,7 +2204,7 @@ window.addEventListener('DOMContentLoaded', async function() {
   sb.auth.onAuthStateChange(async (event, session) => {
     if (event === 'PASSWORD_RECOVERY') {
       showNewPasswordForm();
-    } else if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user && !pendingRecovery) {
+    } else if (event === 'SIGNED_IN' && session?.user && !pendingRecovery) {
       if (!currentUser) {
         try { await onSignedIn(session.user); } catch (e) { console.error('onSignedIn error:', e); }
       }
@@ -2227,6 +2227,22 @@ window.addEventListener('DOMContentLoaded', async function() {
       await sb.auth.exchangeCodeForSession(pkceCode);
     } catch (e) {
       console.error('Code exchange error:', e);
+    }
+  } else {
+    // Returning user with stored session — show the login screen (don't
+    // auto-redirect to dashboard). Browser autofills credentials, they
+    // press Enter → signInWithPassword → dashboard.
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      if (session?.user && !pendingRecovery) {
+        showAuthTab('login');
+        const emailEl = document.getElementById('login-email');
+        if (emailEl && !emailEl.value) emailEl.value = session.user.email;
+        const passwordEl = document.getElementById('login-password');
+        if (passwordEl) setTimeout(() => passwordEl.focus(), 100);
+      }
+    } catch (e) {
+      console.error('Session check error:', e);
     }
   }
 });
