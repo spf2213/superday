@@ -2154,9 +2154,11 @@ window.addEventListener('DOMContentLoaded', async function() {
     console.error('Init error:', e);
   }
 
+  const isRecoveryFlow = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
+
   try {
     const { data: { session } } = await sb.auth.getSession();
-    if (session?.user) {
+    if (session?.user && !isRecoveryFlow) {
       await onSignedIn(session.user);
     }
   } catch (e) {
@@ -2165,7 +2167,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 
   try {
     sb.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
+      if (event === 'SIGNED_IN' && session?.user && !isRecoveryFlow) {
         try { await onSignedIn(session.user); } catch (e) { console.error('onSignedIn error:', e); }
       } else if (event === 'PASSWORD_RECOVERY') {
         showScreen('auth');
