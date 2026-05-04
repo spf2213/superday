@@ -2154,57 +2154,54 @@ window.addEventListener('DOMContentLoaded', async function() {
     console.error('Init error:', e);
   }
 
-  const hashParams = new URLSearchParams(window.location.hash.slice(1));
-  const searchParams = new URLSearchParams(window.location.search);
-  const isRecoveryFlow =
-    hashParams.get('type') === 'recovery' ||
-    searchParams.get('type') === 'recovery';
   let pendingRecovery = false;
 
-  // PKCE flow: exchange the code from the URL for a session
-  const pkceCode = searchParams.get('code');
+  function showNewPasswordForm() {
+    pendingRecovery = true;
+    showScreen('auth');
+    ['auth-login-form','auth-signup-form','auth-forgot-form'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    const newpwForm = document.getElementById('auth-newpw-form');
+    if (newpwForm) newpwForm.style.display = 'block';
+    document.getElementById('tab-login')?.classList.remove('active');
+    document.getElementById('tab-signup')?.classList.remove('active');
+  }
+
+  // Register listener FIRST so it catches events from exchangeCodeForSession
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      showNewPasswordForm();
+    } else if (event === 'SIGNED_IN' && session?.user && !pendingRecovery) {
+      try { await onSignedIn(session.user); } catch (e) { console.error('onSignedIn error:', e); }
+    } else if (event === 'SIGNED_OUT') {
+      pendingRecovery = false;
+      showScreen('landing');
+    }
+  });
+
+  // PKCE flow: exchange code from URL — fires onAuthStateChange above
+  const pkceCode = new URLSearchParams(window.location.search).get('code');
   if (pkceCode) {
     try {
       await sb.auth.exchangeCodeForSession(pkceCode);
     } catch (e) {
       console.error('Code exchange error:', e);
     }
-  }
-
-  try {
-    const { data: { session } } = await sb.auth.getSession();
-    if (session?.user && !isRecoveryFlow && !pendingRecovery) {
-      await onSignedIn(session.user);
-    }
-  } catch (e) {
-    console.error('Auth session restore error:', e);
-  }
-
-  try {
-    sb.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user && !isRecoveryFlow && !pendingRecovery) {
-        try { await onSignedIn(session.user); } catch (e) { console.error('onSignedIn error:', e); }
-      } else if (event === 'PASSWORD_RECOVERY') {
-        pendingRecovery = true;
-        showScreen('auth');
-        const loginForm = document.getElementById('auth-login-form');
-        const signupForm = document.getElementById('auth-signup-form');
-        const forgotForm = document.getElementById('auth-forgot-form');
-        const newpwForm = document.getElementById('auth-newpw-form');
-        const tabLogin = document.getElementById('tab-login');
-        const tabSignup = document.getElementById('tab-signup');
-        if (loginForm) loginForm.style.display = 'none';
-        if (signupForm) signupForm.style.display = 'none';
-        if (forgotForm) forgotForm.style.display = 'none';
-        if (newpwForm) newpwForm.style.display = 'block';
-        if (tabLogin) tabLogin.classList.remove('active');
-        if (tabSignup) tabSignup.classList.remove('active');
-      } else if (event === 'SIGNED_OUT') {
-        showScreen('landing');
+  } else {
+    // Implicit flow: restore existing session from hash or storage
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      const hashType = new URLSearchParams(window.location.hash.slice(1)).get('type');
+      if (session?.user && hashType !== 'recovery') {
+        await onSignedIn(session.user);
+      } else if (hashType === 'recovery') {
+        showNewPasswordForm();
       }
-    });
-  } catch (e) {
-    console.error('Auth listener error:', e);
+    } catch (e) {
+      console.error('Auth session restore error:', e);
+    }
   }
 });
 
