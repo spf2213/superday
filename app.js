@@ -2154,11 +2154,26 @@ window.addEventListener('DOMContentLoaded', async function() {
     console.error('Init error:', e);
   }
 
-  const isRecoveryFlow = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
+  const hashParams = new URLSearchParams(window.location.hash.slice(1));
+  const searchParams = new URLSearchParams(window.location.search);
+  const isRecoveryFlow =
+    hashParams.get('type') === 'recovery' ||
+    searchParams.get('type') === 'recovery';
+  let pendingRecovery = false;
+
+  // PKCE flow: exchange the code from the URL for a session
+  const pkceCode = searchParams.get('code');
+  if (pkceCode) {
+    try {
+      await sb.auth.exchangeCodeForSession(pkceCode);
+    } catch (e) {
+      console.error('Code exchange error:', e);
+    }
+  }
 
   try {
     const { data: { session } } = await sb.auth.getSession();
-    if (session?.user && !isRecoveryFlow) {
+    if (session?.user && !isRecoveryFlow && !pendingRecovery) {
       await onSignedIn(session.user);
     }
   } catch (e) {
@@ -2167,9 +2182,10 @@ window.addEventListener('DOMContentLoaded', async function() {
 
   try {
     sb.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user && !isRecoveryFlow) {
+      if (event === 'SIGNED_IN' && session?.user && !isRecoveryFlow && !pendingRecovery) {
         try { await onSignedIn(session.user); } catch (e) { console.error('onSignedIn error:', e); }
       } else if (event === 'PASSWORD_RECOVERY') {
+        pendingRecovery = true;
         showScreen('auth');
         const loginForm = document.getElementById('auth-login-form');
         const signupForm = document.getElementById('auth-signup-form');
