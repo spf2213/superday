@@ -352,10 +352,61 @@ function switchAuthTab(tab) {
   const tabSignup = document.getElementById('tab-signup');
   const loginForm = document.getElementById('auth-login-form');
   const signupForm = document.getElementById('auth-signup-form');
+  const forgotForm = document.getElementById('auth-forgot-form');
+  const newpwForm = document.getElementById('auth-newpw-form');
   if (tabLogin) tabLogin.classList.toggle('active', tab === 'login');
   if (tabSignup) tabSignup.classList.toggle('active', tab === 'signup');
   if (loginForm) loginForm.style.display = tab === 'login' ? 'block' : 'none';
   if (signupForm) signupForm.style.display = tab === 'signup' ? 'block' : 'none';
+  if (forgotForm) forgotForm.style.display = 'none';
+  if (newpwForm) newpwForm.style.display = 'none';
+}
+
+function showForgotPassword() {
+  const loginForm = document.getElementById('auth-login-form');
+  const forgotForm = document.getElementById('auth-forgot-form');
+  const tabLogin = document.getElementById('tab-login');
+  const tabSignup = document.getElementById('tab-signup');
+  if (loginForm) loginForm.style.display = 'none';
+  if (forgotForm) forgotForm.style.display = 'block';
+  if (tabLogin) tabLogin.classList.remove('active');
+  if (tabSignup) tabSignup.classList.remove('active');
+}
+
+async function doForgotPassword() {
+  const emailEl = document.getElementById('forgot-email');
+  const email = emailEl ? emailEl.value.trim() : '';
+  const btn = document.getElementById('forgot-btn');
+  const msg = document.getElementById('forgot-msg');
+  if (!email) { if (msg) showMsg(msg, 'error', 'Please enter your email.'); return; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin
+  });
+  if (btn) { btn.disabled = false; btn.textContent = 'Send reset link →'; }
+  if (error) { if (msg) showMsg(msg, 'error', error.message); return; }
+  if (msg) showMsg(msg, 'success', 'Check your email for a reset link.');
+}
+
+async function doSetNewPassword() {
+  const pwEl = document.getElementById('newpw-password');
+  const confirmEl = document.getElementById('newpw-confirm');
+  const pw = pwEl ? pwEl.value : '';
+  const confirm = confirmEl ? confirmEl.value : '';
+  const btn = document.getElementById('newpw-btn');
+  const msg = document.getElementById('newpw-msg');
+  if (pw.length < 8) { if (msg) showMsg(msg, 'error', 'Password must be at least 8 characters.'); return; }
+  if (pw !== confirm) { if (msg) showMsg(msg, 'error', 'Passwords do not match.'); return; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Updating…'; }
+  const { error } = await sb.auth.updateUser({ password: pw });
+  if (btn) { btn.disabled = false; btn.textContent = 'Update password →'; }
+  if (error) { if (msg) showMsg(msg, 'error', error.message); return; }
+  if (msg) showMsg(msg, 'success', 'Password updated! Logging you in…');
+  setTimeout(() => {
+    const { data: { session } } = sb.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) onSignedIn(session.user);
+    });
+  }, 1200);
 }
 
 async function doLogin() {
@@ -389,7 +440,10 @@ async function doSignup() {
   if (btn) { btn.disabled = true; btn.textContent = 'Creating account…'; }
   const { data, error } = await sb.auth.signUp({
     email, password,
-    options: { data: { full_name: name } }
+    options: {
+      data: { full_name: name },
+      emailRedirectTo: window.location.origin
+    }
   });
   if (btn) { btn.disabled = false; btn.textContent = 'Create account →'; }
   if (error) { if (msg) showMsg(msg, 'error', error.message); return; }
@@ -753,11 +807,11 @@ async function loadNews() {
   const el = document.getElementById('news-list');
   if (!el) return;
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch("/api/claude", {
       method:"POST",
       headers:{"Content-Type":"application/json"},
       body: JSON.stringify({
-        model:"claude-sonnet-4-5-20250929",
+        model:"claude-haiku-4-5-20251001",
         max_tokens:800,
         messages:[{role:"user",content:"Generate 5 realistic market news headlines for today (" + new Date().toDateString() + ") relevant to IB candidates. Cover M&A, capital markets, macro, deals. Return ONLY a JSON array: [{tag,headline,time}]. tag: M&A|MARKETS|RATES|DEALS|MACRO. time: Xm ago or Xh ago. No markdown."}]
       })
@@ -1208,11 +1262,11 @@ async function sendMsg() {
   const cat = catEl ? catEl.value : 'tech';
   const firm = firmEl ? firmEl.value : 'Goldman Sachs';
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch("/api/claude", {
       method:"POST",
       headers:{"Content-Type":"application/json"},
       body: JSON.stringify({
-        model:"claude-sonnet-4-5-20250929",
+        model:"claude-sonnet-4-6",
         max_tokens:600,
         system: "You are Alex Chen, VP in M&A at " + firm + ". Conduct a rigorous IB interview. After the candidate's answer, give brief feedback and scores: 'Technical: X/10 | Structure: X/10 | Confidence: X/10'. Then ask a follow-up. Keep it concise and challenging.",
         messages: mockHistory.map(m=>({role:m.role,content:m.content}))
@@ -2113,6 +2167,20 @@ window.addEventListener('DOMContentLoaded', async function() {
     sb.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
         try { await onSignedIn(session.user); } catch (e) { console.error('onSignedIn error:', e); }
+      } else if (event === 'PASSWORD_RECOVERY') {
+        showScreen('auth');
+        const loginForm = document.getElementById('auth-login-form');
+        const signupForm = document.getElementById('auth-signup-form');
+        const forgotForm = document.getElementById('auth-forgot-form');
+        const newpwForm = document.getElementById('auth-newpw-form');
+        const tabLogin = document.getElementById('tab-login');
+        const tabSignup = document.getElementById('tab-signup');
+        if (loginForm) loginForm.style.display = 'none';
+        if (signupForm) signupForm.style.display = 'none';
+        if (forgotForm) forgotForm.style.display = 'none';
+        if (newpwForm) newpwForm.style.display = 'block';
+        if (tabLogin) tabLogin.classList.remove('active');
+        if (tabSignup) tabSignup.classList.remove('active');
       } else if (event === 'SIGNED_OUT') {
         showScreen('landing');
       }
