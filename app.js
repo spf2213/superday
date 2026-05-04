@@ -2158,7 +2158,11 @@ window.addEventListener('DOMContentLoaded', async function() {
     console.error('Init error:', e);
   }
 
-  let pendingRecovery = false;
+  const hashParams = new URLSearchParams(window.location.hash.slice(1));
+  const pkceCode = new URLSearchParams(window.location.search).get('code');
+
+  // Detect implicit-flow recovery immediately, before any auth events fire
+  let pendingRecovery = hashParams.get('type') === 'recovery';
 
   function showNewPasswordForm() {
     pendingRecovery = true;
@@ -2173,6 +2177,8 @@ window.addEventListener('DOMContentLoaded', async function() {
     document.getElementById('tab-signup')?.classList.remove('active');
   }
 
+  if (pendingRecovery) showNewPasswordForm();
+
   // Register listener FIRST so it catches events from exchangeCodeForSession
   sb.auth.onAuthStateChange(async (event, session) => {
     if (event === 'PASSWORD_RECOVERY') {
@@ -2185,23 +2191,19 @@ window.addEventListener('DOMContentLoaded', async function() {
     }
   });
 
-  // PKCE flow: exchange code from URL — fires onAuthStateChange above
-  const pkceCode = new URLSearchParams(window.location.search).get('code');
   if (pkceCode) {
+    // PKCE flow: exchange code — fires PASSWORD_RECOVERY or SIGNED_IN above
     try {
       await sb.auth.exchangeCodeForSession(pkceCode);
     } catch (e) {
       console.error('Code exchange error:', e);
     }
   } else {
-    // Implicit flow: restore existing session from hash or storage
+    // Normal session restore (also sets up session for implicit recovery flow)
     try {
       const { data: { session } } = await sb.auth.getSession();
-      const hashType = new URLSearchParams(window.location.hash.slice(1)).get('type');
-      if (session?.user && hashType !== 'recovery') {
+      if (session?.user && !pendingRecovery) {
         await onSignedIn(session.user);
-      } else if (hashType === 'recovery') {
-        showNewPasswordForm();
       }
     } catch (e) {
       console.error('Auth session restore error:', e);
