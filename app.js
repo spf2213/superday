@@ -424,7 +424,12 @@ async function doLogin() {
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   if (btn) { btn.disabled = false; btn.textContent = 'Log in →'; }
   if (error) { if (msg) showMsg(msg, 'error', error.message); return; }
-  await onSignedIn(data.user);
+  try {
+    await onSignedIn(data.user);
+  } catch (e) {
+    console.error('onSignedIn error:', e);
+    if (msg) showMsg(msg, 'error', 'Signed in, but something went wrong loading your data. Refresh the page.');
+  }
 }
 
 async function doSignup() {
@@ -495,8 +500,12 @@ async function onSignedIn(user) {
   if (sbAvatarEl) sbAvatarEl.textContent = cap[0].toUpperCase();
   const emailEl = document.getElementById('sb-email-display');
   if (emailEl) emailEl.textContent = user.email;
-  await loadProgress();
   showScreen('app');
+  try {
+    await loadProgress();
+  } catch (e) {
+    console.error('loadProgress failed:', e);
+  }
 }
 
 /* ─── PROGRESS PERSISTENCE ───────────────── */
