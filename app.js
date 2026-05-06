@@ -1532,7 +1532,10 @@ let diagScores = { tech: 0, beh: 0, deal: 0 };
 let diagCounts = { tech: 0, beh: 0, deal: 0 };
 
 function checkFirstVisit() {
-  if (!progress.diagnosticDone && currentUser) {
+  if (!currentUser) return;
+  if (!progress.onrampComplete) {
+    showOnramp();
+  } else if (!progress.diagnosticDone) {
     document.getElementById('diagnostic-overlay').classList.add('show');
   }
 }
@@ -1679,11 +1682,24 @@ function closeDiagnostic() {
   }
   updateDashStats();
   updateMasteryStats();
-  
-  // Show on-ramp for new users who haven't set up their profile
+
+  // Resuming mid-onramp: jump to timeline step.
+  if (window._onrampPendingResume) {
+    window._onrampPendingResume = false;
+    setTimeout(() => {
+      onrampStep = 2;
+      document.querySelectorAll('.onramp-step').forEach(s => s.classList.remove('active'));
+      document.getElementById('onramp-step-2').classList.add('active');
+      setOnrampDotsActive(3); // timeline is dot 3
+      document.getElementById('onramp-overlay').classList.add('show');
+    }, 300);
+    return;
+  }
+
+  // Legacy path: user finished a standalone diagnostic and hasn't onramped yet.
   if (!progress.onrampComplete) {
     setTimeout(() => {
-      document.getElementById('onramp-overlay').classList.add('show');
+      showOnramp();
     }, 300);
   }
 }
@@ -1800,15 +1816,35 @@ function toggleOnrampMulti(el, field, value) {
   }
 }
 
+// onrampStep is the visible card (1=bg, 2=timeline, 3=banks, 4=plan).
+// Diagnostic is a side-trip between visible step 1 and visible step 2;
+// the dot at index 2 represents it.
 function nextOnrampStep() {
+  // After background, run the diagnostic (unless already done).
+  if (onrampStep === 1 && !progress.diagnosticDone) {
+    saveOnrampProfileSoFar();
+    document.getElementById('onramp-step-1').classList.remove('active');
+    setOnrampDotsActive(2); // diagnostic is the 2nd dot
+    document.getElementById('onramp-overlay').classList.remove('show');
+    setTimeout(() => {
+      window._onrampPendingResume = true;
+      document.getElementById('diagnostic-overlay').classList.add('show');
+      document.getElementById('diagnostic-welcome').style.display = '';
+      document.getElementById('diagnostic-active').style.display = 'none';
+      document.getElementById('diagnostic-results').style.display = 'none';
+    }, 200);
+    return;
+  }
+
   if (onrampStep < 4) {
     document.getElementById('onramp-step-' + onrampStep).classList.remove('active');
     onrampStep++;
     document.getElementById('onramp-step-' + onrampStep).classList.add('active');
-    updateOnrampDots();
-    
+    setOnrampDotsActive(onrampStep + 1); // +1 because dot 2 is diagnostic
+
     if (onrampStep === 4) {
       generateOnrampSummary();
+      renderPlanPreview();
     }
   }
 }
@@ -1818,16 +1854,27 @@ function prevOnrampStep() {
     document.getElementById('onramp-step-' + onrampStep).classList.remove('active');
     onrampStep--;
     document.getElementById('onramp-step-' + onrampStep).classList.add('active');
-    updateOnrampDots();
+    setOnrampDotsActive(onrampStep + 1);
   }
 }
 
-function updateOnrampDots() {
+// dotIndex is 1..5. Dots before dotIndex render as "done", dotIndex is active.
+function setOnrampDotsActive(dotIndex) {
   document.querySelectorAll('.onramp-dot').forEach((dot, i) => {
     dot.classList.remove('active', 'done');
-    if (i + 1 === onrampStep) dot.classList.add('active');
-    if (i + 1 < onrampStep) dot.classList.add('done');
+    if (i + 1 === dotIndex) dot.classList.add('active');
+    if (i + 1 < dotIndex) dot.classList.add('done');
   });
+}
+
+function updateOnrampDots() {
+  setOnrampDotsActive(onrampStep === 1 ? 1 : onrampStep + 1);
+}
+
+function saveOnrampProfileSoFar() {
+  // Persist partial profile so a refresh mid-onramp doesn't lose answers.
+  progress.userProfile = { ...(progress.userProfile || {}), ...onrampData };
+  saveProgress();
 }
 
 function generateOnrampSummary() {
@@ -1872,92 +1919,359 @@ function completeOnramp() {
   document.getElementById('story-bank-btn').classList.add('show');
 }
 
-/* ─── PREP PLAN ─────────────────────── */
+/* ─── SYLLABUS / PLAN ────────────────── */
+
+const SYLLABUS_TIMELINE_WEEKS = {
+  '2weeks': 2,
+  '1month': 4,
+  '3months': 12,
+  'exploring': 8
+};
+
+const TIMELINE_LABEL = {
+  '2weeks': '2 WEEKS',
+  '1month': '4 WEEKS',
+  '3months': '12 WEEKS',
+  'exploring': 'FLEXIBLE'
+};
+
+function _learnTask(week, moduleIds) {
+  const mods = moduleIds.map(id => LEARN_MODULES.find(m => m.id === id)).filter(Boolean);
+  const titles = mods.map(m => m.title);
+  const totalMin = mods.reduce((s, m) => s + (parseInt(m.time, 10) || 15), 0);
+  return {
+    id: `w${week}-learn-${moduleIds.join('-')}`,
+    type: 'learn',
+    moduleIds,
+    label: titles.length === 1 ? `Learn: ${titles[0]}` : `Learn: ${titles.join(' + ')}`,
+    time: `${totalMin} min`,
+    action: 'learn'
+  };
+}
+function _practiceTask(week, sub, count) {
+  const subLabel = { accounting: 'accounting', valuation: 'valuation', lbo: 'LBO', ma: 'M&A' }[sub] || sub;
+  return {
+    id: `w${week}-practice-${sub}`,
+    type: 'practice', sub, count,
+    label: `Drill ${count} ${subLabel} questions`,
+    time: `~${Math.ceil(count * 1.2)} min`,
+    action: 'practice'
+  };
+}
+function _behavioralTask(week, count) {
+  return {
+    id: `w${week}-beh-${count}`,
+    type: 'behavioral', count,
+    label: `Prep ${count} behavioral ${count === 1 ? 'story' : 'stories'}`,
+    time: `${count * 10} min`,
+    action: 'behavioral'
+  };
+}
+function _dealTask(week, count) {
+  return {
+    id: `w${week}-deal-${count}`,
+    type: 'deal', count,
+    label: `Review ${count} markets / deal questions`,
+    time: `~${Math.ceil(count * 1.2)} min`,
+    action: 'deal'
+  };
+}
+function _mockTask(week, kind) {
+  return {
+    id: `w${week}-mock-${kind}`,
+    type: 'mock', kind,
+    label: kind === 'full' ? 'Full mock interview' : 'Technical mock interview',
+    time: '30 min',
+    action: 'mock'
+  };
+}
+
+function generateSyllabus(profile, scores) {
+  const totalWeeks = SYLLABUS_TIMELINE_WEEKS[profile?.timeline] || 4;
+  const techPct = scores?.tech ?? 50;
+  const behPct = scores?.beh ?? 50;
+  const dealPct = scores?.deal ?? 50;
+  // Drill multiplier: weaker subject → more questions, stronger → fewer.
+  const drillMult = (pct) => pct < 40 ? 1.4 : pct >= 70 ? 0.7 : 1.0;
+  const tM = drillMult(techPct), bM = drillMult(behPct), dM = drillMult(dealPct);
+  const r = (n) => Math.max(5, Math.round(n / 5) * 5);
+
+  let weeks;
+  if (totalWeeks === 2) {
+    weeks = [
+      { week: 1, theme: 'Technical Crunch', focus: 'tech', tasks: [
+        _learnTask(1, ['three-statements', 'dcf-basics']),
+        _practiceTask(1, 'accounting', r(20 * tM)),
+        _practiceTask(1, 'valuation', r(20 * tM)),
+        _behavioralTask(1, 3 * (bM > 1 ? 2 : 1) > 4 ? 4 : 3),
+      ]},
+      { week: 2, theme: 'Polish & Mock', focus: 'mixed', tasks: [
+        _practiceTask(2, 'lbo', r(15 * tM)),
+        _practiceTask(2, 'ma', r(10 * tM)),
+        _dealTask(2, r(10 * dM)),
+        _behavioralTask(2, 3),
+        _mockTask(2, 'full'),
+      ]}
+    ];
+  } else if (totalWeeks === 4) {
+    weeks = [
+      { week: 1, theme: 'Accounting Foundations', focus: 'accounting', tasks: [
+        _learnTask(1, ['three-statements', 'working-capital']),
+        _practiceTask(1, 'accounting', r(25 * tM)),
+        _behavioralTask(1, 2),
+      ]},
+      { week: 2, theme: 'Valuation Core', focus: 'valuation', tasks: [
+        _learnTask(2, ['dcf-basics', 'ev-equity']),
+        _practiceTask(2, 'valuation', r(25 * tM)),
+        _behavioralTask(2, 2),
+      ]},
+      { week: 3, theme: 'LBO & M&A', focus: 'deals', tasks: [
+        _learnTask(3, ['lbo-mechanics', 'accretion-dilution']),
+        _practiceTask(3, 'lbo', r(15 * tM)),
+        _practiceTask(3, 'ma', r(15 * tM)),
+        _dealTask(3, r(10 * dM)),
+      ]},
+      { week: 4, theme: 'Polish & Mocks', focus: 'mixed', tasks: [
+        _behavioralTask(4, 3),
+        _dealTask(4, r(10 * dM)),
+        _practiceTask(4, 'accounting', r(10 * tM)),
+        _mockTask(4, 'full'),
+      ]}
+    ];
+  } else if (totalWeeks === 8) {
+    weeks = [
+      { week: 1, theme: 'Accounting I', focus: 'accounting', tasks: [
+        _learnTask(1, ['three-statements']), _practiceTask(1, 'accounting', r(15 * tM)), _behavioralTask(1, 1) ]},
+      { week: 2, theme: 'Accounting II', focus: 'accounting', tasks: [
+        _learnTask(2, ['working-capital']), _practiceTask(2, 'accounting', r(20 * tM)), _behavioralTask(2, 1) ]},
+      { week: 3, theme: 'Valuation I', focus: 'valuation', tasks: [
+        _learnTask(3, ['dcf-basics']), _practiceTask(3, 'valuation', r(15 * tM)), _behavioralTask(3, 1) ]},
+      { week: 4, theme: 'Valuation II', focus: 'valuation', tasks: [
+        _learnTask(4, ['ev-equity']), _practiceTask(4, 'valuation', r(15 * tM)), _behavioralTask(4, 1) ]},
+      { week: 5, theme: 'LBO Mechanics', focus: 'lbo', tasks: [
+        _learnTask(5, ['lbo-mechanics']), _practiceTask(5, 'lbo', r(20 * tM)) ]},
+      { week: 6, theme: 'M&A', focus: 'ma', tasks: [
+        _learnTask(6, ['accretion-dilution']), _practiceTask(6, 'ma', r(20 * tM)) ]},
+      { week: 7, theme: 'Markets & Behavioral', focus: 'mixed', tasks: [
+        _dealTask(7, r(15 * dM)), _behavioralTask(7, 3) ]},
+      { week: 8, theme: 'Mocks & Polish', focus: 'mixed', tasks: [
+        _mockTask(8, 'full'), _practiceTask(8, 'accounting', r(10 * tM)), _practiceTask(8, 'valuation', r(10 * tM)) ]}
+    ];
+  } else { // 12 weeks
+    weeks = [
+      { week: 1, theme: 'Accounting I', focus: 'accounting', tasks: [
+        _learnTask(1, ['three-statements']), _practiceTask(1, 'accounting', r(15 * tM)), _behavioralTask(1, 1) ]},
+      { week: 2, theme: 'Accounting II', focus: 'accounting', tasks: [
+        _learnTask(2, ['working-capital']), _practiceTask(2, 'accounting', r(15 * tM)) ]},
+      { week: 3, theme: 'Accounting Drill', focus: 'accounting', tasks: [
+        _practiceTask(3, 'accounting', r(20 * tM)), _behavioralTask(3, 1) ]},
+      { week: 4, theme: 'Valuation I', focus: 'valuation', tasks: [
+        _learnTask(4, ['dcf-basics']), _practiceTask(4, 'valuation', r(15 * tM)) ]},
+      { week: 5, theme: 'Valuation II', focus: 'valuation', tasks: [
+        _learnTask(5, ['ev-equity']), _practiceTask(5, 'valuation', r(15 * tM)) ]},
+      { week: 6, theme: 'Valuation Drill', focus: 'valuation', tasks: [
+        _practiceTask(6, 'valuation', r(20 * tM)), _behavioralTask(6, 2) ]},
+      { week: 7, theme: 'LBO Mechanics', focus: 'lbo', tasks: [
+        _learnTask(7, ['lbo-mechanics']), _practiceTask(7, 'lbo', r(15 * tM)) ]},
+      { week: 8, theme: 'LBO Drill', focus: 'lbo', tasks: [
+        _practiceTask(8, 'lbo', r(20 * tM)), _dealTask(8, r(10 * dM)) ]},
+      { week: 9, theme: 'M&A', focus: 'ma', tasks: [
+        _learnTask(9, ['accretion-dilution']), _practiceTask(9, 'ma', r(20 * tM)) ]},
+      { week: 10, theme: 'Markets & Deals', focus: 'markets', tasks: [
+        _dealTask(10, r(20 * dM)), _behavioralTask(10, 2) ]},
+      { week: 11, theme: 'Behavioral & Polish', focus: 'behavioral', tasks: [
+        _behavioralTask(11, 4), _practiceTask(11, 'accounting', r(10 * tM)), _practiceTask(11, 'valuation', r(10 * tM)) ]},
+      { week: 12, theme: 'Mock Marathon', focus: 'mixed', tasks: [
+        _mockTask(12, 'full'), _mockTask(12, 'tech'), _practiceTask(12, 'lbo', r(10 * tM)) ]}
+    ];
+  }
+
+  return { totalWeeks, weeks };
+}
+
+function isTaskComplete(task) {
+  if (progress.completedTasks?.includes(task.id)) return true;
+  if (task.type === 'learn') {
+    return task.moduleIds.every(id => {
+      const mod = LEARN_MODULES.find(m => m.id === id);
+      if (!mod) return false;
+      return (progress.learnProgress?.[id] || 0) >= mod.sections;
+    });
+  }
+  if (task.type === 'practice') {
+    const n = QUESTIONS.filter(q => q.sub === task.sub && progress.answered?.has?.(q.id)).length;
+    return n >= task.count;
+  }
+  if (task.type === 'deal') {
+    const n = QUESTIONS.filter(q => q.cat === 'deal' && progress.answered?.has?.(q.id)).length;
+    return n >= task.count;
+  }
+  if (task.type === 'behavioral') {
+    return (progress.notes?.length || 0) >= task.count;
+  }
+  return false; // mock: manual check only
+}
+
+function syllabusCurrentWeek(syllabus) {
+  for (const w of syllabus.weeks) {
+    if (w.tasks.some(t => !isTaskComplete(t))) return w.week;
+  }
+  return syllabus.weeks.length;
+}
+
 function renderPrepPlan() {
   const container = document.getElementById('prep-plan-container');
   if (!container) return;
-  
-  const profile = progress.userProfile || {};
-  const timeline = profile.timeline || '1month';
-  
-  // Generate tasks based on timeline
-  const tasks = generatePrepTasks(timeline);
-  
-  const timelineLabels = {
-    '2weeks': '2 WEEKS',
-    '1month': '1 MONTH',
-    '3months': '3 MONTHS',
-    'exploring': 'FLEXIBLE'
-  };
-  
+  if (!progress.userProfile) {
+    container.innerHTML = '';
+    return;
+  }
+  const syllabus = generateSyllabus(progress.userProfile, progress.diagnosticScores);
+  const currentWeek = syllabusCurrentWeek(syllabus);
+  const overallTasks = syllabus.weeks.reduce((s, w) => s + w.tasks.length, 0);
+  const overallDone = syllabus.weeks.reduce((s, w) => s + w.tasks.filter(isTaskComplete).length, 0);
+  const pct = Math.round(overallDone / overallTasks * 100) || 0;
+
   container.innerHTML = `
     <div class="prep-plan-card">
       <div class="prep-plan-header">
         <div class="prep-plan-title">
-          📋 Your Prep Plan
-          <span class="prep-plan-badge">${timelineLabels[timeline] || '1 MONTH'}</span>
+          📋 Your Plan
+          <span class="prep-plan-badge">WEEK ${currentWeek} OF ${syllabus.totalWeeks}</span>
         </div>
         <span class="prep-plan-edit" onclick="showOnramp()">Edit plan</span>
       </div>
-      <div class="prep-plan-tasks">
-        ${tasks.map((task, i) => `
-          <div class="prep-task">
-            <div class="prep-task-check ${progress.completedTasks?.includes(i) ? 'done' : ''}" onclick="togglePrepTask(${i})">✓</div>
-            <span class="prep-task-text">${task.text}</span>
-            <span class="prep-task-time">${task.time}</span>
-          </div>
-        `).join('')}
+      <div class="syl-overall">
+        <div class="syl-overall-bar"><div class="syl-overall-fill" style="width:${pct}%"></div></div>
+        <div class="syl-overall-text">${overallDone} / ${overallTasks} tasks complete</div>
+      </div>
+      <div class="syllabus-weeks">
+        ${syllabus.weeks.map(w => renderSyllabusWeek(w, currentWeek)).join('')}
       </div>
     </div>
   `;
 }
 
-function generatePrepTasks(timeline) {
-  const baseTasks = [
-    { text: 'Complete diagnostic assessment', time: '5 min' },
-    { text: 'Master 3-statement linkages', time: '20 min' },
-    { text: 'Practice 10 accounting questions', time: '15 min' },
-    { text: 'Learn DCF fundamentals', time: '25 min' },
-    { text: 'Complete 1 mock interview', time: '30 min' },
-  ];
-  
-  if (timeline === '2weeks') {
-    return [
-      { text: 'Speed drill: Accounting fundamentals', time: '15 min' },
-      { text: 'High-yield: Top 20 technical questions', time: '30 min' },
-      { text: 'Mock interview practice', time: '25 min' },
-      { text: 'Behavioral story prep', time: '20 min' },
-    ];
-  } else if (timeline === '3months') {
-    return [
-      ...baseTasks,
-      { text: 'Deep dive: LBO modeling concepts', time: '30 min' },
-      { text: 'Market news review', time: '10 min' },
-      { text: 'Peer mock interview', time: '45 min' },
-    ];
-  }
-  
-  return baseTasks;
+function renderSyllabusWeek(week, currentWeek) {
+  const isCurrent = week.week === currentWeek;
+  const isPast = week.week < currentWeek;
+  const tasksDone = week.tasks.filter(isTaskComplete).length;
+  const total = week.tasks.length;
+  const allDone = tasksDone === total;
+  const stateClass = isCurrent ? 'current' : (isPast ? 'past' : 'future');
+  const collapsed = !isCurrent;
+
+  return `
+    <div class="syl-week ${stateClass} ${collapsed ? 'collapsed' : ''}" data-week="${week.week}">
+      <div class="syl-week-head" onclick="toggleSylWeek(${week.week})">
+        <div class="syl-week-num">W${week.week}</div>
+        <div class="syl-week-titlewrap">
+          <div class="syl-week-theme">${week.theme}</div>
+          <div class="syl-week-progress">${tasksDone}/${total}${allDone ? ' ✓' : ''}</div>
+        </div>
+        <div class="syl-week-toggle">${collapsed ? '+' : '−'}</div>
+      </div>
+      <div class="syl-week-body">
+        ${week.tasks.map(t => renderSyllabusTask(t)).join('')}
+      </div>
+    </div>
+  `;
 }
 
-function togglePrepTask(index) {
+function renderSyllabusTask(task) {
+  const done = isTaskComplete(task);
+  return `
+    <div class="syl-task ${done ? 'done' : ''}">
+      <div class="syl-task-check ${done ? 'done' : ''}" onclick="event.stopPropagation();toggleSyllabusTask('${task.id}')">${done ? '✓' : ''}</div>
+      <div class="syl-task-label">${task.label}</div>
+      <div class="syl-task-time">${task.time}</div>
+      <button class="syl-task-action" onclick="event.stopPropagation();syllabusAction('${task.id}','${task.action}')">→</button>
+    </div>
+  `;
+}
+
+function toggleSylWeek(weekNum) {
+  const el = document.querySelector(`.syl-week[data-week="${weekNum}"]`);
+  if (!el) return;
+  const collapsed = el.classList.toggle('collapsed');
+  const toggle = el.querySelector('.syl-week-toggle');
+  if (toggle) toggle.textContent = collapsed ? '+' : '−';
+}
+
+function toggleSyllabusTask(taskId) {
   if (!progress.completedTasks) progress.completedTasks = [];
-  
-  if (progress.completedTasks.includes(index)) {
-    progress.completedTasks = progress.completedTasks.filter(i => i !== index);
-  } else {
-    progress.completedTasks.push(index);
-  }
-  
+  const has = progress.completedTasks.includes(taskId);
+  progress.completedTasks = has
+    ? progress.completedTasks.filter(t => t !== taskId)
+    : [...progress.completedTasks, taskId];
   saveProgress();
   renderPrepPlan();
 }
 
+function syllabusAction(taskId, action) {
+  if (action === 'learn') showView('learn');
+  else if (action === 'practice' || action === 'deal') showView('quiz');
+  else if (action === 'behavioral') toggleStoryPanel();
+  else if (action === 'mock') showView('mock');
+}
+
+function renderPlanPreview() {
+  const container = document.getElementById('onramp-plan-preview');
+  if (!container) return;
+  const profile = { ...onrampData };
+  const syllabus = generateSyllabus(profile, progress.diagnosticScores);
+  const techPct = progress.diagnosticScores?.tech;
+  const behPct = progress.diagnosticScores?.beh;
+  const dealPct = progress.diagnosticScores?.deal;
+  const weakestLabel = (() => {
+    if (techPct == null) return null;
+    const arr = [
+      { label: 'technicals', pct: techPct },
+      { label: 'behavioral', pct: behPct ?? 100 },
+      { label: 'markets', pct: dealPct ?? 100 },
+    ];
+    arr.sort((a, b) => a.pct - b.pct);
+    return arr[0].pct < 70 ? arr[0].label : null;
+  })();
+
+  container.innerHTML = `
+    <div class="syl-pre-meta">
+      <div class="syl-pre-stat"><span class="syl-pre-stat-num">${syllabus.totalWeeks}</span><span class="syl-pre-stat-lbl">weeks</span></div>
+      <div class="syl-pre-stat"><span class="syl-pre-stat-num">${syllabus.weeks.reduce((s,w)=>s+w.tasks.length,0)}</span><span class="syl-pre-stat-lbl">tasks</span></div>
+      ${weakestLabel ? `<div class="syl-pre-stat"><span class="syl-pre-stat-num">${weakestLabel}</span><span class="syl-pre-stat-lbl">extra focus</span></div>` : ''}
+    </div>
+    <div class="syl-pre-weeks">
+      ${syllabus.weeks.map(w => `
+        <div class="syl-pre-week">
+          <div class="syl-pre-num">W${w.week}</div>
+          <div class="syl-pre-theme">${w.theme}</div>
+          <div class="syl-pre-tasks">${w.tasks.length} tasks</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
 function showOnramp() {
   onrampStep = 1;
+  // Hydrate onrampData from any previously saved profile so "Edit plan" doesn't blank fields.
+  if (progress.userProfile) {
+    onrampData = {
+      background: progress.userProfile.background || null,
+      timeline: progress.userProfile.timeline || null,
+      banks: Array.isArray(progress.userProfile.banks) ? [...progress.userProfile.banks] : []
+    };
+    // Re-mark previously selected options as selected.
+    requestAnimationFrame(() => {
+      document.querySelectorAll('.onramp-option').forEach(opt => opt.classList.remove('selected'));
+      document.querySelectorAll('#onramp-step-1 .onramp-option').forEach(opt => {
+        if (opt.getAttribute('onclick')?.includes(`'${onrampData.background}'`)) opt.classList.add('selected');
+      });
+    });
+  }
   document.querySelectorAll('.onramp-step').forEach(s => s.classList.remove('active'));
   document.getElementById('onramp-step-1').classList.add('active');
-  updateOnrampDots();
+  setOnrampDotsActive(1);
   document.getElementById('onramp-overlay').classList.add('show');
 }
 
@@ -2441,6 +2755,7 @@ Object.assign(window, {
   showScreen, showView, shuffleFlash, skipDiagnostic, smartPractice,
   startDiagnostic, startDirectDiagnostic, startMock,
   startQuiz, switchAuthTab, toggleFaq, toggleOnrampMulti,
-  togglePrepTask, toggleProfileEdit, toggleQ, toggleStoryPanel, toggleTheme,
+  toggleProfileEdit, toggleQ, toggleStoryPanel, toggleTheme,
+  toggleSylWeek, toggleSyllabusTask, syllabusAction,
   viewStoryNote
 });

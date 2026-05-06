@@ -1898,6 +1898,103 @@ body:has(.dss-mode.active) { overflow:hidden }
 .prep-task-check.done + .prep-task-text{text-decoration:line-through;color:var(--t-3)}
 .prep-task-time{font-size:10px;color:var(--t-3);font-family:'Geist Mono',monospace}
 
+/* SYLLABUS — overall bar */
+.syl-overall{margin:8px 0 16px;display:flex;flex-direction:column;gap:6px}
+.syl-overall-bar{height:6px;background:var(--bg-3);border-radius:3px;overflow:hidden}
+.syl-overall-fill{height:100%;background:var(--accent);transition:width 0.3s ease}
+.syl-overall-text{font-size:10px;color:var(--t-3);font-family:'Geist Mono',monospace;letter-spacing:0.04em}
+
+/* SYLLABUS — weeks */
+.syllabus-weeks{display:flex;flex-direction:column;gap:8px}
+.syl-week{
+  background:var(--bg-1);border:1px solid var(--line);
+  border-radius:var(--r);overflow:hidden;transition:var(--trans);
+}
+.syl-week.current{border-color:var(--accent);background:var(--bg-2)}
+.syl-week.past{opacity:0.6}
+.syl-week-head{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 14px;cursor:pointer;user-select:none;
+}
+.syl-week-head:hover{background:var(--bg-3)}
+.syl-week-num{
+  font-family:'Geist Mono',monospace;font-size:11px;font-weight:600;
+  color:var(--t-3);min-width:28px;
+}
+.syl-week.current .syl-week-num{color:var(--accent)}
+.syl-week.past .syl-week-num{color:var(--green)}
+.syl-week-titlewrap{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.syl-week-theme{font-size:13px;font-weight:500;color:var(--t-1)}
+.syl-week-progress{font-size:10px;color:var(--t-3);font-family:'Geist Mono',monospace}
+.syl-week-toggle{
+  font-size:16px;color:var(--t-3);width:20px;text-align:center;
+  font-family:'Geist Mono',monospace;
+}
+.syl-week-body{
+  display:flex;flex-direction:column;gap:6px;
+  padding:0 14px 14px;
+}
+.syl-week.collapsed .syl-week-body{display:none}
+
+/* SYLLABUS — tasks */
+.syl-task{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 12px;background:var(--bg-2);border:1px solid var(--line);
+  border-radius:var(--r);font-size:12px;
+}
+.syl-week.current .syl-task{background:var(--bg-1)}
+.syl-task.done{opacity:0.55}
+.syl-task-check{
+  width:18px;height:18px;border-radius:50%;
+  border:2px solid var(--line-2);flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;color:transparent;cursor:pointer;transition:var(--trans);
+}
+.syl-task-check:hover{border-color:var(--accent)}
+.syl-task-check.done{background:var(--green);border-color:var(--green);color:white}
+.syl-task-label{flex:1;color:var(--t-2);min-width:0}
+.syl-task.done .syl-task-label{text-decoration:line-through;color:var(--t-3)}
+.syl-task-time{
+  font-size:10px;color:var(--t-3);font-family:'Geist Mono',monospace;
+  white-space:nowrap;
+}
+.syl-task-action{
+  background:transparent;border:1px solid var(--line);
+  color:var(--t-2);padding:4px 10px;border-radius:var(--r);
+  font-size:12px;cursor:pointer;transition:var(--trans);
+  font-family:inherit;
+}
+.syl-task-action:hover{background:var(--accent);border-color:var(--accent);color:white}
+
+/* SYLLABUS — onramp preview */
+.syllabus-preview{margin:16px 0 20px;text-align:left}
+.syl-pre-meta{
+  display:flex;gap:12px;margin-bottom:14px;
+  padding:12px;background:var(--bg-2);border-radius:var(--r);
+}
+.syl-pre-stat{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.syl-pre-stat-num{
+  font-family:'Geist Mono',monospace;font-size:14px;font-weight:600;
+  color:var(--t-1);text-transform:capitalize;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.syl-pre-stat-lbl{font-size:10px;color:var(--t-3);text-transform:uppercase;letter-spacing:0.04em}
+.syl-pre-weeks{
+  display:grid;gap:6px;
+  grid-template-columns:repeat(auto-fill, minmax(120px, 1fr));
+  max-height:240px;overflow-y:auto;
+}
+.syl-pre-week{
+  padding:10px;background:var(--bg-2);border:1px solid var(--line);
+  border-radius:var(--r);
+}
+.syl-pre-num{
+  font-family:'Geist Mono',monospace;font-size:10px;color:var(--accent);
+  font-weight:600;margin-bottom:4px;
+}
+.syl-pre-theme{font-size:12px;color:var(--t-1);font-weight:500;margin-bottom:2px}
+.syl-pre-tasks{font-size:10px;color:var(--t-3);font-family:'Geist Mono',monospace}
+
 /* LEARN MODULES (Conceptual Teaching) */
 .learn-wrap{max-width:800px;margin:0 auto}
 .learn-modules{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-bottom:24px}

@@ -1502,6 +1502,7 @@
       <div class="onramp-dot" data-step="2"></div>
       <div class="onramp-dot" data-step="3"></div>
       <div class="onramp-dot" data-step="4"></div>
+      <div class="onramp-dot" data-step="5"></div>
     </div>
     
     <!-- Step 1: Background -->
@@ -1596,14 +1597,16 @@
       </div>
     </div>
     
-    <!-- Step 4: Ready -->
+    <!-- Step 4: Plan Preview -->
     <div class="onramp-step" id="onramp-step-4">
-      <div class="onramp-card">
-        <div class="onramp-icon">🚀</div>
-        <div class="onramp-title">You're all set!</div>
-        <div class="onramp-desc" id="onramp-summary">We've built a personalized prep plan based on your profile. Let's get started.</div>
+      <div class="onramp-card onramp-card-wide">
+        <div class="onramp-icon">📋</div>
+        <div class="onramp-title">Here's your plan</div>
+        <div class="onramp-desc" id="onramp-summary">Built from your diagnostic and timeline. We'll adapt it as you progress.</div>
+        <div class="syllabus-preview" id="onramp-plan-preview"></div>
         <div class="onramp-actions">
-          <button class="quiz-btn primary" style="width:100%" onclick="completeOnramp()">Start Preparing →</button>
+          <button class="quiz-btn ghost" onclick="prevOnrampStep()">← Back</button>
+          <button class="quiz-btn primary" onclick="completeOnramp()">Start Preparing →</button>
         </div>
       </div>
     </div>
