@@ -325,10 +325,61 @@ function demoChatSend() {
       <div class="score-line"><span class="sc-label">Structure & Clarity</span><span class="sc-val ${r.score.struct>=8?'sc-g':'sc-y'}">${r.score.struct}/10</span></div>
       <div class="score-line"><span class="sc-label">Confidence</span><span class="sc-val ${r.score.conf>=8?'sc-g':'sc-y'}">${r.score.conf}/10</span></div>
     </div>`;
-    body.innerHTML += `<div class="chat-msg"><div class="cm-av ai">AC</div><div class="cm-bubble ai">Good answer. ${scoreHtml}</div></div>`;
-    body.innerHTML += `<div class="chat-msg"><div class="cm-av ai">AC</div><div class="cm-bubble ai">${r.follow}</div></div>`;
+    body.innerHTML += `<div class="chat-msg"><div class="cm-av ai">GS</div><div class="cm-bubble ai">Good answer. ${scoreHtml}</div></div>`;
+    body.innerHTML += `<div class="chat-msg"><div class="cm-av ai">GS</div><div class="cm-bubble ai">${r.follow}</div></div>`;
     body.scrollTop = body.scrollHeight;
   }, 1200);
+}
+
+/* ─── TOAST + LIGHTWEIGHT MODAL ────────── */
+function showToast(msg, opts) {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  if (opts && opts.icon) {
+    const icon = document.createElement('span');
+    icon.className = 'toast-icon';
+    icon.textContent = opts.icon;
+    toast.appendChild(icon);
+  }
+  const body = document.createElement('span');
+  body.className = 'toast-msg';
+  body.textContent = msg;
+  toast.appendChild(body);
+  container.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('show'));
+  const ms = (opts && opts.ms) || 2800;
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 400);
+  }, ms);
+}
+
+function showInfoModal(title, body) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:11000;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:20px';
+  const card = document.createElement('div');
+  card.style.cssText = 'background:var(--bg-2);border:1px solid var(--line-2);border-radius:var(--r-lg);max-width:520px;width:100%;max-height:80vh;overflow:auto;padding:22px 24px;box-shadow:0 30px 80px rgba(0,0,0,0.4)';
+  const h = document.createElement('div');
+  h.style.cssText = 'font-size:15px;font-weight:600;color:var(--t);margin-bottom:10px;letter-spacing:-0.01em';
+  h.textContent = title;
+  const p = document.createElement('div');
+  p.style.cssText = 'font-size:13px;color:var(--t-2);line-height:1.55;white-space:pre-wrap';
+  p.textContent = body;
+  const actions = document.createElement('div');
+  actions.style.cssText = 'margin-top:18px;text-align:right';
+  const close = document.createElement('button');
+  close.className = 'quiz-btn primary';
+  close.textContent = 'Close';
+  close.addEventListener('click', () => overlay.remove());
+  actions.appendChild(close);
+  card.appendChild(h);
+  card.appendChild(p);
+  card.appendChild(actions);
+  overlay.appendChild(card);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
 }
 
 /* ─── SUPABASE ────────────────────────── */
@@ -823,31 +874,16 @@ function renderActivity() {
 }
 
 /* ─── NEWS ───────────────────────────── */
+// Note: previous version asked Claude to invent headlines — actively misleading
+// for an interview-prep context. Disabled until a real RSS-backed feed lands.
 async function loadNews() {
   const el = document.getElementById('news-list');
   if (!el) return;
-  try {
-    const res = await fetch("/api/claude", {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({
-        model:"claude-haiku-4-5-20251001",
-        max_tokens:1200,
-        messages:[{role:"user",content:"Generate 10 realistic market news headlines for today (" + new Date().toDateString() + ") relevant to IB candidates. Cover M&A, capital markets, macro, deals. Return ONLY a JSON array: [{tag,headline,time}]. tag: M&A|MARKETS|RATES|DEALS|MACRO. time: Xm ago or Xh ago. No markdown."}]
-      })
-    });
-    const data = await res.json();
-    const raw = data.content?.map(c=>c.text||'').join('')||'[]';
-    const items = JSON.parse(raw.replace(/```json|```/g,'').trim());
-    el.innerHTML = items.map(n =>
-      '<div class="news-item-row">' +
-      '<span class="news-tag-pill">' + n.tag + '</span>' +
-      '<span class="news-hl">' + n.headline + '</span>' +
-      '<span class="news-time-sm">' + n.time + '</span></div>'
-    ).join('');
-  } catch(e) {
-    el.innerHTML = '<div style="padding:24px;text-align:center;font-size:12px;color:var(--t-3)">Market news unavailable.</div>';
-  }
+  el.replaceChildren();
+  const placeholder = document.createElement('div');
+  placeholder.style.cssText = 'padding:24px;text-align:center;font-size:12px;color:var(--t-3)';
+  placeholder.textContent = 'Live market news coming soon.';
+  el.appendChild(placeholder);
 }
 
 /* ─── QUESTION BANK ──────────────────── */
@@ -1231,8 +1267,28 @@ function startMock() {
   const firm = firmEl ? firmEl.value : 'Goldman Sachs';
   const chatBody = document.getElementById('chat-body');
   if (chatBody) chatBody.innerHTML = '';
-  appendMsg('ai', 'Welcome. I\'m Alex Chen, VP in M&A at ' + firm + '. This is a technical interview — I\'ll ask you questions and score each answer. Ready? Let\'s start.');
+  // Refresh the persona header to match the chosen firm.
+  const navName = document.getElementById('mock-iv-name');
+  const navRole = document.getElementById('mock-iv-role');
+  const navAv = document.getElementById('mock-iv-av');
+  if (navName) navName.textContent = firm;
+  if (navRole) navRole.textContent = 'VP, M&A interview';
+  if (navAv) navAv.textContent = firmInitials(firm);
+  appendMsg('ai', "Welcome. I'm a VP in M&A at " + firm + ". This is a technical interview — I'll ask you questions and score each answer. Ready? Let's start.");
   setTimeout(function() { askQuestion(cat); }, 800);
+}
+
+const ALLOWED_FIRMS = ['Goldman Sachs','J.P. Morgan','Morgan Stanley','Evercore','Lazard','Blackstone'];
+function firmInitials(firm) {
+  const map = {
+    'Goldman Sachs': 'GS',
+    'J.P. Morgan': 'JPM',
+    'Morgan Stanley': 'MS',
+    'Evercore': 'EVR',
+    'Lazard': 'LAZ',
+    'Blackstone': 'BX'
+  };
+  return map[firm] || 'VP';
 }
 
 function askQuestion(cat) {
@@ -1242,13 +1298,24 @@ function askQuestion(cat) {
   appendMsg('ai', q.q);
 }
 
+function aiAvatarLabel() {
+  const firmEl = document.getElementById('mock-firm');
+  return firmInitials(firmEl ? firmEl.value : 'Goldman Sachs');
+}
+
 function appendMsg(role, text) {
   const body = document.getElementById('chat-body');
   if (!body) return;
   const div = document.createElement('div');
   div.className = 'chat-msg' + (role==='user'?' user':'');
-  div.innerHTML = '<div class="cm-av ' + (role==='ai'?'ai':'usr') + '">' + (role==='ai'?'AC':'Y') + '</div>' +
-    '<div class="cm-bubble ' + (role==='ai'?'ai':'usr') + '">' + text + '</div>';
+  const av = document.createElement('div');
+  av.className = 'cm-av ' + (role==='ai'?'ai':'usr');
+  av.textContent = role==='ai' ? aiAvatarLabel() : 'Y';
+  const bubble = document.createElement('div');
+  bubble.className = 'cm-bubble ' + (role==='ai'?'ai':'usr');
+  bubble.textContent = text;
+  div.appendChild(av);
+  div.appendChild(bubble);
   body.appendChild(div);
   body.scrollTop = body.scrollHeight;
 }
@@ -1258,7 +1325,14 @@ function showTyping() {
   if (!body) return;
   const div = document.createElement('div');
   div.className = 'chat-msg'; div.id = 'typing-indicator';
-  div.innerHTML = '<div class="cm-av ai">AC</div><div class="typing-indicator"><div class="t-dot"></div><div class="t-dot"></div><div class="t-dot"></div></div>';
+  const av = document.createElement('div');
+  av.className = 'cm-av ai';
+  av.textContent = aiAvatarLabel();
+  const ind = document.createElement('div');
+  ind.className = 'typing-indicator';
+  ind.innerHTML = '<div class="t-dot"></div><div class="t-dot"></div><div class="t-dot"></div>';
+  div.appendChild(av);
+  div.appendChild(ind);
   body.appendChild(div);
   body.scrollTop = body.scrollHeight;
 }
@@ -1280,38 +1354,86 @@ async function sendMsg() {
   const catEl = document.getElementById('mock-cat');
   const firmEl = document.getElementById('mock-firm');
   const cat = catEl ? catEl.value : 'tech';
-  const firm = firmEl ? firmEl.value : 'Goldman Sachs';
+  const rawFirm = firmEl ? firmEl.value : 'Goldman Sachs';
+  // Whitelist firm to block prompt injection via tampered <select> or direct API calls.
+  const firm = ALLOWED_FIRMS.includes(rawFirm) ? rawFirm : 'Goldman Sachs';
   try {
+    const { data: { session } } = await sb.auth.getSession();
+    const accessToken = session?.access_token;
+    if (!accessToken) {
+      removeTyping();
+      appendMsg('ai', 'Please log in again to continue this interview.');
+      if (sendBtn) sendBtn.disabled = false;
+      return;
+    }
     const res = await fetch("/api/claude", {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + accessToken
+      },
       body: JSON.stringify({
-        model:"claude-sonnet-4-6",
-        max_tokens:600,
-        system: "You are Alex Chen, VP in M&A at " + firm + ". Conduct a rigorous IB interview. After the candidate's answer, give brief feedback and scores: 'Technical: X/10 | Structure: X/10 | Confidence: X/10'. Then ask a follow-up. Keep it concise and challenging.",
-        messages: mockHistory.map(m=>({role:m.role,content:m.content}))
+        mode: "mock_interview",
+        firm,
+        messages: mockHistory.map(m => ({ role: m.role, content: m.content }))
       })
     });
+    if (res.status === 429) {
+      removeTyping();
+      appendMsg('ai', "You've hit your monthly AI usage limit. It resets on the 1st.");
+      if (sendBtn) sendBtn.disabled = false;
+      return;
+    }
     const data = await res.json();
     removeTyping();
     const reply = data.content?.map(c=>c.text||'').join('')||'Could not get response.';
     mockHistory.push({role:'assistant',content:reply});
     const scoreMatch = reply.match(/Technical:\s*(\d+)\/10.*?Structure:\s*(\d+)\/10.*?Confidence:\s*(\d+)\/10/i);
-    let displayReply = reply.replace(/\n/g,'<br>');
-    if (scoreMatch) {
-      const t=scoreMatch[1], s=scoreMatch[2], c=scoreMatch[3];
-      const cc = n => parseInt(n)>=8?'sc-g':parseInt(n)>=6?'sc-y':'sc-r';
-      const sh = '<div class="score-block" style="margin-top:8px">' +
-        '<div class="score-line"><span class="sc-label">Technical Accuracy</span><span class="sc-val ' + cc(t) + '">' + t + '/10</span></div>' +
-        '<div class="score-line"><span class="sc-label">Structure &amp; Clarity</span><span class="sc-val ' + cc(s) + '">' + s + '/10</span></div>' +
-        '<div class="score-line"><span class="sc-label">Confidence</span><span class="sc-val ' + cc(c) + '">' + c + '/10</span></div></div>';
-      displayReply = reply.replace(/Technical:\s*\d+\/10.*?Confidence:\s*\d+\/10/i,'').replace(/\n/g,'<br>') + sh;
-    }
+    const replyText = scoreMatch
+      ? reply.replace(/Technical:\s*\d+\/10.*?Confidence:\s*\d+\/10/i,'').trim()
+      : reply;
     const body = document.getElementById('chat-body');
     if (body) {
       const div = document.createElement('div');
       div.className = 'chat-msg';
-      div.innerHTML = '<div class="cm-av ai">AC</div><div class="cm-bubble ai">' + displayReply + '</div>';
+      const av = document.createElement('div');
+      av.className = 'cm-av ai';
+      av.textContent = aiAvatarLabel();
+      const bubble = document.createElement('div');
+      bubble.className = 'cm-bubble ai';
+      // AI text — render with line breaks but no HTML.
+      replyText.split('\n').forEach((line, i) => {
+        if (i > 0) bubble.appendChild(document.createElement('br'));
+        bubble.appendChild(document.createTextNode(line));
+      });
+      if (scoreMatch) {
+        const t = scoreMatch[1], s = scoreMatch[2], c = scoreMatch[3];
+        const cc = n => parseInt(n)>=8?'sc-g':parseInt(n)>=6?'sc-y':'sc-r';
+        const block = document.createElement('div');
+        block.className = 'score-block';
+        block.style.marginTop = '8px';
+        const lines = [
+          ['Technical Accuracy', t],
+          ['Structure & Clarity', s],
+          ['Confidence', c]
+        ];
+        lines.forEach(([label, val]) => {
+          const row = document.createElement('div');
+          row.className = 'score-line';
+          const lbl = document.createElement('span');
+          lbl.className = 'sc-label';
+          lbl.textContent = label;
+          const v = document.createElement('span');
+          v.className = 'sc-val ' + cc(val);
+          v.textContent = val + '/10';
+          row.appendChild(lbl);
+          row.appendChild(v);
+          block.appendChild(row);
+        });
+        bubble.appendChild(block);
+      }
+      div.appendChild(av);
+      div.appendChild(bubble);
       body.appendChild(div);
       body.scrollTop = body.scrollHeight;
     }
@@ -1357,6 +1479,12 @@ function startQuiz() {
   // Limit count
   const count = countVal === 'all' ? pool.length : Math.min(parseInt(countVal), pool.length);
   quizQuestions = pool.slice(0, count);
+
+  if (!quizQuestions.length) {
+    showToast('No questions match those filters — try a different category or difficulty.', { icon: 'ℹ' });
+    return;
+  }
+
   quizIndex = 0;
   quizCorrect = 0;
   quizMistakes = [];
@@ -1517,7 +1645,7 @@ function showQuizSetup() {
 
 function reviewQuizMistakes() {
   if (!quizMistakes.length) {
-    alert('No mistakes to review!');
+    showToast('No mistakes to review — nicely done.', { icon: '✓' });
     return;
   }
   // Go to flashcards with just the mistakes
@@ -1554,7 +1682,16 @@ function startDiagnostic() {
   const brain = QUESTIONS.filter(q => q.cat === 'brain' && q.wrong).slice(0, 2);
   
   diagQuestions = [...techAcc, ...techVal, ...techMA, ...techLBO, ...beh, ...deal, ...brain];
-  
+
+  if (!diagQuestions.length) {
+    // Fall back to any MCQ questions if the categorised pools are all empty.
+    diagQuestions = QUESTIONS.filter(q => q.wrong && q.wrong.length > 0).slice(0, 10);
+  }
+  if (!diagQuestions.length) {
+    showToast("Diagnostic isn't available right now — please try again later.", { icon: 'ℹ' });
+    return;
+  }
+
   // Shuffle
   for (let i = diagQuestions.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -1750,19 +1887,40 @@ function toggleStoryPanel() {
 function renderStoryList() {
   const list = document.getElementById('story-list');
   const notes = progress.notes || [];
-  
+
+  list.replaceChildren();
+
   if (!notes.length) {
-    list.innerHTML = '<div class="story-empty">No notes yet. Add notes to questions while studying to build your personal story bank.</div>';
+    const empty = document.createElement('div');
+    empty.className = 'story-empty';
+    empty.textContent = 'No notes yet. Add notes to questions while studying to build your personal story bank.';
+    list.appendChild(empty);
     return;
   }
-  
-  list.innerHTML = notes.map((note, i) => `
-    <div class="story-item" onclick="viewStoryNote(${i})">
-      <div class="story-item-cat">${note.category || 'NOTE'}</div>
-      <div class="story-item-title">${note.title || 'Untitled'}</div>
-      <div class="story-item-note">${(note.content || '').substring(0, 100)}${note.content?.length > 100 ? '...' : ''}</div>
-    </div>
-  `).join('');
+
+  notes.forEach((note, i) => {
+    const item = document.createElement('div');
+    item.className = 'story-item';
+    item.addEventListener('click', () => viewStoryNote(i));
+
+    const cat = document.createElement('div');
+    cat.className = 'story-item-cat';
+    cat.textContent = note.category || 'NOTE';
+
+    const title = document.createElement('div');
+    title.className = 'story-item-title';
+    title.textContent = note.title || 'Untitled';
+
+    const preview = document.createElement('div');
+    preview.className = 'story-item-note';
+    const content = note.content || '';
+    preview.textContent = content.length > 100 ? content.substring(0, 100) + '…' : content;
+
+    item.appendChild(cat);
+    item.appendChild(title);
+    item.appendChild(preview);
+    list.appendChild(item);
+  });
 }
 
 function addNewStory() {
@@ -1793,7 +1951,7 @@ function addNoteToQuestion(questionId, note) {
 function viewStoryNote(index) {
   const note = progress.notes?.[index];
   if (note) {
-    alert(`${note.title}\n\n${note.content}`);
+    showInfoModal(note.title || 'Untitled', note.content || '');
   }
 }
 
@@ -1845,6 +2003,8 @@ function nextOnrampStep() {
     document.getElementById('onramp-step-' + onrampStep).classList.add('active');
     setOnrampDotsActive(onrampStep + 1); // +1 because dot 2 is diagnostic
 
+    saveOnrampProfileSoFar(); // persist resume point on every advance
+
     if (onrampStep === 4) {
       generateOnrampSummary();
       renderPlanPreview();
@@ -1876,7 +2036,11 @@ function updateOnrampDots() {
 
 function saveOnrampProfileSoFar() {
   // Persist partial profile so a refresh mid-onramp doesn't lose answers.
-  progress.userProfile = { ...(progress.userProfile || {}), ...onrampData };
+  progress.userProfile = {
+    ...(progress.userProfile || {}),
+    ...onrampData,
+    onrampStep // remember which step the user was on so we can resume
+  };
   saveProgress();
 }
 
@@ -2269,7 +2433,6 @@ function renderPlanPreview() {
 }
 
 function showOnramp() {
-  onrampStep = 1;
   // Hydrate onrampData from any previously saved profile so "Edit plan" doesn't blank fields.
   if (progress.userProfile) {
     onrampData = {
@@ -2283,11 +2446,22 @@ function showOnramp() {
       document.querySelectorAll('#onramp-step-1 .onramp-option').forEach(opt => {
         if (opt.getAttribute('onclick')?.includes(`'${onrampData.background}'`)) opt.classList.add('selected');
       });
+      document.querySelectorAll('#onramp-step-2 .onramp-option').forEach(opt => {
+        if (opt.getAttribute('onclick')?.includes(`'${onrampData.timeline}'`)) opt.classList.add('selected');
+      });
+      (onrampData.banks || []).forEach(bank => {
+        document.querySelectorAll('#onramp-step-3 .onramp-option').forEach(opt => {
+          if (opt.getAttribute('onclick')?.includes(`'${bank}'`)) opt.classList.add('selected');
+        });
+      });
     });
   }
+  // Resume at the user's last step (capped to 3 — step 4 is the summary, regenerated on demand).
+  const savedStep = progress.userProfile?.onrampStep;
+  onrampStep = Math.max(1, Math.min(savedStep || 1, 3));
   document.querySelectorAll('.onramp-step').forEach(s => s.classList.remove('active'));
-  document.getElementById('onramp-step-1').classList.add('active');
-  setOnrampDotsActive(1);
+  document.getElementById('onramp-step-' + onrampStep).classList.add('active');
+  setOnrampDotsActive(onrampStep === 1 ? 1 : onrampStep + 1);
   document.getElementById('onramp-overlay').classList.add('show');
 }
 
@@ -2709,7 +2883,7 @@ async function saveProfilePassword() {
   const pw = pwEl ? pwEl.value : '';
   const confirm = confirmEl ? confirmEl.value : '';
 
-  if (!pw || pw.length < 6) { showProfileMsg('pw', 'error', 'Password must be at least 6 characters.'); return; }
+  if (!pw || pw.length < 8) { showProfileMsg('pw', 'error', 'Password must be at least 8 characters.'); return; }
   if (pw !== confirm) { showProfileMsg('pw', 'error', 'Passwords do not match.'); return; }
 
   try {
