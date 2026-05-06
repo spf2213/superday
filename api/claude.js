@@ -139,12 +139,17 @@ export default async function handler(req, res) {
     (inputTokens * INPUT_CENTS_PER_MTOK + outputTokens * OUTPUT_CENTS_PER_MTOK) / 1_000_000
   );
   if (costCents > 0) {
-    // Use the SQL function increment_api_usage so concurrent calls don't lose writes.
-    supa.rpc('increment_api_usage', {
-      p_user_id: userId,
-      p_yyyymm: yyyymm,
-      p_cents: costCents
-    }).then(() => {}, () => {});
+    // Await so the write lands before the function returns — Vercel will
+    // kill pending promises after the response is sent otherwise.
+    try {
+      await supa.rpc('increment_api_usage', {
+        p_user_id: userId,
+        p_yyyymm: yyyymm,
+        p_cents: costCents
+      });
+    } catch (_) {
+      // Don't block the user on accounting failure.
+    }
   }
 
   return res.status(upstream.status).json(data);
