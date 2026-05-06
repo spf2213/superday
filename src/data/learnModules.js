@@ -191,23 +191,5 @@ export const LEARN_MODULES = [
         }
       }
     ]
-  },
-  {
-    id: 'accretion-dilution',
-    title: 'Accretion / Dilution',
-    icon: '🔄',
-    desc: 'Will an acquisition increase or decrease EPS? The M&A math you must know.',
-    time: '15 min',
-    sections: 3,
-    category: 'valuation'
-  },
-  {
-    id: 'working-capital',
-    title: 'Working Capital Deep Dive',
-    icon: '💵',
-    desc: 'AR, AP, Inventory — how they affect cash flow and why bankers obsess over NWC.',
-    time: '12 min',
-    sections: 3,
-    category: 'accounting'
   }
 ];
