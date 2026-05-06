@@ -549,7 +549,9 @@ async function loadProgress() {
     const btn = document.getElementById('story-bank-btn');
     if (btn) btn.classList.add('show');
   }
-  if (triggerDiagnostic) {
+  // Launch the onboarding flow whenever it's incomplete, not just for brand-new
+  // DB rows. Existing users who skipped or never finished onramp get prompted now.
+  if (triggerDiagnostic || !progress.onrampComplete) {
     setTimeout(checkFirstVisit, 500);
   }
 }
@@ -2122,8 +2124,20 @@ function syllabusCurrentWeek(syllabus) {
 function renderPrepPlan() {
   const container = document.getElementById('prep-plan-container');
   if (!container) return;
-  if (!progress.userProfile) {
-    container.innerHTML = '';
+  if (!progress.userProfile || !progress.userProfile.timeline) {
+    container.innerHTML = `
+      <div class="prep-plan-card">
+        <div class="prep-plan-header">
+          <div class="prep-plan-title">📋 Your Plan</div>
+        </div>
+        <div style="padding:8px 0 4px">
+          <div style="font-size:13px;color:var(--t-2);line-height:1.6;margin-bottom:14px">
+            Set up your interview prep plan in under 2 minutes. We'll calibrate to your level and timeline, then build a weekly schedule that adapts as you progress.
+          </div>
+          <button class="quiz-btn primary" onclick="showOnramp()" style="width:100%">Build my plan →</button>
+        </div>
+      </div>
+    `;
     return;
   }
   const syllabus = generateSyllabus(progress.userProfile, progress.diagnosticScores);
