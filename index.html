@@ -859,6 +859,7 @@
     <div class="sb-top">
       <div class="sb-brand"><span class="logo-dot"></span>Superday</div>
       <div class="sb-item active" onclick="showView('dashboard')"><span class="sb-icon">◇</span>Dashboard</div>
+      <div class="sb-item" onclick="showView('plan')"><span class="sb-icon">▤</span>My Plan</div>
       <div class="sb-section">Learn</div>
       <div class="sb-item" onclick="showView('learn')"><span class="sb-icon">□</span>Concepts</div>
       <div class="sb-item" onclick="showView('map')"><span class="sb-icon">○</span>Knowledge Map</div>
@@ -927,9 +928,6 @@
         <span id="practice-btn-text">Continue Learning</span>
         <span class="cta-arrow">→</span>
       </button>
-
-      <!-- Personalized Prep Plan -->
-      <div id="prep-plan-container"></div>
 
       <!-- Two-column: left = study progress, right = market news -->
       <div class="dash-two-col">
@@ -1077,6 +1075,17 @@
           </div>
         </div>
 
+      </div>
+    </div>
+
+    <!-- ── MY PLAN ── -->
+    <div class="app-view" id="view-plan">
+      <div class="view-header">
+        <div class="view-title">My Plan</div>
+        <div class="view-sub">Your weekly syllabus, calibrated to your diagnostic and timeline. Tasks tick off as you complete the work.</div>
+      </div>
+      <div class="plan-wrap">
+        <div id="prep-plan-container"></div>
       </div>
     </div>
 

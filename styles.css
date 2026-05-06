@@ -1898,6 +1898,9 @@ body:has(.dss-mode.active) { overflow:hidden }
 .prep-task-check.done + .prep-task-text{text-decoration:line-through;color:var(--t-3)}
 .prep-task-time{font-size:10px;color:var(--t-3);font-family:'Geist Mono',monospace}
 
+/* SYLLABUS — own view */
+.plan-wrap{max-width:800px;margin:0 auto}
+
 /* SYLLABUS — overall bar */
 .syl-overall{margin:8px 0 16px;display:flex;flex-direction:column;gap:6px}
 .syl-overall-bar{height:6px;background:var(--bg-3);border-radius:3px;overflow:hidden}

@@ -611,7 +611,7 @@ function showView(id) {
   document.querySelectorAll('.sb-item').forEach(n => n.classList.remove('active'));
   const view = document.getElementById('view-' + id);
   if (view) view.classList.add('active');
-  const labels = {dashboard:'Dashboard',bank:'Question Bank',flash:'Flashcards',mock:'Mock Interview',quiz:'Quiz Mode',map:'Knowledge Map',learn:'Concepts',profile:'Profile'};
+  const labels = {dashboard:'Dashboard',plan:'My Plan',bank:'Question Bank',flash:'Flashcards',mock:'Mock Interview',quiz:'Quiz Mode',map:'Knowledge Map',learn:'Concepts',profile:'Profile'};
   document.querySelectorAll('.sb-item').forEach(n => {
     if (n.textContent.trim().toLowerCase().includes((labels[id]||id).toLowerCase()))
       n.classList.add('active');
@@ -621,6 +621,7 @@ function showView(id) {
   if (id === 'map') renderKnowledgeMap();
   if (id === 'quiz') showQuizSetup();
   if (id === 'learn') renderLearnModules();
+  if (id === 'plan') renderPrepPlan();
   if (id === 'profile') renderProfile();
 }
 
@@ -1912,11 +1913,12 @@ function completeOnramp() {
   progress.onrampComplete = true;
   progress.userProfile = onrampData;
   saveProgress();
-  
+
   document.getElementById('onramp-overlay').classList.remove('show');
   updateDashStats();
-  renderPrepPlan();
-  
+  // Land the user on the plan view so they see what we just built.
+  showView('plan');
+
   // Show story bank button in app
   document.getElementById('story-bank-btn').classList.add('show');
 }
