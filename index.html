@@ -886,19 +886,15 @@
     </div>
     <div class="sb-spacer"></div>
     <div class="sb-bottom">
-      <div class="sb-theme" onclick="toggleTheme()">
-        <span class="sb-theme-label" id="theme-label-app">LIGHT</span>
-        <div class="theme-track"><div class="theme-thumb"></div></div>
-      </div>
       <div class="sb-user" style="cursor:pointer" onclick="showView('profile')">
         <div class="sb-avatar" id="sb-avatar">J</div>
         <div style="flex:1;min-width:0">
           <div class="sb-user-name" id="sb-name">Jamie</div>
           <div class="sb-user-plan" id="sb-email-display" style="font-size:10px;color:var(--t-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
         </div>
-        <div onclick="event.stopPropagation();doSignOut()" title="Sign out"
-          style="cursor:pointer;color:var(--t-3);font-size:13px;padding:4px;border-radius:4px;transition:var(--trans);flex-shrink:0"
-          onmouseover="this.style.color='var(--t)'" onmouseout="this.style.color='var(--t-3)'">⏏</div>
+        <div class="sb-theme-toggle" onclick="event.stopPropagation();toggleTheme()" title="Toggle theme">
+          <div class="theme-track"><div class="theme-thumb"></div></div>
+        </div>
       </div>
     </div>
   </aside>
