@@ -1254,13 +1254,21 @@ function stopSessionTimer() {
 }
 
 /* ─── MOCK INTERVIEW ─────────────────── */
-let mockHistory = [], mockActive = false;
+let mockHistory = [], mockActive = false, mockSessionId = null, mockQuestionsAsked = 0;
+const MOCK_MAX_QUESTIONS = 6;
 
-function startMock() {
+async function startMock() {
   mockActive = true;
+  mockHistory = [];
+  mockQuestionsAsked = 0;
+  mockSessionId = null;
   const badge = document.getElementById('iv-badge');
   if (badge) { badge.className = 'iv-badge badge-live'; badge.textContent = '● LIVE'; }
-  mockHistory = [];
+  // Restore input + send button (a previous interview may have disabled them).
+  const sendBtn = document.getElementById('chat-send');
+  const ta = document.getElementById('chat-input');
+  if (sendBtn) sendBtn.disabled = false;
+  if (ta) { ta.disabled = false; ta.placeholder = 'Type your answer…'; }
   const catEl = document.getElementById('mock-cat');
   const firmEl = document.getElementById('mock-firm');
   const cat = catEl ? catEl.value : 'tech';
@@ -1272,10 +1280,80 @@ function startMock() {
   const navRole = document.getElementById('mock-iv-role');
   const navAv = document.getElementById('mock-iv-av');
   if (navName) navName.textContent = firm;
-  if (navRole) navRole.textContent = 'VP, M&A interview';
+  const catLabels = { tech: 'Technical', beh: 'Behavioral', brain: 'Brain Teasers', deal: 'Deals & Markets' };
+  if (navRole) navRole.textContent = (catLabels[cat] || 'Technical') + ' · VP, M&A';
   if (navAv) navAv.textContent = firmInitials(firm);
-  appendMsg('ai', "Welcome. I'm a VP in M&A at " + firm + ". This is a technical interview — I'll ask you questions and score each answer. Ready? Let's start.");
-  setTimeout(function() { askQuestion(cat); }, 800);
+
+  // Show progress + end controls.
+  setMockProgress(0);
+  toggleEndButton(true);
+
+  // Persist a session row (best-effort — interview still works if it fails).
+  try {
+    const { data, error } = await sb.from('mock_sessions').insert({
+      user_id: currentUser?.id,
+      category: cat,
+      firm,
+      messages: [],
+      started_at: new Date().toISOString()
+    }).select('id').single();
+    if (!error) mockSessionId = data?.id || null;
+  } catch (_) { /* ignore */ }
+
+  // Kick off the interview by sending a single user message — the AI introduces itself
+  // and asks question 1, per the system prompt.
+  showTyping();
+  mockHistory.push({ role: 'user', content: "I'm ready. Please begin." });
+  await runMockTurn(cat, firm);
+}
+
+function setMockProgress(asked) {
+  mockQuestionsAsked = asked;
+  const el = document.getElementById('mock-progress');
+  if (!el) return;
+  el.style.display = '';
+  el.textContent = 'Q ' + Math.min(asked, MOCK_MAX_QUESTIONS) + ' / ' + MOCK_MAX_QUESTIONS;
+}
+
+function toggleEndButton(show) {
+  const btn = document.getElementById('mock-end-btn');
+  if (btn) btn.style.display = show ? '' : 'none';
+}
+
+async function endInterview() {
+  if (!mockActive) return;
+  // Send a final user prompt so the model produces the wrap-up structure.
+  if (mockQuestionsAsked >= 1) {
+    const ta = document.getElementById('chat-input');
+    if (ta) { ta.value = ''; ta.style.height = 'auto'; }
+    appendMsg('user', "Let's wrap up here. Please give me the final wrap-up.");
+    mockHistory.push({ role: 'user', content: "Let's wrap up here. Please give me the final wrap-up." });
+    showTyping();
+    const cat = document.getElementById('mock-cat')?.value || 'tech';
+    const firm = document.getElementById('mock-firm')?.value || 'Goldman Sachs';
+    await runMockTurn(cat, firm, /* forceWrap */ true);
+  } else {
+    finalizeMockSession('cancelled');
+  }
+}
+
+function finalizeMockSession(reason) {
+  mockActive = false;
+  const badge = document.getElementById('iv-badge');
+  if (badge) { badge.className = 'iv-badge badge-idle'; badge.textContent = '● IDLE'; }
+  toggleEndButton(false);
+  const sendBtn = document.getElementById('chat-send');
+  const ta = document.getElementById('chat-input');
+  if (sendBtn) sendBtn.disabled = true;
+  if (ta) { ta.disabled = true; ta.placeholder = 'Interview complete. Click Start Interview to run another.'; }
+
+  // Persist end timestamp + final messages list.
+  if (mockSessionId) {
+    sb.from('mock_sessions').update({
+      messages: mockHistory,
+      ended_at: new Date().toISOString()
+    }).eq('id', mockSessionId).then(() => {}, () => {});
+  }
 }
 
 const ALLOWED_FIRMS = ['Goldman Sachs','J.P. Morgan','Morgan Stanley','Evercore','Lazard','Blackstone'];
@@ -1289,13 +1367,6 @@ function firmInitials(firm) {
     'Blackstone': 'BX'
   };
   return map[firm] || 'VP';
-}
-
-function askQuestion(cat) {
-  const pool = QUESTIONS.filter(q=>q.cat===cat);
-  const q = pool[Math.floor(Math.random()*pool.length)];
-  mockHistory.push({role:'assistant', content:q.q});
-  appendMsg('ai', q.q);
 }
 
 function aiAvatarLabel() {
@@ -1357,6 +1428,11 @@ async function sendMsg() {
   const rawFirm = firmEl ? firmEl.value : 'Goldman Sachs';
   // Whitelist firm to block prompt injection via tampered <select> or direct API calls.
   const firm = ALLOWED_FIRMS.includes(rawFirm) ? rawFirm : 'Goldman Sachs';
+  await runMockTurn(cat, firm);
+}
+
+async function runMockTurn(cat, firm) {
+  const sendBtn = document.getElementById('chat-send');
   try {
     const { data: { session } } = await sb.auth.getSession();
     const accessToken = session?.access_token;
@@ -1375,6 +1451,7 @@ async function sendMsg() {
       body: JSON.stringify({
         mode: "mock_interview",
         firm,
+        category: cat,
         messages: mockHistory.map(m => ({ role: m.role, content: m.content }))
       })
     });
@@ -1388,9 +1465,14 @@ async function sendMsg() {
     removeTyping();
     const reply = data.content?.map(c=>c.text||'').join('')||'Could not get response.';
     mockHistory.push({role:'assistant',content:reply});
+
+    // Update progress: each AI reply contains the next question (or the wrap-up).
+    const isWrapUp = /WRAP-?UP\s*:/i.test(reply);
+    if (!isWrapUp) setMockProgress(mockQuestionsAsked + 1);
+
     const scoreMatch = reply.match(/Technical:\s*(\d+)\/10.*?Structure:\s*(\d+)\/10.*?Confidence:\s*(\d+)\/10/i);
     const replyText = scoreMatch
-      ? reply.replace(/Technical:\s*\d+\/10.*?Confidence:\s*\d+\/10/i,'').trim()
+      ? reply.replace(/Technical:\s*\d+\/10\s*\|\s*Structure:\s*\d+\/10\s*\|\s*Confidence:\s*\d+\/10/i, '').trim()
       : reply;
     const body = document.getElementById('chat-body');
     if (body) {
@@ -1436,6 +1518,18 @@ async function sendMsg() {
       div.appendChild(bubble);
       body.appendChild(div);
       body.scrollTop = body.scrollHeight;
+    }
+
+    // Persist updated messages to mock_sessions (best-effort, fire-and-forget).
+    if (mockSessionId) {
+      sb.from('mock_sessions').update({ messages: mockHistory })
+        .eq('id', mockSessionId).then(() => {}, () => {});
+    }
+
+    // Detect wrap-up and end the session.
+    if (isWrapUp) {
+      finalizeMockSession('wrap_up');
+      return;
     }
   } catch(e) {
     removeTyping();

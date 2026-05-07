@@ -1482,7 +1482,11 @@
                 <div class="iv-role" id="mock-iv-role">VP, M&A interview</div>
               </div>
             </div>
-            <span class="iv-badge badge-idle" id="iv-badge">● IDLE</span>
+            <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+              <span class="iv-badge badge-idle" id="iv-badge">● IDLE</span>
+              <span id="mock-progress" style="display:none;font-size:11px;color:var(--t-3);font-family:'Geist Mono',monospace">Q 0 / 6</span>
+              <button id="mock-end-btn" onclick="endInterview()" style="display:none;background:transparent;border:1px solid var(--line-2);border-radius:var(--r);padding:5px 10px;font-size:11px;color:var(--t-2);cursor:pointer;font-family:inherit">End interview</button>
+            </div>
           </div>
           <div class="chat-body" id="chat-body">
             <div class="chat-start">

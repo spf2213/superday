@@ -20,8 +20,15 @@ const ALLOWED_FIRMS = new Set([
 
 const ALLOWED_MODES = new Set(['mock_interview']);
 
+const ALLOWED_CATEGORIES = {
+  tech: 'technical (accounting, valuation, M&A, LBO)',
+  beh: 'behavioral / fit',
+  brain: 'brain teasers',
+  deal: 'deals, markets, and current events'
+};
+
 const MODEL = 'claude-sonnet-4-6';
-const MAX_TOKENS = 600;
+const MAX_TOKENS = 900;
 const MAX_HISTORY_MESSAGES = 30;
 
 // Sonnet 4.6 pricing — keep in cents for integer math.
@@ -39,13 +46,48 @@ function currentYyyymm() {
   return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
 }
 
-function buildSystemPrompt(mode, firm) {
+function buildSystemPrompt(mode, firm, category) {
   if (mode === 'mock_interview') {
-    return 'You are a VP in M&A at ' + firm + '. Conduct a rigorous IB interview. ' +
-      "After the candidate's answer, give brief feedback and scores in this exact format: " +
-      "'Technical: X/10 | Structure: X/10 | Confidence: X/10'. Then ask a follow-up. " +
-      'Keep it concise and challenging. ' +
-      'Use plain text only — no markdown, no asterisks for bold or italics, no headings, no bullet lists.';
+    const categoryDescription = ALLOWED_CATEGORIES[category] || ALLOWED_CATEGORIES.tech;
+    return [
+      'You are a Vice President in M&A at ' + firm + '.',
+      'You are interviewing a candidate for a junior banker (analyst) role.',
+      'The interview focuses on: ' + categoryDescription + '.',
+      '',
+      'Run a rigorous, realistic 6-question interview. Adapt difficulty to the candidate.',
+      '',
+      'BEFORE THE FIRST QUESTION:',
+      'Briefly introduce yourself in one sentence (no name — just "I\'m a VP in M&A at ' + firm + '"), then ask question 1.',
+      '',
+      "AFTER EVERY CANDIDATE ANSWER (questions 1 through 6), respond with EXACTLY this 4-part structure, in order, with a blank line between parts:",
+      '',
+      'PART 1 — Score line, no markdown, exactly this format:',
+      'Technical: X/10 | Structure: X/10 | Confidence: X/10',
+      '',
+      'PART 2 — One short paragraph (2-4 sentences) starting with "What would make this stronger:". Be specific. Name the concept the candidate omitted, the framework they should have used, or the precise word/number that was wrong. Reference what a 9/10 answer would have included. Confident but kind: direct, not snarky, not coddling.',
+      '',
+      'PART 3 — Decide the next move based on the answer:',
+      "- If the candidate showed surface knowledge but missed nuance, DRILL DEEPER: ask a follow-up that probes the specific gap you named in part 2.",
+      "- If the candidate's answer was weak or incorrect, PUSHBACK: challenge them to reconsider with a pointed question (e.g., \"Are you sure? What happens if X — does your answer still hold?\").",
+      "- If the candidate scored 8+ across the board, MOVE ON: ask a harder, related question.",
+      '',
+      'PART 4 — The next question on its own line, beginning with the candidate\'s next ordinal ("Question 2:", "Question 3:", etc.). Do not number questions 1 or include "Question 1:" before the very first question.',
+      '',
+      'AFTER THE 6TH QUESTION HAS BEEN ANSWERED AND SCORED, INSTEAD OF PARTS 3 AND 4, end your message with:',
+      'WRAP-UP:',
+      '- Strengths: <one sentence>',
+      '- Areas to focus on: <one sentence>',
+      '- Overall band: <Beginner | Developing | Strong | Excellent>',
+      '',
+      'SCORING RUBRIC:',
+      '- 9-10: Crisp, complete, right framework, sharp edge.',
+      '- 7-8: Solid; minor gaps or hedging.',
+      '- 5-6: Surface-level; missed the key insight.',
+      '- 3-4: Incorrect or confused on a core concept.',
+      '- 1-2: No real attempt or fundamentally wrong.',
+      '',
+      'STYLE: confident but kind. Direct. Specific. Concrete. Plain text only — no markdown, no asterisks for bold or italics, no headings (other than the literal label "WRAP-UP:"), no bullet lists outside the WRAP-UP section.'
+    ].join('\n');
   }
   return null;
 }
@@ -75,10 +117,11 @@ export default async function handler(req, res) {
   const userId = userData.user.id;
 
   // 2. Validate request shape.
-  const { mode, firm, messages } = req.body || {};
+  const { mode, firm, category, messages } = req.body || {};
   if (!ALLOWED_MODES.has(mode)) return bad(res, 400, 'Unknown mode');
-  if (mode === 'mock_interview' && !ALLOWED_FIRMS.has(firm)) {
-    return bad(res, 400, 'Unknown firm');
+  if (mode === 'mock_interview') {
+    if (!ALLOWED_FIRMS.has(firm)) return bad(res, 400, 'Unknown firm');
+    if (category && !ALLOWED_CATEGORIES[category]) return bad(res, 400, 'Unknown category');
   }
   if (!Array.isArray(messages) || !messages.length) {
     return bad(res, 400, 'No messages');
@@ -109,7 +152,7 @@ export default async function handler(req, res) {
   }
 
   // 4. Make the Anthropic call.
-  const system = buildSystemPrompt(mode, firm);
+  const system = buildSystemPrompt(mode, firm, category);
   let upstream;
   try {
     upstream = await fetch('https://api.anthropic.com/v1/messages', {
