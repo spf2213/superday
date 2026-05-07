@@ -942,6 +942,7 @@
         <span id="practice-btn-text">Continue Learning</span>
         <span class="cta-arrow">→</span>
       </button>
+      <div class="dash-cta-reason" id="practice-btn-reason"></div>
 
       <!-- Two-column: left = study progress, right = market news -->
       <div class="dash-two-col">
@@ -1711,7 +1712,8 @@
               <button class="quiz-btn primary" style="padding:8px 16px" onclick="saveDiagEmail()">Save →</button>
             </div>
           </div>
-          <button class="quiz-btn primary" style="width:100%" onclick="closeDiagnostic()">Start Learning →</button>
+          <button class="quiz-btn primary" style="width:100%" id="diag-view-plan" onclick="closeDiagnosticToPlan()">View my plan →</button>
+          <button class="quiz-btn ghost" style="width:100%;margin-top:8px" onclick="closeDiagnostic()">Start Learning →</button>
           <button class="quiz-btn ghost" style="width:100%;margin-top:8px;display:none" id="diag-back-to-landing" onclick="closeDiagnosticToLanding()">← Back to homepage</button>
         </div>
       </div>

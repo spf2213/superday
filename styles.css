@@ -1037,11 +1037,16 @@ body:has(.dss-mode.active) { overflow:hidden }
 /* ── PRIMARY CTA ── */
 .dash-primary-cta{
   display:flex;align-items:center;justify-content:center;gap:10px;
-  width:100%;padding:14px 24px;margin-bottom:24px;
+  width:100%;padding:14px 24px;margin-bottom:6px;
   border-radius:var(--r-lg);background:var(--accent);color:white;
   font-size:15px;font-weight:600;letter-spacing:-0.01em;
   border:none;cursor:pointer;transition:var(--trans);
 }
+.dash-cta-reason{
+  font-size:12px;color:var(--t-3);text-align:center;margin-bottom:22px;
+  line-height:1.5;min-height:18px;
+}
+.dash-cta-reason:empty{margin-bottom:24px}
 .dash-primary-cta:hover{
   background:var(--accent-h);transform:translateY(-1px);
   box-shadow:0 4px 16px var(--accent-glow);
@@ -1863,6 +1868,36 @@ body:has(.dss-mode.active) { overflow:hidden }
   font-size:13px;font-weight:500;cursor:pointer;transition:var(--trans);
 }
 .story-add-btn:hover{opacity:0.85}
+
+/* FOCUS AREAS — surfaces weak topics on the Plan view */
+.focus-areas-card{
+  background:var(--bg-1);border:1px solid var(--line);
+  border-radius:var(--r-xl);padding:18px 20px;margin-bottom:14px;
+}
+.focus-areas-head{margin-bottom:14px}
+.focus-areas-title{font-size:13px;font-weight:600;color:var(--t)}
+.focus-areas-sub{font-size:11px;color:var(--t-3);margin-top:2px}
+.focus-areas-list{display:flex;flex-direction:column;gap:10px}
+.focus-area{
+  display:flex;align-items:center;gap:14px;
+  padding:12px 14px;background:var(--bg-2);border-radius:var(--r);
+}
+.focus-area-info{flex:1;min-width:0}
+.focus-area-label{font-size:13px;font-weight:500;color:var(--t);margin-bottom:6px}
+.focus-area-bar{
+  height:5px;background:var(--bg-4);border-radius:3px;overflow:hidden;margin-bottom:4px;
+}
+.focus-area-fill{height:100%;background:var(--amber);transition:width 0.3s ease}
+.focus-area-meta{
+  font-size:10px;color:var(--t-3);
+  font-family:'Geist Mono',monospace;letter-spacing:0.04em;
+}
+.focus-area-btn{
+  flex-shrink:0;padding:8px 14px;border-radius:var(--r);
+  background:var(--accent);color:white;border:none;font-size:12px;
+  font-weight:500;cursor:pointer;transition:var(--trans);
+}
+.focus-area-btn:hover{background:var(--accent-h)}
 
 /* PREP PLAN */
 .prep-plan-card{

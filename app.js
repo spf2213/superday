@@ -676,9 +676,12 @@ function showView(id) {
   if (id === 'profile') renderProfile();
 }
 
-function filterBankNav(cat) {
+function filterBankNav(cat, sub) {
   showView('bank');
-  setTimeout(() => filterBank(cat), 50);
+  setTimeout(() => {
+    filterBank(cat);
+    if (sub) setTimeout(() => filterSub(sub), 30);
+  }, 50);
 }
 
 /* ─── PROGRESS ───────────────────────── */
@@ -806,16 +809,13 @@ function updateDashStats() {
   if (km) km.textContent = masteredCount;
   if (kmf) kmf.style.width = (masteredCount/total*100) + '%';
 
-  // Update practice button text
+  // Today's recommended task drives the primary CTA.
   const practiceBtn = document.getElementById('practice-btn-text');
+  const reasonEl = document.getElementById('practice-btn-reason');
   if (practiceBtn) {
-    if (dueCount > 0) {
-      practiceBtn.textContent = 'Review ' + dueCount + ' due cards →';
-    } else if (masteredCount < total) {
-      practiceBtn.textContent = 'Continue learning →';
-    } else {
-      practiceBtn.textContent = 'Practice today →';
-    }
+    const task = getTodaysTask();
+    practiceBtn.textContent = task.label;
+    if (reasonEl) reasonEl.textContent = task.reason || '';
   }
 
   const days = ['M','T','W','T','F','S','S'];
@@ -843,17 +843,113 @@ function updateDashStats() {
 }
 
 function smartPractice() {
-  const dueCount = getDueCount();
-  if (dueCount > 0) {
-    goToDueReview();
-  } else {
-    showView('flash');
-  }
+  const t = getTodaysTask();
+  if (t && typeof t.action === 'function') t.action();
+  else if (getDueCount() > 0) goToDueReview();
+  else showView('flash');
 }
 
 function goToDueReview() {
   showView('flash');
   setTimeout(() => setStudyMode('due'), 100);
+}
+
+/* ─── PERSONALIZATION ────────────────── */
+// Topic = a sub-area we can drill the user on. Combines tech subtopics with
+// the higher-level cat groups for behavioral / markets so the dashboard CTA
+// can recommend something specific.
+const TOPIC_DEFS = {
+  accounting: { label: 'Accounting',  cat: 'tech', sub: 'accounting',
+                match: q => q.cat === 'tech' && q.sub === 'accounting' },
+  valuation:  { label: 'Valuation',   cat: 'tech', sub: 'valuation',
+                match: q => q.cat === 'tech' && q.sub === 'valuation' },
+  lbo:        { label: 'LBO',         cat: 'tech', sub: 'lbo',
+                match: q => q.cat === 'tech' && q.sub === 'lbo' },
+  ma:         { label: 'M&A',         cat: 'tech', sub: 'ma',
+                match: q => q.cat === 'tech' && q.sub === 'ma' },
+  beh:        { label: 'Behavioral',  cat: 'beh',  sub: null,
+                match: q => q.cat === 'beh' },
+  deal:       { label: 'Markets',     cat: 'deal', sub: null,
+                match: q => q.cat === 'deal' },
+};
+
+// Live "topic strength": uses mastery levels (1=missed, 2=unsure, 3=got) on
+// answered questions in the topic. Returns null if too few data points.
+function topicStrengthLive(topicKey) {
+  const def = TOPIC_DEFS[topicKey];
+  if (!def) return null;
+  const seen = QUESTIONS.filter(q => def.match(q) && progress.mastery?.[q.id]);
+  if (seen.length < 3) return null;
+  const sum = seen.reduce((s, q) => s + (progress.mastery[q.id].level || 1), 0);
+  return Math.round(((sum / seen.length) - 1) / 2 * 100); // 1→0%, 3→100%
+}
+
+// Diagnostic-derived strength as a fallback when there's no live data.
+function topicStrengthDiagnostic(topicKey) {
+  const d = progress.diagnosticScores;
+  if (!d) return null;
+  if (topicKey === 'beh')  return d.beh ?? null;
+  if (topicKey === 'deal') return d.deal ?? null;
+  return d.subs?.[topicKey] ?? null;
+}
+
+// Returns up to `max` weak topics: live data wins when present, diagnostic
+// fills in the gaps. "Weak" = strength < 60.
+function getWeakTopics(max = 2) {
+  const ranked = Object.keys(TOPIC_DEFS).map(k => {
+    const live = topicStrengthLive(k);
+    const diag = topicStrengthDiagnostic(k);
+    const strength = live != null ? live : diag;
+    const source = live != null ? 'live' : (diag != null ? 'diagnostic' : null);
+    return { key: k, label: TOPIC_DEFS[k].label, strength, source };
+  }).filter(t => t.source && t.strength != null && t.strength < 60);
+  ranked.sort((a, b) => a.strength - b.strength);
+  return ranked.slice(0, max);
+}
+
+// Recommends the single most useful action right now.
+function getTodaysTask() {
+  // 1. Due cards: SRS owes us review first.
+  const due = getDueCount();
+  if (due >= 3) {
+    return {
+      label: `Review ${due} due card${due === 1 ? '' : 's'}`,
+      reason: 'Spaced-repetition review keeps fresh material from slipping.',
+      action: goToDueReview
+    };
+  }
+  // 2. Current week of plan has an unfinished task: do that.
+  if (progress.userProfile?.timeline) {
+    const syllabus = generateSyllabus(progress.userProfile, progress.diagnosticScores);
+    const cw = syllabusCurrentWeek(syllabus);
+    const week = syllabus.weeks.find(w => w.week === cw);
+    const next = week?.tasks.find(t => !isTaskComplete(t));
+    if (next) {
+      return {
+        label: next.label,
+        reason: `Week ${cw} of your plan: ${week.theme}.`,
+        action: () => syllabusAction(next.id, next.action)
+      };
+    }
+  }
+  // 3. Live or diagnostic weak topic: drill it.
+  const weak = getWeakTopics(1)[0];
+  if (weak) {
+    const def = TOPIC_DEFS[weak.key];
+    return {
+      label: `Drill 5 ${weak.label} questions`,
+      reason: weak.source === 'live'
+        ? `Your accuracy in ${weak.label} is the lowest right now.`
+        : `Your diagnostic flagged ${weak.label} as a weak spot.`,
+      action: () => filterBankNav(def.cat, def.sub)
+    };
+  }
+  // 4. Default: fall back to flashcards.
+  return {
+    label: 'Practice 5 flashcards',
+    reason: 'Keep your daily streak going.',
+    action: () => showView('flash')
+  };
 }
 
 function renderActivity() {
@@ -1755,6 +1851,8 @@ let diagQuestions = [];
 let diagIndex = 0;
 let diagScores = { tech: 0, beh: 0, deal: 0 };
 let diagCounts = { tech: 0, beh: 0, deal: 0 };
+let diagSubScores = { accounting: 0, valuation: 0, lbo: 0, ma: 0 };
+let diagSubCounts = { accounting: 0, valuation: 0, lbo: 0, ma: 0 };
 
 function checkFirstVisit() {
   if (!currentUser) return;
@@ -1795,6 +1893,8 @@ function startDiagnostic() {
   diagIndex = 0;
   diagScores = { tech: 0, beh: 0, deal: 0, brain: 0 };
   diagCounts = { tech: 0, beh: 0, deal: 0, brain: 0 };
+  diagSubScores = { accounting: 0, valuation: 0, lbo: 0, ma: 0 };
+  diagSubCounts = { accounting: 0, valuation: 0, lbo: 0, ma: 0 };
   
   document.getElementById('diagnostic-welcome').style.display = 'none';
   document.getElementById('diagnostic-active').style.display = 'block';
@@ -1831,19 +1931,23 @@ function renderDiagQuestion() {
   }
   
   const letters = ['A', 'B', 'C', 'D'];
-  document.getElementById('diag-answers').innerHTML = answers.map((a, i) => 
-    `<div class="quiz-answer" data-correct="${a.correct}" onclick="selectDiagAnswer(this, '${q.cat}')">
+  document.getElementById('diag-answers').innerHTML = answers.map((a, i) =>
+    `<div class="quiz-answer" data-correct="${a.correct}" onclick="selectDiagAnswer(this, '${q.cat}', '${q.sub || ''}')">
       <span class="quiz-letter">${letters[i]}</span>
       <span>${a.text}</span>
     </div>`
   ).join('');
 }
 
-function selectDiagAnswer(el, cat) {
+function selectDiagAnswer(el, cat, sub) {
   const isCorrect = el.dataset.correct === 'true';
-  
+
   diagCounts[cat]++;
   if (isCorrect) diagScores[cat]++;
+  if (sub && diagSubCounts[sub] !== undefined) {
+    diagSubCounts[sub]++;
+    if (isCorrect) diagSubScores[sub]++;
+  }
   
   // Brief visual feedback
   el.classList.add(isCorrect ? 'correct' : 'incorrect');
@@ -1863,39 +1967,59 @@ function showDiagResults() {
   const maxTotal = diagCounts.tech + diagCounts.beh + diagCounts.deal;
   const pct = Math.round(total / maxTotal * 100);
   
-  // Determine band
-  let band, bandClass, recommendation;
-  if (pct >= 90) {
-    band = 'EXPERT'; bandClass = 'expert';
-    recommendation = 'You have strong fundamentals. Focus on edge cases, advanced LBO concepts, and mock interviews to sharpen your delivery.';
-  } else if (pct >= 70) {
-    band = 'ADVANCED'; bandClass = 'advanced';
-    recommendation = 'Solid foundation. Identify your weak spots and drill those areas. Consider more practice with timed quizzes.';
-  } else if (pct >= 40) {
-    band = 'INTERMEDIATE'; bandClass = 'intermediate';
-    recommendation = 'Good start. Focus on building core accounting and valuation knowledge before moving to complex topics.';
-  } else {
-    band = 'BEGINNER'; bandClass = 'beginner';
-    recommendation = 'We recommend starting with the fundamentals. Work through accounting basics, then progress to valuation concepts.';
-  }
-  
-  document.getElementById('diag-band').textContent = band;
-  document.getElementById('diag-band').className = 'diagnostic-band ' + bandClass;
-  document.getElementById('diag-score').textContent = pct + '%';
-  
+  // Determine band.
+  let band, bandClass;
+  if (pct >= 90) { band = 'EXPERT'; bandClass = 'expert'; }
+  else if (pct >= 70) { band = 'ADVANCED'; bandClass = 'advanced'; }
+  else if (pct >= 40) { band = 'INTERMEDIATE'; bandClass = 'intermediate'; }
+  else { band = 'BEGINNER'; bandClass = 'beginner'; }
+
   const techPct = diagCounts.tech ? Math.round(diagScores.tech / diagCounts.tech * 100) : 0;
   const behPct = diagCounts.beh ? Math.round(diagScores.beh / diagCounts.beh * 100) : 0;
   const dealPct = diagCounts.deal ? Math.round(diagScores.deal / diagCounts.deal * 100) : 0;
-  
+
+  // Recommendation names the user's actual weak areas.
+  const subLabels = { accounting: 'accounting', valuation: 'valuation', lbo: 'LBO', ma: 'M&A' };
+  const subEntries = Object.keys(diagSubCounts)
+    .filter(k => diagSubCounts[k] > 0)
+    .map(k => ({ key: k, pct: Math.round(diagSubScores[k] / diagSubCounts[k] * 100) }));
+  const weakSubs = subEntries.filter(e => e.pct < 60).sort((a,b) => a.pct - b.pct).slice(0, 2);
+  const catWeakest = [{label:'behavioral', pct:behPct},{label:'markets', pct:dealPct}]
+    .filter(e => e.pct < 60).sort((a,b) => a.pct - b.pct);
+  const weakList = [...weakSubs.map(s => subLabels[s.key]), ...catWeakest.map(c => c.label)].slice(0, 2);
+
+  let recommendation;
+  if (pct >= 90) {
+    recommendation = 'Strong fundamentals across the board. Focus on edge cases and timed mock interviews to sharpen delivery.';
+  } else if (weakList.length === 0) {
+    recommendation = pct >= 70
+      ? 'Solid foundation. Drill weaker spots as they emerge in practice and add timed quizzes for pacing.'
+      : 'Good start. Work through accounting and valuation fundamentals, then layer in deals and behavioral reps.';
+  } else {
+    const list = weakList.length === 2 ? `${weakList[0]} and ${weakList[1]}` : weakList[0];
+    recommendation = `Your weakest area${weakList.length>1?'s are':' is'} ${list}. Your plan drills ${weakList.length>1?'them':'it'} harder — start there.`;
+  }
+
+  document.getElementById('diag-band').textContent = band;
+  document.getElementById('diag-band').className = 'diagnostic-band ' + bandClass;
+  document.getElementById('diag-score').textContent = pct + '%';
   document.getElementById('diag-tech-score').textContent = techPct + '%';
   document.getElementById('diag-beh-score').textContent = behPct + '%';
   document.getElementById('diag-deal-score').textContent = dealPct + '%';
   document.getElementById('diag-recommendation').textContent = recommendation;
-  
+
+  // Hide the "View my plan" button if the user is in the unauthenticated landing flow.
+  const planBtn = document.getElementById('diag-view-plan');
+  if (planBtn) planBtn.style.display = window._directDiagnostic ? 'none' : '';
+
   // Save diagnostic results
   progress.diagnosticDone = true;
   progress.userBand = bandClass;
-  progress.diagnosticScores = { tech: techPct, beh: behPct, deal: dealPct, overall: pct };
+  const subs = {};
+  for (const k of Object.keys(diagSubCounts)) {
+    if (diagSubCounts[k] > 0) subs[k] = Math.round(diagSubScores[k] / diagSubCounts[k] * 100);
+  }
+  progress.diagnosticScores = { tech: techPct, beh: behPct, deal: dealPct, overall: pct, subs };
   saveProgress();
 }
 
@@ -1904,6 +2028,18 @@ function skipDiagnostic() {
   progress.userBand = 'intermediate';
   saveProgress();
   closeDiagnostic();
+}
+
+// User finished the diagnostic and wants to see how their plan changed.
+// Mid-onramp users finish onramp first (so timeline gets set); post-onramp
+// users jump straight to the Plan view.
+function closeDiagnosticToPlan() {
+  if (window._onrampPendingResume || !progress.onrampComplete) {
+    closeDiagnostic();
+    return;
+  }
+  document.getElementById('diagnostic-overlay').classList.remove('show');
+  showView('plan');
 }
 
 function closeDiagnostic() {
@@ -2406,7 +2542,36 @@ function renderPrepPlan() {
   const overallDone = syllabus.weeks.reduce((s, w) => s + w.tasks.filter(isTaskComplete).length, 0);
   const pct = Math.round(overallDone / overallTasks * 100) || 0;
 
+  const weak = getWeakTopics(2);
+  const focusHtml = weak.length ? `
+    <div class="focus-areas-card">
+      <div class="focus-areas-head">
+        <div class="focus-areas-title">Focus areas</div>
+        <div class="focus-areas-sub">${
+          weak.every(w => w.source === 'live')
+            ? 'Based on your practice so far'
+            : weak.every(w => w.source === 'diagnostic')
+              ? 'Based on your diagnostic'
+              : 'Based on your diagnostic and recent practice'
+        }</div>
+      </div>
+      <div class="focus-areas-list">
+        ${weak.map(w => `
+          <div class="focus-area">
+            <div class="focus-area-info">
+              <div class="focus-area-label">${w.label}</div>
+              <div class="focus-area-bar"><div class="focus-area-fill" style="width:${Math.max(8, w.strength)}%"></div></div>
+              <div class="focus-area-meta">${w.strength}% strength · ${w.source === 'live' ? 'live' : 'diagnostic'}</div>
+            </div>
+            <button class="focus-area-btn" onclick="filterBankNav('${TOPIC_DEFS[w.key].cat}'${TOPIC_DEFS[w.key].sub ? `, '${TOPIC_DEFS[w.key].sub}'` : ''})">Drill →</button>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  ` : '';
+
   container.innerHTML = `
+    ${focusHtml}
     <div class="prep-plan-card">
       <div class="prep-plan-header">
         <div class="prep-plan-title">
@@ -3025,7 +3190,7 @@ setMapDeps({ getMasteryClass, showView });
 // These will be removed when we migrate to addEventListener.
 Object.assign(window, {
   addNewStory, calcROI, closeDiagnostic,
-  closeDiagnosticToLanding, closeLearnModule, completeOnramp, demoChatSend,
+  closeDiagnosticToLanding, closeDiagnosticToPlan, closeLearnModule, completeOnramp, demoChatSend,
   demoFilterBank, demoFlipCard, demoFCNav, demoFCShuffle, demoToggleQ,
   doForgotPassword, doLogin, doSetNewPassword, doSignOut, doSignup, filterBank, filterBankNav, filterSub,
   flipCard, goToDueReview, mapFitAll, mapResetView, mapZoom,
