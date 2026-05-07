@@ -1049,6 +1049,7 @@ function renderQRow(q, i) {
     '<span class="q-caret">⌄</span></div>' +
     '<div class="q-body"><div class="q-body-label">Model Answer</div>' +
     '<div class="q-body-answer">' + q.a + '</div>' +
+    (q.explain ? '<div class="q-body-explain"><div class="q-body-label">Why</div>' + q.explain + '</div>' : '') +
     '<div class="q-body-tip"><strong>Interview tip:</strong> ' + q.tip + '</div></div></div>';
 }
 
@@ -1230,7 +1231,17 @@ function renderCard() {
       (dueIndicator ? '<span class="due-badge" style="margin-left:8px">DUE</span>' : '');
     if (qt) qt.textContent = q.q;
     if (bt) bt.textContent = q.a;
-    if (fm) fm.textContent = 'Card ' + (flashIdx + 1) + ' of ' + flashDeck.length + 
+    const whyToggle = document.getElementById('card-back-why-toggle');
+    const whyEl = document.getElementById('card-back-why');
+    if (whyEl) {
+      whyEl.textContent = q.explain || '';
+      whyEl.style.display = 'none';
+    }
+    if (whyToggle) {
+      whyToggle.style.display = q.explain ? '' : 'none';
+      whyToggle.textContent = 'Why? ⌄';
+    }
+    if (fm) fm.textContent = 'Card ' + (flashIdx + 1) + ' of ' + flashDeck.length +
       (studyMode === 'quick' ? ' · Quick Session' : '');
     if (ff) ff.style.width = ((flashIdx + 1) / flashDeck.length * 100) + '%';
     if (fp) fp.disabled = flashIdx === 0;
@@ -1238,11 +1249,20 @@ function renderCard() {
   }, 80);
 }
 
+function toggleCardWhy() {
+  const whyEl = document.getElementById('card-back-why');
+  const whyToggle = document.getElementById('card-back-why-toggle');
+  if (!whyEl || !whyToggle) return;
+  const open = whyEl.style.display !== 'none';
+  whyEl.style.display = open ? 'none' : 'block';
+  whyToggle.textContent = open ? 'Why? ⌄' : 'Why? ⌃';
+}
+
 function flipCard() {
   const ci = document.getElementById('card-inner');
   const confBar = document.getElementById('confidence-bar');
   if (!ci || !flashDeck.length) return;
-  
+
   flashFlipped = !flashFlipped;
   ci.classList.toggle('flipped', flashFlipped);
   
@@ -1775,6 +1795,7 @@ function selectQuizAnswer(el) {
     feedback.innerHTML = `
     <div class="quiz-feedback-title">${isCorrect ? '✓ Correct!' : '✗ Incorrect'}</div>
     <div class="quiz-feedback-text">${isCorrect ? '' : '<strong>Correct answer:</strong> ' + q.a}</div>
+    ${q.explain ? `<div class="quiz-feedback-explain"><strong>Why:</strong> ${q.explain}</div>` : ''}
   `;
   }
   
@@ -3205,6 +3226,6 @@ Object.assign(window, {
   startDiagnostic, startDirectDiagnostic, startMock,
   startQuiz, switchAuthTab, toggleFaq, toggleOnrampMulti,
   toggleProfileEdit, toggleQ, toggleStoryPanel, toggleTheme,
-  toggleSylWeek, toggleSyllabusTask, syllabusAction,
+  toggleCardWhy, toggleSylWeek, toggleSyllabusTask, syllabusAction,
   viewStoryNote
 });

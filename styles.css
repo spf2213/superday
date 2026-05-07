@@ -1206,6 +1206,9 @@ body:has(.dss-mode.active) { overflow:hidden }
   letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;
 }
 .q-body-answer{font-size:13px;color:var(--t-2);line-height:1.8;font-weight:400}
+.q-body-explain{margin-top:14px}
+.q-body-explain .q-body-label{margin-bottom:5px}
+.q-body-explain{font-size:12.5px;color:var(--t-2);line-height:1.7}
 .q-body-tip{
   margin-top:10px;padding:10px 13px;
   background:var(--bg-2);border-left:2px solid var(--accent);
@@ -1243,6 +1246,18 @@ body:has(.dss-mode.active) { overflow:hidden }
 .card-tap{font-size:10px;color:var(--t-3);margin-top:16px;font-family:'Geist Mono',monospace}
 .card-back-label{font-size:10px;font-family:'Geist Mono',monospace;color:var(--accent);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px}
 .card-back-text{font-size:13px;line-height:1.75;color:var(--t-2)}
+.card-back-why-toggle{
+  margin-top:14px;padding:6px 12px;border-radius:var(--r);
+  background:transparent;border:1px solid var(--line);
+  font-size:11px;font-family:'Geist Mono',monospace;letter-spacing:0.04em;
+  color:var(--t-2);cursor:pointer;transition:var(--trans);
+}
+.card-back-why-toggle:hover{border-color:var(--accent);color:var(--accent)}
+.card-back-why{
+  margin-top:10px;padding:12px 14px;border-radius:var(--r);
+  background:var(--bg-2);border-left:2px solid var(--accent);
+  font-size:12.5px;line-height:1.65;color:var(--t-2);text-align:left;
+}
 .flash-controls{display:flex;justify-content:center;gap:8px}
 .flash-btn{
   padding:8px 22px;border-radius:var(--r);border:1px solid var(--line);
@@ -1461,6 +1476,11 @@ body:has(.dss-mode.active) { overflow:hidden }
 .quiz-feedback.correct{background:var(--green-dim);border:1px solid rgba(44,182,125,0.3)}
 .quiz-feedback.incorrect{background:var(--red-dim);border:1px solid rgba(224,92,92,0.3)}
 .quiz-feedback-title{font-weight:600;margin-bottom:6px}
+.quiz-feedback-explain{
+  margin-top:10px;padding-top:10px;border-top:1px solid var(--line);
+  font-size:12.5px;color:var(--t-2);line-height:1.65;
+}
+.quiz-feedback-explain strong{color:var(--t);font-weight:600}
 .quiz-feedback.correct .quiz-feedback-title{color:var(--green)}
 .quiz-feedback.incorrect .quiz-feedback-title{color:var(--red)}
 .quiz-actions{display:flex;gap:10px;margin-top:20px}
