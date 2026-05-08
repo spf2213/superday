@@ -255,7 +255,7 @@
           <span class="hero-meta-sep">//</span>
           <span id="hero-live-time">—</span>
           <span class="hero-meta-sep">//</span>
-          <a href="#" class="hero-meta-link" onclick="return false">Terms &amp; Legal</a>
+          <a href="/legal.html" class="hero-meta-link" onclick="event.preventDefault();openLegalPanel()">Terms &amp; Legal</a>
         </div>
       </div>
 
@@ -935,8 +935,8 @@
     </div>
     <div class="footer-copy">© 2026 Superday. All rights reserved.</div>
     <div class="footer-links">
-      <span class="footer-link">Privacy</span>
-      <span class="footer-link">Terms</span>
+      <a class="footer-link" href="/legal.html#privacy" onclick="event.preventDefault();openLegalPanel('privacy')">Privacy</a>
+      <a class="footer-link" href="/legal.html#terms" onclick="event.preventDefault();openLegalPanel('terms')">Terms</a>
       <span class="footer-link" onclick="showAuthTab('login')">Sign in</span>
     </div>
   </footer>
@@ -1825,6 +1825,51 @@
   update();
   setInterval(update, 1000);
 })();
+</script>
+
+<!-- ── LEGAL SLIDE-OUT PANEL ── -->
+<div class="legal-panel" id="legal-panel" aria-hidden="true">
+  <div class="legal-panel-backdrop" onclick="closeLegalPanel()"></div>
+  <aside class="legal-panel-card" role="dialog" aria-modal="true" aria-label="Terms and Legal">
+    <button class="legal-panel-close" onclick="closeLegalPanel()" aria-label="Close">×</button>
+    <iframe class="legal-panel-frame" id="legal-panel-frame" title="Terms and Legal" data-src="/legal.html"></iframe>
+  </aside>
+</div>
+<script>
+  (function () {
+    const panel = document.getElementById('legal-panel');
+    const frame = document.getElementById('legal-panel-frame');
+    let loaded = false;
+
+    window.openLegalPanel = function (anchor) {
+      if (!panel || !frame) return;
+      const baseSrc = frame.getAttribute('data-src') || '/legal.html';
+      const target = anchor ? baseSrc + '#' + anchor : baseSrc;
+      if (!loaded) {
+        frame.src = target;
+        loaded = true;
+      } else if (anchor) {
+        // Re-set src so the iframe scrolls to the anchor on subsequent opens.
+        frame.src = target;
+      }
+      panel.classList.add('open');
+      panel.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('legal-panel-open');
+    };
+
+    window.closeLegalPanel = function () {
+      if (!panel) return;
+      panel.classList.remove('open');
+      panel.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('legal-panel-open');
+    };
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && panel.classList.contains('open')) {
+        window.closeLegalPanel();
+      }
+    });
+  })();
 </script>
 </body>
 </html>
