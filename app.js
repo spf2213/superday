@@ -690,6 +690,16 @@ async function doSignOut() {
     learnProgress: {},
     completedCases: []
   };
+  // Clear mock-interview state so the next user on a shared device doesn't
+  // inherit the previous user's history, session id, or rendered messages.
+  mockHistory = [];
+  mockActive = false;
+  mockSessionId = null;
+  mockQuestionsAsked = 0;
+  const chatBody = document.getElementById('chat-body');
+  if (chatBody) chatBody.replaceChildren();
+  const ivBadge = document.getElementById('iv-badge');
+  if (ivBadge) { ivBadge.className = 'iv-badge badge-idle'; ivBadge.textContent = '● IDLE'; }
   showScreen('landing');
 }
 
@@ -726,7 +736,34 @@ async function onSignedIn(user) {
       await new Promise(r => setTimeout(r, 1500));
       isActive = await hasActiveSubscription();
     }
-    if (msg) { msg.style.color = ''; msg.textContent = ''; }
+    if (msg) {
+      if (isActive) {
+        msg.style.color = '';
+        msg.textContent = '';
+      } else {
+        // Webhook lagged past 15s — Stripe occasionally takes longer during
+        // their own incidents. Don't silently dump the user back on the
+        // paywall (looks like the payment failed); show a clear message and
+        // a refresh affordance. Built via DOM API, never innerHTML.
+        msg.style.color = '';
+        msg.textContent = 'Payment received — confirming with Stripe. This can take up to a minute.';
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'margin-top:12px;display:flex;justify-content:center;gap:8px;flex-wrap:wrap';
+        const refreshBtn = document.createElement('button');
+        refreshBtn.type = 'button';
+        refreshBtn.className = 'pricing-btn ghost';
+        refreshBtn.style.cssText = 'padding:8px 18px;font-size:12px';
+        refreshBtn.textContent = 'Refresh';
+        refreshBtn.addEventListener('click', () => window.location.reload());
+        const helpLink = document.createElement('a');
+        helpLink.href = 'mailto:help@superday.com';
+        helpLink.textContent = 'Contact support';
+        helpLink.style.cssText = 'padding:8px 18px;font-size:12px;color:var(--t-3);text-decoration:underline;align-self:center';
+        wrap.appendChild(refreshBtn);
+        wrap.appendChild(helpLink);
+        msg.appendChild(wrap);
+      }
+    }
   }
   if (expectingPaid && window.history?.replaceState) {
     const u = new URL(window.location.href);
@@ -891,6 +928,11 @@ async function saveProgress() {
 
 /* ─── SCREENS ────────────────────────── */
 function showScreen(id) {
+  // Defense in depth: the app shell must never render without an authenticated
+  // user. Server endpoints (/api/claude, RLS on every table) are the real gate,
+  // but blocking the chrome here stops devtools-poking users from seeing UI
+  // they have no way to actually use.
+  if (id === 'app' && !currentUser) id = 'landing';
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   const screen = document.getElementById('screen-' + id);
   if (!screen) return;
@@ -901,6 +943,13 @@ function showScreen(id) {
     if (el) el.textContent = d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
     updateDashStats();
     loadNews();
+    // Background recheck: if the user's subscription lapsed since onSignedIn
+    // (renewal failure, manual cancel from another tab, support refund), bounce
+    // them. Cheap — one Supabase select. The server still 402s any /api/claude
+    // call, so this is purely UX hardening.
+    hasActiveSubscription().then(active => {
+      if (!active && currentUser) routeToPaywall(currentUser);
+    }).catch(() => {});
   }
 }
 
@@ -2375,12 +2424,21 @@ function startDirectDiagnostic() {
 }
 
 function saveDiagEmail() {
-  const email = document.getElementById('diag-email')?.value;
-  if (email) {
-    try { localStorage.setItem('sd_diag_email', email); } catch(e) {}
-    const saveEl = document.getElementById('diag-save-results');
-    if (saveEl) saveEl.innerHTML = '<div style="font-size:12px;color:var(--green);text-align:center">✓ Saved! Create an account to access your personalized plan.</div>';
-  }
+  const email = document.getElementById('diag-email')?.value?.trim();
+  // Validate before persisting so we don't store junk that ends up on a
+  // future signup form. Browser email-input does loose validation already,
+  // but anyone can hand-type into it or remove the type=email.
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return;
+  try { localStorage.setItem('sd_diag_email', email); } catch (e) {}
+  const saveEl = document.getElementById('diag-save-results');
+  if (!saveEl) return;
+  // DOM API instead of innerHTML — currently safe (string is static) but
+  // keeps the file innerHTML-free for any user-derived content.
+  saveEl.replaceChildren();
+  const div = document.createElement('div');
+  div.style.cssText = 'font-size:12px;color:var(--green);text-align:center';
+  div.textContent = '✓ Saved! Create an account to access your personalized plan.';
+  saveEl.appendChild(div);
 }
 
 function closeDiagnosticToLanding() {

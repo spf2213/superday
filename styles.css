@@ -584,63 +584,6 @@ body:has(.dss-mode.active) { overflow:hidden }
 .pill-val{background:rgba(44,182,125,0.12);color:var(--green)}
 .pm-qtxt{font-size:11px;color:var(--t-2);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-/* SOCIAL PROOF LOGOS */
-.logos-row{
-  display:flex;align-items:center;justify-content:center;gap:40px;
-  padding:36px 40px;border-top:1px solid var(--line);
-  flex-wrap:wrap;background:var(--bg);
-}
-.logos-section{display:flex;flex-direction:column;gap:12px;align-items:center}
-.logos-label{font-size:10px;color:var(--t-3);font-family:'Geist Mono',monospace;letter-spacing:0.08em;text-transform:uppercase;text-align:center}
-.logos-strip{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center}
-.logos-divider{width:1px;height:56px;background:var(--line);flex-shrink:0}
-/* Each logo pill — wide for bank wordmarks, sq for university crests */
-.wm-logo{
-  display:flex;align-items:center;justify-content:center;
-  height:36px;min-width:36px;padding:0 14px;border-radius:8px;
-  background:rgba(0,0,0,0.03);
-  border:1px solid rgba(0,0,0,0.07);
-  transition:var(--trans);cursor:default;overflow:hidden;
-}
-.wm-logo.sq-logo{width:40px;padding:0}
-.wm-logo:hover{background:rgba(0,0,0,0.06);border-color:rgba(0,0,0,0.14);transform:translateY(-1px)}
-[data-theme="dark"] .wm-logo{background:rgba(255,255,255,0.04);border-color:rgba(255,255,255,0.08)}
-[data-theme="dark"] .wm-logo:hover{background:rgba(255,255,255,0.09);border-color:rgba(255,255,255,0.20);transform:translateY(-1px)}
-/* SVG logos */
-.wm-svg{
-  color:var(--t-3);
-  transition:color 0.15s;
-}
-.wm-logo:hover .wm-svg{color:var(--t)}
-.crest-svg{opacity:0.5;transition:opacity 0.15s}
-.wm-logo:hover .crest-svg{opacity:0.8}
-/* Text wordmark logos (legacy) */
-.wm-wordmark{
-  color:var(--t-3);
-  transition:color 0.15s;
-  white-space:nowrap;
-  user-select:none;
-  line-height:1;
-}
-.wm-logo:hover .wm-wordmark{color:var(--t)}
-/* Image logos (kept for compatibility) */
-.wm-logo img{
-  max-width:64px;max-height:20px;width:auto;height:auto;
-  object-fit:contain;
-  filter:brightness(0) invert(0);
-  opacity:0.40;transition:opacity 0.15s;
-}
-.wm-logo.sq img{max-width:20px;max-height:20px}
-.wm-logo:hover img{opacity:0.85}
-[data-theme="dark"] .wm-logo img{filter:brightness(0) invert(1);opacity:0.50}
-[data-theme="dark"] .wm-logo:hover img{opacity:0.90}
-/* Fallback text badge if image 404s */
-.wm-fb{
-  display:none;align-items:center;justify-content:center;
-  font-size:8px;font-weight:700;letter-spacing:0.04em;
-  color:var(--t-3);font-family:'Geist Mono',monospace;
-}
-
 /* FEATURE SECTIONS */
 .features{display:flex;flex-direction:column;gap:0}
 .feat-section{
@@ -2431,15 +2374,6 @@ body:has(.dss-mode.active) { overflow:hidden }
 .faq-item[data-reveal]{ transform:translateY(20px) translateX(-15px); }
 .faq-item[data-reveal].revealed{ transform:none; }
 
-/* Logo strip stagger */
-.wm-logo[data-reveal]{
-  transform:translateY(10px) scale(0.9);
-  transition-duration:0.5s;
-}
-.wm-logo[data-reveal].revealed{
-  transform:none;
-}
-
 /* Bottom CTA glow pulse after reveal */
 @keyframes glow-breathe{
   0%,100%{ opacity:0.6; transform:translateX(-50%) scale(1); }
@@ -2451,16 +2385,6 @@ body:has(.dss-mode.active) { overflow:hidden }
 }
 .cta-section.cta-visible .cta-glow{
   animation-play-state:running;
-}
-
-/* Smooth line draw for section dividers */
-@keyframes line-draw{
-  from{ transform:scaleX(0); }
-  to{ transform:scaleX(1); }
-}
-.logos-divider[data-reveal].revealed{
-  animation:line-draw 0.8s cubic-bezier(0.16,1,0.3,1) forwards;
-  transform-origin:left;
 }
 
 /* ─── TOAST NOTIFICATIONS ───────────── */
