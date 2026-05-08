@@ -119,6 +119,86 @@
 </div>
 
 <!-- ══════════════════════════════════════
+     PAYWALL — shown to authed users with no active subscription.
+     Nothing else in the app is reachable from here.
+══════════════════════════════════════ -->
+<div class="screen" id="screen-paywall">
+  <div class="paywall-wrap">
+    <div class="paywall-head">
+      <div class="paywall-logo"><span class="logo-dot"></span>Superday</div>
+      <button class="paywall-signout" onclick="doSignOut()">Sign out</button>
+    </div>
+    <div class="paywall-hero">
+      <div class="feat-tag">Choose a plan</div>
+      <h1 class="paywall-title">Pick a plan to continue.</h1>
+      <p class="paywall-sub" id="paywall-sub">You're signed in as <span id="paywall-email"></span>. Pick a plan below to unlock Superday.</p>
+    </div>
+    <div class="pricing-grid paywall-grid">
+
+      <!-- WEEKLY -->
+      <div class="pricing-card">
+        <div class="pricing-name">Weekly</div>
+        <div class="pricing-price">
+          <span class="pricing-currency">$</span>
+          <span class="pricing-amount">5</span>
+        </div>
+        <div class="pricing-period">per week · 7-day free trial</div>
+        <div class="pricing-desc">One focused sprint. Everything you need for the week before interviews.</div>
+        <button class="pricing-btn ghost" id="paywall-btn-weekly" onclick="startCheckout('weekly')">Start free trial</button>
+        <div class="pricing-divider"></div>
+        <div class="pricing-features">
+          <div class="pf-item"><span class="pf-check">✓</span>Full question bank</div>
+          <div class="pf-item"><span class="pf-check">✓</span>Flashcards &amp; progress tracking</div>
+          <div class="pf-item"><span class="pf-check">✓</span>AI mock interviews</div>
+          <div class="pf-item"><span class="pf-check">✓</span>Live market news feed</div>
+          <div class="pf-item"><span class="pf-check">✓</span>Cancel anytime</div>
+        </div>
+      </div>
+
+      <!-- MONTHLY (featured) -->
+      <div class="pricing-card featured">
+        <div class="pricing-badge">Most popular</div>
+        <div class="pricing-name">Monthly</div>
+        <div class="pricing-price">
+          <span class="pricing-currency">$</span>
+          <span class="pricing-amount">15</span>
+        </div>
+        <div class="pricing-period">per month · 7-day free trial</div>
+        <div class="pricing-desc">The whole season. From first application to final round.</div>
+        <button class="pricing-btn primary" id="paywall-btn-monthly" onclick="startCheckout('monthly')">Start free trial →</button>
+        <div class="pricing-divider"></div>
+        <div class="pricing-features">
+          <div class="pf-item"><span class="pf-check">✓</span>Everything in Weekly</div>
+          <div class="pf-item"><span class="pf-check">✓</span>Best value for a full cycle</div>
+          <div class="pf-item"><span class="pf-check">✓</span>Cancel anytime</div>
+        </div>
+      </div>
+
+      <!-- LIFETIME -->
+      <div class="pricing-card">
+        <div class="pricing-name">Lifetime</div>
+        <div class="pricing-price">
+          <span class="pricing-currency">$</span>
+          <span class="pricing-amount">79</span>
+        </div>
+        <div class="pricing-period">one-time · yours forever</div>
+        <div class="pricing-desc">Pay once. Prep for every cycle, every lateral move, every promotion.</div>
+        <button class="pricing-btn ghost" id="paywall-btn-lifetime" onclick="startCheckout('lifetime')">Buy lifetime</button>
+        <div class="pricing-divider"></div>
+        <div class="pricing-features">
+          <div class="pf-item"><span class="pf-check">✓</span>Everything in Monthly</div>
+          <div class="pf-item"><span class="pf-check">✓</span>All future updates</div>
+          <div class="pf-item"><span class="pf-check">✓</span>Priority support</div>
+          <div class="pf-item"><span class="pf-check">✓</span>Never pay again</div>
+        </div>
+      </div>
+
+    </div>
+    <div class="paywall-msg" id="paywall-msg"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
      LANDING PAGE
 ══════════════════════════════════════ -->
 <div class="screen active dss-mode" id="screen-landing">
@@ -718,7 +798,7 @@
         <div class="pricing-name">Lifetime</div>
         <div class="pricing-price">
           <span class="pricing-currency">$</span>
-          <span class="pricing-amount">99</span>
+          <span class="pricing-amount">79</span>
         </div>
         <div class="pricing-period">one-time · yours forever</div>
         <div class="pricing-desc">Pay once. Prep for every cycle, every lateral move, every promotion conversation.</div>
@@ -1429,6 +1509,20 @@
           <div class="profile-pw-placeholder" id="profile-pw-placeholder">
             <span style="font-size:13px;color:var(--t-3)">••••••••</span>
             <span style="font-size:11px;color:var(--t-3);font-family:'Geist Mono',monospace">Last changed: unknown</span>
+          </div>
+        </div>
+
+        <!-- Subscription -->
+        <div class="profile-card">
+          <div class="profile-card-header">
+            <span class="profile-card-title">Subscription</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:0 0 4px">
+            <div>
+              <div style="font-size:13px;font-weight:500;margin-bottom:2px">Manage subscription</div>
+              <div style="font-size:12px;color:var(--t-3)">Update payment, switch plans, or cancel.</div>
+            </div>
+            <button class="profile-edit-btn" onclick="openSubscriptionPortal()">Manage</button>
           </div>
         </div>
 

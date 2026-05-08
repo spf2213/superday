@@ -41,6 +41,14 @@ function bad(res, code, msg) {
   return res.status(code).json({ error: msg });
 }
 
+function isSubscriptionActive(row) {
+  if (!row) return false;
+  if (row.plan === 'lifetime' && row.status === 'active') return true;
+  if (row.status !== 'active' && row.status !== 'trialing') return false;
+  if (row.current_period_end && new Date(row.current_period_end) <= new Date()) return false;
+  return true;
+}
+
 function currentYyyymm() {
   const d = new Date();
   return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
@@ -116,7 +124,17 @@ export default async function handler(req, res) {
   if (userErr || !userData?.user) return bad(res, 401, 'Invalid auth token');
   const userId = userData.user.id;
 
-  // 2. Validate request shape.
+  // 2. Subscription gate. No paid plan → no API access.
+  const { data: subRow } = await supa
+    .from('subscriptions')
+    .select('plan,status,current_period_end')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (!isSubscriptionActive(subRow)) {
+    return bad(res, 402, 'A paid subscription is required.');
+  }
+
+  // 3. Validate request shape.
   const { mode, firm, category, messages } = req.body || {};
   if (!ALLOWED_MODES.has(mode)) return bad(res, 400, 'Unknown mode');
   if (mode === 'mock_interview') {
@@ -138,7 +156,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // 3. Pre-call budget check.
+  // 4. Pre-call budget check.
   const yyyymm = currentYyyymm();
   const { data: usageRow } = await supa
     .from('api_usage')
@@ -151,7 +169,7 @@ export default async function handler(req, res) {
     return bad(res, 429, "You've hit your monthly AI usage limit. Resets on the 1st.");
   }
 
-  // 4. Make the Anthropic call.
+  // 5. Make the Anthropic call.
   const system = buildSystemPrompt(mode, firm, category);
   let upstream;
   try {
@@ -175,7 +193,7 @@ export default async function handler(req, res) {
 
   const data = await upstream.json();
 
-  // 5. Best-effort usage accounting (don't block response on this).
+  // 6. Best-effort usage accounting (don't block response on this).
   const inputTokens = data?.usage?.input_tokens || 0;
   const outputTokens = data?.usage?.output_tokens || 0;
   const costCents = Math.ceil(

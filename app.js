@@ -551,11 +551,111 @@ async function onSignedIn(user) {
   if (sbAvatarEl) sbAvatarEl.textContent = cap[0].toUpperCase();
   const emailEl = document.getElementById('sb-email-display');
   if (emailEl) emailEl.textContent = user.email;
+
+  // Subscription gate. Coming back from Stripe Checkout there's a webhook race
+  // where the user is on the success URL before our DB row reflects the sub —
+  // the ?paid=1 flag tells us to poll briefly instead of bouncing them.
+  const params = new URLSearchParams(window.location.search);
+  const expectingPaid = params.get('paid') === '1';
+  let isActive = await hasActiveSubscription();
+  if (!isActive && expectingPaid) {
+    routeToPaywall(user);
+    const msg = document.getElementById('paywall-msg');
+    if (msg) { msg.style.color = 'var(--t-3)'; msg.textContent = 'Confirming your subscription…'; }
+    for (let i = 0; i < 10 && !isActive; i++) {
+      await new Promise(r => setTimeout(r, 1500));
+      isActive = await hasActiveSubscription();
+    }
+    if (msg) { msg.style.color = ''; msg.textContent = ''; }
+  }
+  if (expectingPaid && window.history?.replaceState) {
+    const u = new URL(window.location.href);
+    u.searchParams.delete('paid');
+    window.history.replaceState({}, '', u.toString());
+  }
+
+  if (!isActive) {
+    routeToPaywall(user);
+    return;
+  }
+
   showScreen('app');
   try {
     await loadProgress();
   } catch (e) {
     console.error('loadProgress failed:', e);
+  }
+}
+
+/* ─── PAYMENTS / SUBSCRIPTIONS ───────── */
+async function hasActiveSubscription() {
+  if (!currentUser) return false;
+  try {
+    const { data, error } = await sb
+      .from('subscriptions')
+      .select('plan,status,current_period_end')
+      .eq('user_id', currentUser.id)
+      .maybeSingle();
+    if (error || !data) return false;
+    if (data.plan === 'lifetime' && data.status === 'active') return true;
+    if (data.status !== 'active' && data.status !== 'trialing') return false;
+    if (data.current_period_end && new Date(data.current_period_end) <= new Date()) return false;
+    return true;
+  } catch (e) {
+    console.error('subscription check failed:', e);
+    return false;
+  }
+}
+
+function routeToPaywall(user) {
+  const emailSpan = document.getElementById('paywall-email');
+  if (emailSpan && user) emailSpan.textContent = user.email || '';
+  showScreen('paywall');
+}
+
+async function startCheckout(plan) {
+  const msg = document.getElementById('paywall-msg');
+  const btnIds = { weekly: 'paywall-btn-weekly', monthly: 'paywall-btn-monthly', lifetime: 'paywall-btn-lifetime' };
+  const btn = document.getElementById(btnIds[plan]);
+  const original = btn ? btn.textContent : '';
+  if (msg) { msg.style.color = ''; msg.textContent = ''; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Redirecting…'; }
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const accessToken = session?.access_token;
+    if (!accessToken) throw new Error('Please sign in again.');
+    const res = await fetch('/api/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + accessToken },
+      body: JSON.stringify({ plan })
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body?.error || 'Could not start checkout.');
+    }
+    const { url } = await res.json();
+    if (!url) throw new Error('Checkout URL missing.');
+    window.location.href = url;
+  } catch (e) {
+    if (msg) msg.textContent = e.message || 'Could not start checkout.';
+    if (btn) { btn.disabled = false; btn.textContent = original; }
+  }
+}
+
+async function openSubscriptionPortal() {
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const accessToken = session?.access_token;
+    if (!accessToken) return;
+    const res = await fetch('/api/portal', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + accessToken }
+    });
+    if (!res.ok) return;
+    const { url } = await res.json();
+    if (url) window.location.href = url;
+  } catch (e) {
+    console.error('portal error:', e);
   }
 }
 
@@ -1571,6 +1671,13 @@ async function runMockTurn(cat, firm) {
         messages: mockHistory.map(m => ({ role: m.role, content: m.content }))
       })
     });
+    if (res.status === 402) {
+      removeTyping();
+      if (sendBtn) sendBtn.disabled = false;
+      // Subscription lapsed mid-session — bounce back to the paywall.
+      routeToPaywall(currentUser);
+      return;
+    }
     if (res.status === 429) {
       removeTyping();
       appendMsg('ai', "You've hit your monthly AI usage limit. It resets on the 1st.");
@@ -3025,14 +3132,23 @@ window.addEventListener('DOMContentLoaded', async function() {
     // Returning user with stored session — show the login screen (don't
     // auto-redirect to dashboard). Browser autofills credentials, they
     // press Enter → signInWithPassword → dashboard.
+    //
+    // Exception: returning from Stripe Checkout (?paid=1 success, ?paid=0
+    // cancel) — they're already authed and need to land in the app or
+    // back on the paywall, not the login form.
     try {
       const { data: { session } } = await sb.auth.getSession();
       if (session?.user && !pendingRecovery) {
-        showAuthTab('login');
-        const emailEl = document.getElementById('login-email');
-        if (emailEl && !emailEl.value) emailEl.value = session.user.email;
-        const passwordEl = document.getElementById('login-password');
-        if (passwordEl) setTimeout(() => passwordEl.focus(), 100);
+        const paidParam = searchParams.get('paid');
+        if (paidParam === '1' || paidParam === '0') {
+          try { await onSignedIn(session.user); } catch (e) { console.error('onSignedIn error:', e); }
+        } else {
+          showAuthTab('login');
+          const emailEl = document.getElementById('login-email');
+          if (emailEl && !emailEl.value) emailEl.value = session.user.email;
+          const passwordEl = document.getElementById('login-password');
+          if (passwordEl) setTimeout(() => passwordEl.focus(), 100);
+        }
       }
     } catch (e) {
       console.error('Session check error:', e);
@@ -3221,7 +3337,7 @@ Object.assign(window, {
   renderBank, reviewQuizMistakes, saveProfileInfo,
   saveProfilePassword, selectDiagAnswer, selectOnramp, selectQuizAnswer,
   sendMsg, setFlashCat, setNavActive,
-  setStudyMode, showAuthTab, showForgotPassword, showOnramp, showQuizSetup,
+  setStudyMode, showAuthTab, showForgotPassword, showOnramp, showQuizSetup, startCheckout, openSubscriptionPortal,
   showScreen, showView, shuffleFlash, skipDiagnostic, smartPractice,
   startDiagnostic, startDirectDiagnostic, startMock,
   startQuiz, switchAuthTab, toggleFaq, toggleOnrampMulti,
