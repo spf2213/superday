@@ -96,7 +96,7 @@
       <!-- SIGNUP FORM -->
       <div id="auth-signup-form" style="display:none">
         <div class="auth-title">Create your account.</div>
-        <div class="auth-sub">Free forever. No credit card required.</div>
+        <div class="auth-sub">Start your 7-day free trial. Cancel anytime.</div>
         <div class="auth-field">
           <label class="auth-label">Full Name</label>
           <input class="auth-input" type="text" id="signup-name" placeholder="Your name"/>
@@ -723,9 +723,9 @@
           <span class="pricing-currency">$</span>
           <span class="pricing-amount">5</span>
         </div>
-        <div class="pricing-period">per week · first week free</div>
+        <div class="pricing-period">per week · 7-day free trial</div>
         <div class="pricing-desc">One focused sprint. Everything you need for the week before interviews.</div>
-        <button class="pricing-btn ghost" onclick="openInlineAuth('signup')">Try free for a week</button>
+        <button class="pricing-btn ghost" onclick="openInlineAuth('signup')">Start free trial</button>
         <div class="pricing-divider"></div>
         <div class="pricing-features">
           <div class="pf-item"><span class="pf-check">✓</span>Full question bank (250+ questions)</div>
@@ -860,8 +860,8 @@
         <div class="faq-a">Reading builds knowledge. The mock builds performance. There's a real gap between knowing an answer and delivering it calmly under pressure — that gap is where most candidates lose offers. The AI scores you on three dimensions, follows up with harder questions, and doesn't let you off easy. It's the closest thing to a real first round you'll get without booking a flight.</div>
       </div>
       <div class="faq-item" onclick="toggleFaq(this)">
-        <div class="faq-q">Is it actually free? <span class="faq-caret">⌄</span></div>
-        <div class="faq-a">Yes. The full question bank and flashcards are free, no credit card required. Paid plans unlock the AI mock interviewer, the live market news feed, and priority support. We'd rather have you prepared for free than unprepared because of a paywall.</div>
+        <div class="faq-q">How does the trial work? <span class="faq-caret">⌄</span></div>
+        <div class="faq-a">Weekly and Monthly plans start with a 7-day free trial. We collect a card up front but don't charge until day 8 — cancel anytime before then in Profile → Subscription and you won't pay a cent. Lifetime is one-time and skips the trial, but it's covered by a 14-day refund if it isn't a fit.</div>
       </div>
       <div class="faq-item" onclick="toggleFaq(this)">
         <div class="faq-q">Are the questions actually up to date? <span class="faq-caret">⌄</span></div>
@@ -1179,7 +1179,7 @@
         <!-- Study Modes -->
         <div class="study-mode-bar" id="study-mode-bar">
           <button class="mode-btn active" data-mode="all" onclick="setStudyMode('all')">
-            <span class="mode-icon">📚</span>All Cards<span class="mode-count" id="mode-count-all">120/span>
+            <span class="mode-icon">📚</span>All Cards<span class="mode-count" id="mode-count-all">120</span>
           </button>
           <button class="mode-btn" data-mode="due" onclick="setStudyMode('due')">
             <span class="mode-icon">○</span>Due for Review<span class="mode-count" id="mode-count-due">0</span>
@@ -1197,7 +1197,7 @@
           <div class="mastery-stat">
             <span class="mastery-dot new"></span>
             <span>New:</span>
-            <span class="mastery-stat-val" id="stat-new">120/span>
+            <span class="mastery-stat-val" id="stat-new">120</span>
           </div>
           <div class="mastery-stat">
             <span class="mastery-dot learning"></span>
