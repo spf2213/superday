@@ -216,8 +216,8 @@
       </button>
     </div>
     <div class="nav-right">
-      <button class="nav-login" onclick="showAuthTab('login')">Log in</button>
-      <button class="nav-cta" onclick="showAuthTab('signup')">Start free →</button>
+      <button class="nav-login" onclick="openInlineAuth('login')">Log in</button>
+      <button class="nav-cta" onclick="openInlineAuth('signup')">Start free →</button>
     </div>
   </nav>
 
@@ -231,8 +231,8 @@
       <div class="hero-top">
         <div class="hero-brand"><span class="logo-dot"></span>Superday</div>
         <div class="hero-top-ctas">
-          <button class="hero-cta" onclick="showAuthTab('signup')">Sign up</button>
-          <button class="hero-cta hero-cta-ghost" onclick="showAuthTab('login')">Log in</button>
+          <button class="hero-cta" onclick="openInlineAuth('signup')">Sign up</button>
+          <button class="hero-cta hero-cta-ghost" onclick="openInlineAuth('login')">Log in</button>
         </div>
       </div>
 
@@ -244,7 +244,7 @@
         <p class="hero-neg">No bullsh*t.</p>
         <p class="hero-close">Just a learning plan tailored to your level, hundreds of real interview questions, and real-time AI feedback.</p>
         <div style="margin-top:80px">
-          <button onclick="showAuthTab('signup')" style="width:fit-content;padding:9px 14px;font-size:12px;font-family:inherit;font-weight:500;cursor:pointer;border-radius:var(--r);background:var(--accent);border:none;color:#fff;letter-spacing:-0.01em;transition:opacity 0.2s" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">Learn the 400 in 4 Weeks →</button>
+          <button onclick="openInlineAuth('signup')" style="width:fit-content;padding:9px 14px;font-size:12px;font-family:inherit;font-weight:500;cursor:pointer;border-radius:var(--r);background:var(--accent);border:none;color:#fff;letter-spacing:-0.01em;transition:opacity 0.2s" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">Learn the 400 in 4 Weeks →</button>
         </div>
       </div>
 
@@ -474,6 +474,58 @@
         </div><!-- /prev-main -->
       </div><!-- /preview-body -->
     </div><!-- /hero-preview -->
+
+    <!-- ── INLINE AUTH PANEL (replaces preview when triggered) ── -->
+    <div class="hero-auth-inline" id="hero-auth-inline" style="display:none">
+      <button class="hero-auth-close" onclick="closeInlineAuth()" aria-label="Close">×</button>
+      <div class="hero-auth-card">
+        <div class="auth-tabs">
+          <div class="auth-tab" id="inline-tab-login" onclick="switchInlineAuthTab('login')">Log in</div>
+          <div class="auth-tab" id="inline-tab-signup" onclick="switchInlineAuthTab('signup')">Sign up</div>
+        </div>
+
+        <!-- LOGIN -->
+        <div id="inline-login-form">
+          <div class="auth-title">Welcome back.</div>
+          <div class="auth-sub">Log in to continue your prep.</div>
+          <div class="auth-field">
+            <label class="auth-label">Email</label>
+            <input class="auth-input" type="email" id="inline-login-email" autocomplete="email" placeholder="you@email.com"/>
+          </div>
+          <div class="auth-field">
+            <label class="auth-label">Password</label>
+            <input class="auth-input" type="password" id="inline-login-password" autocomplete="current-password" placeholder="••••••••"
+              onkeydown="if(event.key==='Enter')doInlineLogin()"/>
+          </div>
+          <button class="auth-btn" id="inline-login-btn" onclick="doInlineLogin()">Log in →</button>
+          <div class="auth-msg" id="inline-login-msg"></div>
+          <div style="text-align:center;margin-top:12px">
+            <a href="#" class="auth-link" onclick="event.preventDefault();showAuthTab('login');showForgotPassword()">Forgot password?</a>
+          </div>
+        </div>
+
+        <!-- SIGNUP -->
+        <div id="inline-signup-form" style="display:none">
+          <div class="auth-title">Create your account.</div>
+          <div class="auth-sub">7-day free trial on Weekly &amp; Monthly. Cancel anytime.</div>
+          <div class="auth-field">
+            <label class="auth-label">Full Name</label>
+            <input class="auth-input" type="text" id="inline-signup-name" placeholder="Your name"/>
+          </div>
+          <div class="auth-field">
+            <label class="auth-label">Email</label>
+            <input class="auth-input" type="email" id="inline-signup-email" autocomplete="email" placeholder="you@email.com"/>
+          </div>
+          <div class="auth-field">
+            <label class="auth-label">Password</label>
+            <input class="auth-input" type="password" id="inline-signup-password" autocomplete="new-password" placeholder="Min. 8 characters"
+              onkeydown="if(event.key==='Enter')doInlineSignup()"/>
+          </div>
+          <button class="auth-btn" id="inline-signup-btn" onclick="doInlineSignup()">Create account →</button>
+          <div class="auth-msg" id="inline-signup-msg"></div>
+        </div>
+      </div>
+    </div>
   </section>
 
   <!-- LOGOS -->
@@ -574,7 +626,7 @@
           <div class="feat-tag">Learn Effortlessly</div>
           <h2 class="feat-h">Start anywhere. Master everything.</h2>
           <p class="feat-p">250+ real interview questions with expert answers. Firm-specific question sets for Goldman, Morgan Stanley, and more. Learn at your pace — Superday does the heavy lifting.</p>
-          <button class="btn-primary" onclick="showAuthTab('signup')">Start learning →</button>
+          <button class="btn-primary" onclick="openInlineAuth('signup')">Start learning →</button>
         </div>
         <div class="demo-card" data-reveal="right" data-dur="slow">
           <div class="qb-demo">
@@ -666,7 +718,7 @@
           <div class="feat-tag">Adaptive to You</div>
           <h2 class="feat-h">It learns how you learn.</h2>
           <p class="feat-p">Superday adapts to your skill level in real time. Weak on valuation? It drills you harder. Strong on accounting? It moves you forward. Every session is built for where you are right now.</p>
-          <button class="btn-primary" onclick="showAuthTab('signup')">See how it works →</button>
+          <button class="btn-primary" onclick="openInlineAuth('signup')">See how it works →</button>
         </div>
         <div class="demo-card" data-reveal="left" data-dur="slow">
           <div class="fc-demo">
@@ -716,7 +768,7 @@
           <div class="feat-tag">Built-In Interviewer</div>
           <h2 class="feat-h">Practice with an AI that scores like a VP.</h2>
           <p class="feat-p">Mock interviews with real-time scoring across three dimensions. Firm-specific prep so you walk in ready for that bank, not just any bank.</p>
-          <button class="btn-primary" onclick="showAuthTab('signup')">Try a mock interview →</button>
+          <button class="btn-primary" onclick="openInlineAuth('signup')">Try a mock interview →</button>
         </div>
         <div class="demo-card" data-reveal="right" data-dur="slow" style="display:flex;flex-direction:column">
           <div class="iv-topbar">
@@ -761,7 +813,7 @@
         </div>
         <div class="pricing-period">per week · first week free</div>
         <div class="pricing-desc">One focused sprint. Everything you need for the week before interviews.</div>
-        <button class="pricing-btn ghost" onclick="showAuthTab('signup')">Try free for a week</button>
+        <button class="pricing-btn ghost" onclick="openInlineAuth('signup')">Try free for a week</button>
         <div class="pricing-divider"></div>
         <div class="pricing-features">
           <div class="pf-item"><span class="pf-check">✓</span>Full question bank (250+ questions)</div>
@@ -782,7 +834,7 @@
         </div>
         <div class="pricing-period">per month · cancel anytime</div>
         <div class="pricing-desc">The whole season. From first application to final round.</div>
-        <button class="pricing-btn primary" onclick="showAuthTab('signup')">Get full access →</button>
+        <button class="pricing-btn primary" onclick="openInlineAuth('signup')">Get full access →</button>
         <div class="pricing-divider"></div>
         <div class="pricing-features">
           <div class="pf-item"><span class="pf-check">✓</span>Full question bank (250+ questions)</div>
@@ -802,7 +854,7 @@
         </div>
         <div class="pricing-period">one-time · yours forever</div>
         <div class="pricing-desc">Pay once. Prep for every cycle, every lateral move, every promotion conversation.</div>
-        <button class="pricing-btn ghost" onclick="showAuthTab('signup')">Own it forever</button>
+        <button class="pricing-btn ghost" onclick="openInlineAuth('signup')">Own it forever</button>
         <div class="pricing-divider"></div>
         <div class="pricing-features">
           <div class="pf-item"><span class="pf-check">✓</span>Everything in Monthly</div>
@@ -924,7 +976,7 @@
     <p class="cta-p" data-reveal="up" data-delay="120">Start prepping in 30 seconds. No card required.</p>
     <div data-reveal="up" data-delay="240" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
       <button class="btn-primary" onclick="startDirectDiagnostic()">Start Learning →</button>
-      <button class="btn-ghost" onclick="showAuthTab('signup')">Create account</button>
+      <button class="btn-ghost" onclick="openInlineAuth('signup')">Create account</button>
     </div>
   </div>
 
@@ -937,7 +989,7 @@
     <div class="footer-links">
       <a class="footer-link" href="/legal.html#privacy">Privacy</a>
       <a class="footer-link" href="/legal.html#terms">Terms</a>
-      <span class="footer-link" onclick="showAuthTab('login')">Sign in</span>
+      <span class="footer-link" onclick="openInlineAuth('login')">Sign in</span>
     </div>
   </footer>
 

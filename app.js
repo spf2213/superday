@@ -512,6 +512,91 @@ async function doSignup() {
   await onSignedIn(data.user);
 }
 
+/* ─── INLINE AUTH (hero whitespace) ───── */
+function openInlineAuth(tab, prefillEmail) {
+  const panel = document.getElementById('hero-auth-inline');
+  const preview = document.querySelector('.hero-preview');
+  if (!panel) return;
+  if (preview) preview.style.display = 'none';
+  panel.style.display = 'flex';
+  switchInlineAuthTab(tab || 'signup');
+  if (prefillEmail) {
+    const target = (tab === 'login') ? 'inline-login-email' : 'inline-signup-email';
+    const el = document.getElementById(target);
+    if (el && !el.value) el.value = prefillEmail;
+  }
+  // Make sure the panel is in view on long pages.
+  panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // Focus the first empty field.
+  setTimeout(() => {
+    const first = panel.querySelector('input:not([type=hidden])');
+    if (first && !first.value) first.focus();
+  }, 250);
+}
+
+function closeInlineAuth() {
+  const panel = document.getElementById('hero-auth-inline');
+  const preview = document.querySelector('.hero-preview');
+  if (panel) panel.style.display = 'none';
+  if (preview) preview.style.display = '';
+}
+
+function switchInlineAuthTab(tab) {
+  const tabLogin = document.getElementById('inline-tab-login');
+  const tabSignup = document.getElementById('inline-tab-signup');
+  const loginForm = document.getElementById('inline-login-form');
+  const signupForm = document.getElementById('inline-signup-form');
+  if (tabLogin) tabLogin.classList.toggle('active', tab === 'login');
+  if (tabSignup) tabSignup.classList.toggle('active', tab === 'signup');
+  if (loginForm) loginForm.style.display = tab === 'login' ? 'block' : 'none';
+  if (signupForm) signupForm.style.display = tab === 'signup' ? 'block' : 'none';
+}
+
+async function doInlineLogin() {
+  const email = document.getElementById('inline-login-email')?.value?.trim() || '';
+  const password = document.getElementById('inline-login-password')?.value || '';
+  const btn = document.getElementById('inline-login-btn');
+  const msg = document.getElementById('inline-login-msg');
+  if (msg) { msg.className = 'auth-msg'; msg.textContent = ''; }
+  if (!email || !password) { if (msg) showMsg(msg, 'error', 'Please fill in all fields.'); return; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Logging in…'; }
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if (btn) { btn.disabled = false; btn.textContent = 'Log in →'; }
+  if (error) { if (msg) showMsg(msg, 'error', error.message); return; }
+  try {
+    await onSignedIn(data.user);
+  } catch (e) {
+    console.error('onSignedIn error:', e);
+    if (msg) showMsg(msg, 'error', 'Signed in, but something went wrong loading your data. Refresh the page.');
+  }
+}
+
+async function doInlineSignup() {
+  const name = document.getElementById('inline-signup-name')?.value?.trim() || '';
+  const email = document.getElementById('inline-signup-email')?.value?.trim() || '';
+  const password = document.getElementById('inline-signup-password')?.value || '';
+  const btn = document.getElementById('inline-signup-btn');
+  const msg = document.getElementById('inline-signup-msg');
+  if (msg) { msg.className = 'auth-msg'; msg.textContent = ''; }
+  if (!name || !email || !password) { if (msg) showMsg(msg, 'error', 'Please fill in all fields.'); return; }
+  if (password.length < 8) { if (msg) showMsg(msg, 'error', 'Password must be at least 8 characters.'); return; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating account…'; }
+  const { data, error } = await sb.auth.signUp({
+    email, password,
+    options: {
+      data: { full_name: name },
+      emailRedirectTo: window.location.origin
+    }
+  });
+  if (btn) { btn.disabled = false; btn.textContent = 'Create account →'; }
+  if (error) { if (msg) showMsg(msg, 'error', error.message); return; }
+  if (data.user && !data.session) {
+    if (msg) showMsg(msg, 'success', 'Check your email to confirm your account, then log in.');
+    return;
+  }
+  await onSignedIn(data.user);
+}
+
 async function doSignOut() {
   await sb.auth.signOut();
   currentUser = null;
@@ -747,11 +832,7 @@ function showScreen(id) {
 function ctaSignup() {
   const ctaEmail = document.getElementById('cta-email');
   const email = ctaEmail ? ctaEmail.value.trim() : '';
-  if (email) {
-    const signupEmail = document.getElementById('signup-email');
-    if (signupEmail) signupEmail.value = email;
-  }
-  showAuthTab('signup');
+  openInlineAuth('signup', email);
 }
 
 function capitalize(s) { return (s && typeof s === 'string') ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
@@ -3338,6 +3419,7 @@ Object.assign(window, {
   saveProfilePassword, selectDiagAnswer, selectOnramp, selectQuizAnswer,
   sendMsg, setFlashCat, setNavActive,
   setStudyMode, showAuthTab, showForgotPassword, showOnramp, showQuizSetup, startCheckout, openSubscriptionPortal,
+  openInlineAuth, closeInlineAuth, switchInlineAuthTab, doInlineLogin, doInlineSignup,
   showScreen, showView, shuffleFlash, skipDiagnostic, smartPractice,
   startDiagnostic, startDirectDiagnostic, startMock,
   startQuiz, switchAuthTab, toggleFaq, toggleOnrampMulti,
