@@ -120,6 +120,26 @@ const PV_MOCK_REPLIES = [
   { t:7, s:8, c:8, text:'Solid. Beta is the trickiest part of CAPM. Follow-up: what happens to DCF value if you increase the terminal growth rate by 100bps?' },
   { t:9, s:8, c:8, text:'Strong. WACC sensitivity is something interviewers love. One more: how do precedent transactions typically compare to comps in value, and why?' },
 ];
+function pvBubble(side, text) {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = side === 'user'
+    ? 'display:flex;gap:7px;flex-direction:row-reverse;align-items:flex-start'
+    : 'display:flex;gap:7px;align-items:flex-start';
+  const av = document.createElement('div');
+  av.style.cssText = side === 'user'
+    ? 'width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;font-size:7.5px;font-weight:700;color:var(--t-2);flex-shrink:0;margin-top:1px'
+    : 'width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#5E6AD2,#8b8ff8);display:flex;align-items:center;justify-content:center;font-size:7.5px;font-weight:700;color:white;flex-shrink:0;margin-top:1px';
+  av.textContent = side === 'user' ? 'Y' : 'AC';
+  const bubble = document.createElement('div');
+  bubble.style.cssText = side === 'user'
+    ? 'background:var(--accent);opacity:0.88;border-radius:8px 0 8px 8px;padding:8px 10px;font-size:11px;color:white;line-height:1.55;max-width:88%'
+    : 'background:rgba(255,255,255,0.05);border:1px solid var(--line);border-radius:0 8px 8px 8px;padding:8px 10px;font-size:11px;color:var(--t-2);line-height:1.55;max-width:88%';
+  bubble.textContent = text;
+  wrap.appendChild(av);
+  wrap.appendChild(bubble);
+  return { wrap, bubble };
+}
+
 function pvMockSend() {
   const input = document.getElementById('pv-mock-input');
   const chat  = document.getElementById('pv-mock-chat');
@@ -128,36 +148,42 @@ function pvMockSend() {
   input.value = '';
 
   // User bubble
-  chat.innerHTML += `
-    <div style="display:flex;gap:7px;flex-direction:row-reverse;align-items:flex-start">
-      <div style="width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;font-size:7.5px;font-weight:700;color:var(--t-2);flex-shrink:0;margin-top:1px">Y</div>
-      <div style="background:var(--accent);opacity:0.88;border-radius:8px 0 8px 8px;padding:8px 10px;font-size:11px;color:white;line-height:1.55;max-width:88%">${text.replace(/</g,'&lt;')}</div>
-    </div>`;
+  chat.appendChild(pvBubble('user', text).wrap);
   chat.scrollTop = chat.scrollHeight;
 
   // Typing indicator
-  const typId = 'pvtyp_' + Date.now();
-  chat.innerHTML += `
-    <div id="${typId}" style="display:flex;gap:7px;align-items:flex-start">
-      <div style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#5E6AD2,#8b8ff8);display:flex;align-items:center;justify-content:center;font-size:7.5px;font-weight:700;color:white;flex-shrink:0;margin-top:1px">AC</div>
-      <div style="background:rgba(255,255,255,0.05);border:1px solid var(--line);border-radius:0 8px 8px 8px;padding:8px 12px;font-size:13px;color:var(--t-3);letter-spacing:2px">···</div>
-    </div>`;
+  const typing = document.createElement('div');
+  typing.style.cssText = 'display:flex;gap:7px;align-items:flex-start';
+  const tav = document.createElement('div');
+  tav.style.cssText = 'width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#5E6AD2,#8b8ff8);display:flex;align-items:center;justify-content:center;font-size:7.5px;font-weight:700;color:white;flex-shrink:0;margin-top:1px';
+  tav.textContent = 'AC';
+  const tbub = document.createElement('div');
+  tbub.style.cssText = 'background:rgba(255,255,255,0.05);border:1px solid var(--line);border-radius:0 8px 8px 8px;padding:8px 12px;font-size:13px;color:var(--t-3);letter-spacing:2px';
+  tbub.textContent = '···';
+  typing.appendChild(tav);
+  typing.appendChild(tbub);
+  chat.appendChild(typing);
   chat.scrollTop = chat.scrollHeight;
 
   setTimeout(() => {
-    const typ = document.getElementById(typId);
-    if (typ) typ.remove();
+    typing.remove();
     const r = PV_MOCK_REPLIES[pvMockRound % PV_MOCK_REPLIES.length];
     pvMockRound++;
-    const sc = (n) => `<span style="color:${n>=8?'var(--green)':'#e0a820'};font-weight:600">${n}/10</span>`;
-    const scores = `<div style="display:flex;gap:10px;margin-top:5px;font-size:10px;color:var(--t-3)">Technical ${sc(r.t)} · Structure ${sc(r.s)} · Confidence ${sc(r.c)}</div>`;
-    chat.innerHTML += `
-      <div style="display:flex;gap:7px;align-items:flex-start">
-        <div style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#5E6AD2,#8b8ff8);display:flex;align-items:center;justify-content:center;font-size:7.5px;font-weight:700;color:white;flex-shrink:0;margin-top:1px">AC</div>
-        <div style="background:rgba(255,255,255,0.05);border:1px solid var(--line);border-radius:0 8px 8px 8px;padding:8px 10px;font-size:11px;color:var(--t-2);line-height:1.55;max-width:88%">
-          ${r.text}${scores}
-        </div>
-      </div>`;
+
+    const reply = pvBubble('ai', r.text);
+    const scores = document.createElement('div');
+    scores.style.cssText = 'display:flex;gap:10px;margin-top:5px;font-size:10px;color:var(--t-3)';
+    const parts = [['Technical', r.t], ['Structure', r.s], ['Confidence', r.c]];
+    parts.forEach(([label, n], i) => {
+      if (i > 0) scores.appendChild(document.createTextNode(' · '));
+      scores.appendChild(document.createTextNode(label + ' '));
+      const span = document.createElement('span');
+      span.style.cssText = 'color:' + (n >= 8 ? 'var(--green)' : '#e0a820') + ';font-weight:600';
+      span.textContent = n + '/10';
+      scores.appendChild(span);
+    });
+    reply.bubble.appendChild(scores);
+    chat.appendChild(reply.wrap);
     chat.scrollTop = chat.scrollHeight;
   }, 1000);
 }
@@ -302,31 +328,80 @@ const DEMO_RESPONSES = [
   { score: { tech: 9, struct: 8, conf: 7 }, follow: 'Strong technical answer. One more — how do precedent transactions typically compare to public comps in terms of valuation, and why?' },
 ];
 let demoChatRound = 0;
+
+function demoChatBubble(side, text) {
+  const wrap = document.createElement('div');
+  wrap.className = side === 'user' ? 'chat-msg user' : 'chat-msg';
+  const av = document.createElement('div');
+  av.className = side === 'user' ? 'cm-av usr' : 'cm-av ai';
+  av.textContent = side === 'user' ? 'Y' : 'GS';
+  const bubble = document.createElement('div');
+  bubble.className = side === 'user' ? 'cm-bubble usr' : 'cm-bubble ai';
+  bubble.textContent = text;
+  wrap.appendChild(av);
+  wrap.appendChild(bubble);
+  return { wrap, bubble };
+}
+
 function demoChatSend() {
   const input = document.getElementById('demo-chat-input');
   const body = document.getElementById('demo-chat-body');
   const text = input.value.trim();
   if (!text) return;
   input.value = '';
-  // Add user message
-  body.innerHTML += `<div class="chat-msg user"><div class="cm-av usr">Y</div><div class="cm-bubble usr">${text}</div></div>`;
+
+  body.appendChild(demoChatBubble('user', text).wrap);
   body.scrollTop = body.scrollHeight;
+
   // Typing indicator
-  const typingId = 'demo-typing-' + Date.now();
-  body.innerHTML += `<div class="chat-msg" id="${typingId}"><div class="cm-av ai">AC</div><div class="cm-bubble ai"><span class="tdot"></span><span class="tdot"></span><span class="tdot"></span></div></div>`;
+  const typing = document.createElement('div');
+  typing.className = 'chat-msg';
+  const tav = document.createElement('div');
+  tav.className = 'cm-av ai';
+  tav.textContent = 'AC';
+  const tbub = document.createElement('div');
+  tbub.className = 'cm-bubble ai';
+  for (let i = 0; i < 3; i++) {
+    const d = document.createElement('span');
+    d.className = 'tdot';
+    tbub.appendChild(d);
+  }
+  typing.appendChild(tav);
+  typing.appendChild(tbub);
+  body.appendChild(typing);
   body.scrollTop = body.scrollHeight;
+
   setTimeout(() => {
-    const typing = document.getElementById(typingId);
-    if (typing) typing.remove();
+    typing.remove();
     const r = DEMO_RESPONSES[demoChatRound % DEMO_RESPONSES.length];
     demoChatRound++;
-    const scoreHtml = `<div class="score-block" style="margin-top:6px">
-      <div class="score-line"><span class="sc-label">Technical Accuracy</span><span class="sc-val ${r.score.tech>=8?'sc-g':'sc-y'}">${r.score.tech}/10</span></div>
-      <div class="score-line"><span class="sc-label">Structure & Clarity</span><span class="sc-val ${r.score.struct>=8?'sc-g':'sc-y'}">${r.score.struct}/10</span></div>
-      <div class="score-line"><span class="sc-label">Confidence</span><span class="sc-val ${r.score.conf>=8?'sc-g':'sc-y'}">${r.score.conf}/10</span></div>
-    </div>`;
-    body.innerHTML += `<div class="chat-msg"><div class="cm-av ai">GS</div><div class="cm-bubble ai">Good answer. ${scoreHtml}</div></div>`;
-    body.innerHTML += `<div class="chat-msg"><div class="cm-av ai">GS</div><div class="cm-bubble ai">${r.follow}</div></div>`;
+
+    const answer = demoChatBubble('ai', 'Good answer. ');
+    const scoreBlock = document.createElement('div');
+    scoreBlock.className = 'score-block';
+    scoreBlock.style.marginTop = '6px';
+    const lines = [
+      ['Technical Accuracy', r.score.tech],
+      ['Structure & Clarity', r.score.struct],
+      ['Confidence',          r.score.conf]
+    ];
+    for (const [label, val] of lines) {
+      const line = document.createElement('div');
+      line.className = 'score-line';
+      const lbl = document.createElement('span');
+      lbl.className = 'sc-label';
+      lbl.textContent = label;
+      const v = document.createElement('span');
+      v.className = 'sc-val ' + (val >= 8 ? 'sc-g' : 'sc-y');
+      v.textContent = val + '/10';
+      line.appendChild(lbl);
+      line.appendChild(v);
+      scoreBlock.appendChild(line);
+    }
+    answer.bubble.appendChild(scoreBlock);
+    body.appendChild(answer.wrap);
+
+    body.appendChild(demoChatBubble('ai', r.follow).wrap);
     body.scrollTop = body.scrollHeight;
   }, 1200);
 }

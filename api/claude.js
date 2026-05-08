@@ -37,6 +37,17 @@ const OUTPUT_CENTS_PER_MTOK = 1500; // $15.00
 
 const MONTHLY_BUDGET_CENTS = 2000; // $20/user/month
 
+// Per-user rate limits. Tuned so a determined user can't burn through the
+// $20 monthly cap in a single bad afternoon, while still allowing a normal
+// 6-question mock interview (≤ 12 calls) to complete uninterrupted.
+const MAX_CALLS_PER_MINUTE = 10;
+const MAX_CALLS_PER_DAY    = 100;
+
+// Hard cap on a single Anthropic call. The server kills the upstream
+// connection if it stalls, so a slow Claude doesn't hold a Vercel function
+// hostage and so the user gets a clean error instead of a hung request.
+const ANTHROPIC_TIMEOUT_MS = 30_000;
+
 function bad(res, code, msg) {
   return res.status(code).json({ error: msg });
 }
@@ -169,8 +180,39 @@ export default async function handler(req, res) {
     return bad(res, 429, "You've hit your monthly AI usage limit. Resets on the 1st.");
   }
 
-  // 5. Make the Anthropic call.
+  // 5. Per-user rate limit. The RPC also records the call atomically so we
+  //    don't get races between concurrent requests from the same user.
+  try {
+    const { data: rl, error: rlErr } = await supa.rpc('check_api_rate_limit', {
+      p_user_id: userId,
+      p_max_per_min: MAX_CALLS_PER_MINUTE,
+      p_max_per_day: MAX_CALLS_PER_DAY
+    });
+    if (rlErr) {
+      // Fail closed: if we can't rate-limit, don't burn budget.
+      return bad(res, 503, 'Rate limiter unavailable, please retry');
+    }
+    const decision = Array.isArray(rl) ? rl[0] : rl;
+    if (decision && decision.allowed === false) {
+      const retry = decision.retry_after_seconds || 60;
+      res.setHeader('Retry-After', String(retry));
+      return bad(
+        res,
+        429,
+        decision.scope === 'day'
+          ? "Daily AI limit reached. Try again tomorrow."
+          : "You're sending requests too fast. Take a breath and try again in a moment."
+      );
+    }
+  } catch (_) {
+    return bad(res, 503, 'Rate limiter unavailable, please retry');
+  }
+
+  // 6. Make the Anthropic call with a hard timeout so a slow upstream can't
+  //    hold the function hostage.
   const system = buildSystemPrompt(mode, firm, category);
+  const ctrl = new AbortController();
+  const timeoutId = setTimeout(() => ctrl.abort(), ANTHROPIC_TIMEOUT_MS);
   let upstream;
   try {
     upstream = await fetch('https://api.anthropic.com/v1/messages', {
@@ -185,15 +227,21 @@ export default async function handler(req, res) {
         max_tokens: MAX_TOKENS,
         system,
         messages
-      })
+      }),
+      signal: ctrl.signal
     });
   } catch (e) {
+    clearTimeout(timeoutId);
+    if (e?.name === 'AbortError') {
+      return bad(res, 504, 'Upstream timed out, please retry');
+    }
     return bad(res, 502, 'Upstream connection failed');
   }
+  clearTimeout(timeoutId);
 
   const data = await upstream.json();
 
-  // 6. Best-effort usage accounting (don't block response on this).
+  // 7. Best-effort usage accounting (don't block response on this).
   const inputTokens = data?.usage?.input_tokens || 0;
   const outputTokens = data?.usage?.output_tokens || 0;
   const costCents = Math.ceil(
