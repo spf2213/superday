@@ -8,6 +8,7 @@
 // Required Supabase table: public.api_usage (see migration in checklist).
 
 import { createClient } from '@supabase/supabase-js';
+import { applyCors } from '../lib/cors.js';
 
 const ALLOWED_FIRMS = new Set([
   'Goldman Sachs',
@@ -112,6 +113,7 @@ function buildSystemPrompt(mode, firm, category) {
 }
 
 export default async function handler(req, res) {
+  if (!applyCors(req, res)) return;
   if (req.method !== 'POST') return bad(res, 405, 'Method not allowed');
 
   const apiKey = process.env.ANTHROPIC_API_KEY;

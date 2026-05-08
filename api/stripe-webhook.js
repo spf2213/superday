@@ -1,12 +1,34 @@
 // Stripe webhook → keeps the public.subscriptions row in sync with Stripe.
 //
-// Required env:
+// ─── End-to-end flow ────────────────────────────────────────────────────────
+//
+//   1. User picks a plan in the SPA.
+//   2. Browser → POST /api/checkout (Bearer JWT)
+//        ↳ verifies user, finds-or-creates Stripe customer, creates a
+//          Checkout Session with an Idempotency-Key, returns the URL.
+//   3. Browser is redirected to Stripe Checkout and pays.
+//   4. Stripe → POST /api/stripe-webhook (this file)
+//        ↳ verifies signature, then upserts public.subscriptions with the
+//          plan, status, and current_period_end. The same row is the source
+//          of truth read by /api/claude (paywall) and the client paywall UI.
+//   5. SPA notices the new subscription (Supabase realtime / poll) and
+//      flips the user past the paywall.
+//
+//   For renewals, cancellations, or trial ends, Stripe re-fires
+//   customer.subscription.* and invoice.* events here, which keeps the
+//   row fresh without the SPA having to do anything.
+//
+//   CORS does not apply: Stripe's servers don't send Origin headers and
+//   don't preflight. The webhook secret + signature check below is what
+//   protects this endpoint.
+//
+// ─── Required env ───────────────────────────────────────────────────────────
 //   STRIPE_SECRET_KEY
 //   STRIPE_WEBHOOK_SECRET        — whsec_… from the Stripe dashboard
 //   SUPABASE_URL or VITE_SUPABASE_URL
 //   SUPABASE_SERVICE_ROLE_KEY
 //
-// Configure the endpoint in Stripe to send these events:
+// ─── Required Stripe events ─────────────────────────────────────────────────
 //   checkout.session.completed
 //   customer.subscription.created
 //   customer.subscription.updated

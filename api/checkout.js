@@ -12,6 +12,7 @@
 
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
+import { applyCors } from '../lib/cors.js';
 
 const TRIAL_DAYS = 7;
 const ALLOWED_PLANS = new Set(['weekly', 'monthly', 'lifetime']);
@@ -21,6 +22,7 @@ function bad(res, code, msg) {
 }
 
 export default async function handler(req, res) {
+  if (!applyCors(req, res)) return;
   if (req.method !== 'POST') return bad(res, 405, 'Method not allowed');
 
   const stripeKey = process.env.STRIPE_SECRET_KEY;
@@ -85,25 +87,35 @@ export default async function handler(req, res) {
 
   const isLifetime = plan === 'lifetime';
 
+  // Idempotency key: a double-click (or a flaky network retry) within the
+  // same minute reuses the existing Checkout Session instead of creating a
+  // second one. Stripe stores idempotency keys for 24h; after one minute we
+  // intentionally allow a fresh session if the user genuinely retries later.
+  const minuteBucket = Math.floor(Date.now() / 60_000);
+  const idempotencyKey = `checkout:${user.id}:${plan}:${minuteBucket}`;
+
   let session;
   try {
-    session = await stripe.checkout.sessions.create({
-      mode: isLifetime ? 'payment' : 'subscription',
-      customer: customerId,
-      line_items: [{ price: priceId, quantity: 1 }],
-      success_url: origin + '/?paid=1',
-      cancel_url: origin + '/?paid=0',
-      client_reference_id: user.id,
-      metadata: { supabase_user_id: user.id, plan },
-      ...(isLifetime
-        ? { payment_intent_data: { metadata: { supabase_user_id: user.id, plan } } }
-        : {
-            subscription_data: {
-              trial_period_days: TRIAL_DAYS,
-              metadata: { supabase_user_id: user.id, plan }
-            }
-          })
-    });
+    session = await stripe.checkout.sessions.create(
+      {
+        mode: isLifetime ? 'payment' : 'subscription',
+        customer: customerId,
+        line_items: [{ price: priceId, quantity: 1 }],
+        success_url: origin + '/?paid=1',
+        cancel_url: origin + '/?paid=0',
+        client_reference_id: user.id,
+        metadata: { supabase_user_id: user.id, plan },
+        ...(isLifetime
+          ? { payment_intent_data: { metadata: { supabase_user_id: user.id, plan } } }
+          : {
+              subscription_data: {
+                trial_period_days: TRIAL_DAYS,
+                metadata: { supabase_user_id: user.id, plan }
+              }
+            })
+      },
+      { idempotencyKey }
+    );
   } catch (e) {
     console.error('stripe checkout error:', e);
     return bad(res, 502, 'Could not create checkout session');
