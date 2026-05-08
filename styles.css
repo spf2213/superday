@@ -470,9 +470,27 @@ body:has(.dss-mode.active) { overflow:hidden }
   box-shadow:0 24px 60px rgba(0,0,0,0.35),0 0 0 1px rgba(255,255,255,0.06);
 }
 [data-theme="light"] .hero-auth-card{
-  background:rgba(255,255,255,0.7);
-  border-color:rgba(0,0,0,0.08);
-  box-shadow:0 12px 40px rgba(0,0,0,0.06),0 0 0 1px rgba(0,0,0,0.04);
+  background:#FFFFFF;
+  border-color:rgba(var(--accent-rgb),0.18);
+  box-shadow:
+    0 1px 0 rgba(var(--accent-rgb),0.04),
+    0 12px 40px rgba(var(--accent-rgb),0.10),
+    0 0 0 1px rgba(var(--accent-rgb),0.06);
+}
+.hero-auth-inline .auth-tab.active{
+  background:var(--accent-dim);
+  color:var(--accent);
+  box-shadow:inset 0 0 0 1px rgba(var(--accent-rgb),0.22);
+}
+.hero-auth-inline .auth-input:focus{
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--accent-dim);
+}
+.hero-auth-inline .auth-link{
+  color:var(--accent);border-bottom-color:rgba(var(--accent-rgb),0.4);
+}
+.hero-auth-inline .auth-link:hover{
+  color:var(--accent-h);border-bottom-color:var(--accent);
 }
 .hero-auth-close{
   position:absolute;top:8px;right:8px;
