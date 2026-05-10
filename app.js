@@ -5,6 +5,32 @@ import { setNavActive, toggleTheme } from './src/theme.js';
 import { renderKnowledgeMap, mapZoom, mapFitAll, mapResetView, setMapDeps } from './src/map.js';
 import { migrateLegacy as migrateLevels, recordSignal as recordLevelSignal, getSeed as getLevelSeed, getAllLevels as getAllLevelsFromProgress, bandIndex as toBandIndex, bandFromIndex as fromBandIndex, BANDS as LEVEL_BANDS, TOPICS as LEVEL_TOPICS } from './src/levels.js';
 
+// Wrap recordSignal with a UI feedback pass: any band transition fires a toast
+// and appends an activity-log entry. Pure model logic stays in levels.js;
+// app.js owns side effects.
+function recordSignalWithFeedback(opts) {
+  const result = recordLevelSignal(progress, opts);
+  if (!result || result.prevBand === result.newBand) return result;
+
+  const goingUp = toBandIndex(result.newBand) > toBandIndex(result.prevBand);
+  const topicLabel = TOPIC_LABELS[result.topic] || result.topic;
+  const samples = result.level.samples;
+  const message = goingUp
+    ? `Calibrated up to ${result.newBand} in ${topicLabel} — based on your last ${samples} answers.`
+    : `Recalibrated to ${result.newBand} in ${topicLabel}. Drill these to come back up.`;
+  showToast(message, { icon: goingUp ? '↑' : '↓', ms: 4500 });
+
+  if (!progress.activityLog) progress.activityLog = [];
+  progress.activityLog.unshift({
+    cat: 'levels',
+    title: message,
+    time: 'Just now'
+  });
+  // Match the existing 6-entry cap used by the bank-answer activity push.
+  if (progress.activityLog.length > 6) progress.activityLog.length = 6;
+  return result;
+}
+
 // Stopgap until Task 6 tags every question with a `level` field. Maps the
 // legacy difficulty (1/2/3) to a band string so question-selection logic can
 // target a band today without waiting on the data pass.
@@ -1462,8 +1488,8 @@ function renderActivity() {
     el.innerHTML = '<div style="padding:32px 16px;text-align:center;font-size:12.5px;color:var(--t-3)">No activity yet — start practicing.</div>';
     return;
   }
-  const icons = { tech:'📊', beh:'💬', brain:'🧠', deal:'📈' };
-  const colors = { tech:'var(--accent-dim)', beh:'var(--green-dim)', brain:'var(--amber-dim)', deal:'var(--blue-dim)' };
+  const icons = { tech:'📊', beh:'💬', brain:'🧠', deal:'📈', levels:'↑' };
+  const colors = { tech:'var(--accent-dim)', beh:'var(--green-dim)', brain:'var(--amber-dim)', deal:'var(--blue-dim)', levels:'var(--green-dim)' };
   el.innerHTML = progress.activityLog.map(a =>
     '<div class="act-item">' +
     '<div class="act-icon" style="background:' + (colors[a.cat]||'var(--bg-3)') + '">' + (icons[a.cat]||'📋') + '</div>' +
@@ -1813,7 +1839,7 @@ function rateCard(rating) {
   // miss with half weight; a hard miss and a clean hit both carry full weight.
   const topic = topicForQuestion(q.cat, q.sub);
   if (topic) {
-    recordLevelSignal(progress, {
+    recordSignalWithFeedback({
       topic,
       cardLevel: q.level,
       correct: rating === 3,
@@ -2131,7 +2157,7 @@ async function runMockTurn(cat, firm) {
       const mockTopic = topicForQuestion(cat, null);
       if (mockTopic) {
         const tech = parseInt(scoreMatch[1], 10);
-        recordLevelSignal(progress, {
+        recordSignalWithFeedback({
           topic: mockTopic,
           cardLevel: undefined,
           correct: tech >= 6,
@@ -2346,7 +2372,7 @@ function selectQuizAnswer(el) {
   // Per-topic calibration signal — quiz is binary correct/incorrect, full weight.
   const quizTopic = topicForQuestion(q.cat, q.sub);
   if (quizTopic) {
-    recordLevelSignal(progress, {
+    recordSignalWithFeedback({
       topic: quizTopic,
       cardLevel: q.level,
       correct: isCorrect,
@@ -2606,7 +2632,7 @@ function selectDiagAnswer(el, cat, sub) {
   const diagTopic = topicForQuestion(cat, sub);
   if (diagTopic) {
     const q = diagQuestions[diagIndex];
-    recordLevelSignal(progress, {
+    recordSignalWithFeedback({
       topic: diagTopic,
       cardLevel: q && q.level,
       correct: isCorrect,
