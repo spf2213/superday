@@ -3,7 +3,18 @@ import { QUESTIONS } from './src/data/questions.js';
 import { LEARN_MODULES } from './src/data/learnModules.js';
 import { setNavActive, toggleTheme } from './src/theme.js';
 import { renderKnowledgeMap, mapZoom, mapFitAll, mapResetView, setMapDeps } from './src/map.js';
-import { migrateLegacy as migrateLevels, recordSignal as recordLevelSignal, getSeed as getLevelSeed, getAllLevels as getAllLevelsFromProgress, TOPICS as LEVEL_TOPICS } from './src/levels.js';
+import { migrateLegacy as migrateLevels, recordSignal as recordLevelSignal, getSeed as getLevelSeed, getAllLevels as getAllLevelsFromProgress, bandIndex as toBandIndex, bandFromIndex as fromBandIndex, BANDS as LEVEL_BANDS, TOPICS as LEVEL_TOPICS } from './src/levels.js';
+
+// Stopgap until Task 6 tags every question with a `level` field. Maps the
+// legacy difficulty (1/2/3) to a band string so question-selection logic can
+// target a band today without waiting on the data pass.
+function questionLevel(q) {
+  if (q && LEVEL_BANDS.includes(q.level)) return q.level;
+  if (q && q.difficulty === 1) return 'beginner';
+  if (q && q.difficulty === 2) return 'intermediate';
+  if (q && q.difficulty === 3) return 'advanced';
+  return 'intermediate';
+}
 
 // Friendly labels for the seven calibration topics. Exposed so every UX
 // surface reads from one source.
@@ -2319,6 +2330,11 @@ function reviewQuizMistakes() {
 /* ─── DIAGNOSTIC ASSESSMENT ─────────── */
 let diagQuestions = [];
 let diagIndex = 0;
+// Per-topic band snapshot taken when the diagnostic starts so showDiagResults
+// can render the [old → new] deltas after recordSignal accumulates.
+let diagBefore = {};
+// Legacy aggregates — preserved during migration so any path still touching
+// them doesn't crash. Bands are now per-topic.
 let diagScores = { tech: 0, beh: 0, deal: 0 };
 let diagCounts = { tech: 0, beh: 0, deal: 0 };
 let diagSubScores = { accounting: 0, valuation: 0, lbo: 0, ma: 0 };
@@ -2333,20 +2349,83 @@ function checkFirstVisit() {
   }
 }
 
+// Pick up to `count` MCQ questions for a topic, biased toward the target band.
+// Bucketed by |distance from target| so the closest-fit band is exhausted
+// before falling back to neighbours.
+function pickDiagQuestionsForTopic(topic, targetBand, count) {
+  const pool = QUESTIONS.filter(q =>
+    q.wrong && q.wrong.length > 0 && topicForQuestion(q.cat, q.sub) === topic
+  );
+  if (!pool.length) return [];
+  const targetIdx = toBandIndex(targetBand);
+  const buckets = new Map();
+  for (const q of pool) {
+    const d = Math.abs(toBandIndex(questionLevel(q)) - targetIdx);
+    if (!buckets.has(d)) buckets.set(d, []);
+    buckets.get(d).push(q);
+  }
+  const distances = [...buckets.keys()].sort((a, b) => a - b);
+  const out = [];
+  for (const d of distances) {
+    const bucket = buckets.get(d);
+    for (let i = bucket.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [bucket[i], bucket[j]] = [bucket[j], bucket[i]];
+    }
+    for (const q of bucket) {
+      out.push(q);
+      if (out.length >= count) return out;
+    }
+  }
+  return out;
+}
+
 function startDiagnostic() {
-  // Select 12 questions: 2 accounting, 2 valuation, 1 M&A, 1 LBO, 2 beh, 2 deal, 2 brain
-  const techAcc = QUESTIONS.filter(q => q.cat === 'tech' && q.sub === 'accounting' && q.wrong).slice(0, 2);
-  const techVal = QUESTIONS.filter(q => q.cat === 'tech' && q.sub === 'valuation' && q.wrong).slice(0, 2);
-  const techMA = QUESTIONS.filter(q => q.cat === 'tech' && q.sub === 'ma' && q.wrong).slice(0, 1);
-  const techLBO = QUESTIONS.filter(q => q.cat === 'tech' && q.sub === 'lbo' && q.wrong).slice(0, 1);
-  const beh = QUESTIONS.filter(q => q.cat === 'beh' && q.wrong).slice(0, 2);
-  const deal = QUESTIONS.filter(q => q.cat === 'deal' && q.wrong).slice(0, 2);
-  const brain = QUESTIONS.filter(q => q.cat === 'brain' && q.wrong).slice(0, 2);
-  
-  diagQuestions = [...techAcc, ...techVal, ...techMA, ...techLBO, ...beh, ...deal, ...brain];
+  const levels = getAllLevelsFromProgress(progress);
+
+  // Snapshot pre-bands so showDiagResults can render [old → new] deltas after
+  // signals accumulate. Mid-diagnostic abandonment leaves this set, but it's
+  // overwritten at the start of every run.
+  diagBefore = {};
+  for (const t of LEVEL_TOPICS) diagBefore[t] = levels[t].band;
+
+  // Topic priority: low confidence first, then medium, then high. Within a
+  // tier we shuffle so repeat attempts pick a different topic order.
+  const confidenceRank = c => (c === 'low' ? 0 : c === 'medium' ? 1 : 2);
+  const order = [...LEVEL_TOPICS];
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  order.sort((a, b) => confidenceRank(levels[a].confidence) - confidenceRank(levels[b].confidence));
+
+  // For each topic pick up to 2 questions: one band above current band
+  // (testing for promotion) or expert when already at expert (testing for
+  // stability). Cap of 2 per topic enforced by pickDiagQuestionsForTopic.
+  const buckets = [];
+  for (const topic of order) {
+    const lvl = levels[topic];
+    const targetBand = lvl.band === 'expert'
+      ? 'expert'
+      : fromBandIndex(toBandIndex(lvl.band) + 1);
+    const picks = pickDiagQuestionsForTopic(topic, targetBand, 2);
+    if (picks.length) buckets.push(picks);
+  }
+
+  // Round-robin interleave so consecutive questions are from different topics.
+  diagQuestions = [];
+  outer: while (diagQuestions.length < 10) {
+    let added = false;
+    for (const bucket of buckets) {
+      if (bucket.length === 0) continue;
+      diagQuestions.push(bucket.shift());
+      added = true;
+      if (diagQuestions.length >= 10) break outer;
+    }
+    if (!added) break;
+  }
 
   if (!diagQuestions.length) {
-    // Fall back to any MCQ questions if the categorised pools are all empty.
     diagQuestions = QUESTIONS.filter(q => q.wrong && q.wrong.length > 0).slice(0, 10);
   }
   if (!diagQuestions.length) {
@@ -2354,22 +2433,16 @@ function startDiagnostic() {
     return;
   }
 
-  // Shuffle
-  for (let i = diagQuestions.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [diagQuestions[i], diagQuestions[j]] = [diagQuestions[j], diagQuestions[i]];
-  }
-  
   diagIndex = 0;
   diagScores = { tech: 0, beh: 0, deal: 0, brain: 0 };
   diagCounts = { tech: 0, beh: 0, deal: 0, brain: 0 };
   diagSubScores = { accounting: 0, valuation: 0, lbo: 0, ma: 0 };
   diagSubCounts = { accounting: 0, valuation: 0, lbo: 0, ma: 0 };
-  
+
   document.getElementById('diagnostic-welcome').style.display = 'none';
   document.getElementById('diagnostic-active').style.display = 'block';
   document.getElementById('diagnostic-results').style.display = 'none';
-  
+
   renderDiagQuestion();
 }
 
@@ -2448,70 +2521,70 @@ function selectDiagAnswer(el, cat, sub) {
 function showDiagResults() {
   document.getElementById('diagnostic-active').style.display = 'none';
   document.getElementById('diagnostic-results').style.display = 'block';
-  
-  const total = diagScores.tech + diagScores.beh + diagScores.deal;
-  const maxTotal = diagCounts.tech + diagCounts.beh + diagCounts.deal;
-  const pct = Math.round(total / maxTotal * 100);
-  
-  // Determine band.
-  let band, bandClass;
-  if (pct >= 90) { band = 'EXPERT'; bandClass = 'expert'; }
-  else if (pct >= 70) { band = 'ADVANCED'; bandClass = 'advanced'; }
-  else if (pct >= 40) { band = 'INTERMEDIATE'; bandClass = 'intermediate'; }
-  else { band = 'BEGINNER'; bandClass = 'beginner'; }
 
-  const techPct = diagCounts.tech ? Math.round(diagScores.tech / diagCounts.tech * 100) : 0;
-  const behPct = diagCounts.beh ? Math.round(diagScores.beh / diagCounts.beh * 100) : 0;
-  const dealPct = diagCounts.deal ? Math.round(diagScores.deal / diagCounts.deal * 100) : 0;
+  // Per-topic deltas: compare the snapshot taken at startDiagnostic against
+  // the bands updated by recordSignal (Task 3) over the course of the run.
+  // PRD §5 Task 5: title is "We've adjusted your levels", no global %.
+  const tableEl = document.getElementById('diag-deltas');
+  if (tableEl) {
+    tableEl.replaceChildren();
+    const after = getAllLevelsFromProgress(progress);
+    for (const t of LEVEL_TOPICS) {
+      const oldBand = diagBefore[t] || after[t].band;
+      const newBand = after[t].band;
+      const row = document.createElement('div');
+      row.className = 'cal-row';
 
-  // Recommendation names the user's actual weak areas.
-  const subLabels = { accounting: 'accounting', valuation: 'valuation', lbo: 'LBO', ma: 'M&A' };
-  const subEntries = Object.keys(diagSubCounts)
-    .filter(k => diagSubCounts[k] > 0)
-    .map(k => ({ key: k, pct: Math.round(diagSubScores[k] / diagSubCounts[k] * 100) }));
-  const weakSubs = subEntries.filter(e => e.pct < 60).sort((a,b) => a.pct - b.pct).slice(0, 2);
-  const catWeakest = [{label:'behavioral', pct:behPct},{label:'markets', pct:dealPct}]
-    .filter(e => e.pct < 60).sort((a,b) => a.pct - b.pct);
-  const weakList = [...weakSubs.map(s => subLabels[s.key]), ...catWeakest.map(c => c.label)].slice(0, 2);
+      const label = document.createElement('div');
+      label.className = 'cal-row-topic';
+      label.textContent = TOPIC_LABELS[t] || t;
+      row.appendChild(label);
 
-  let recommendation;
-  if (pct >= 90) {
-    recommendation = 'Strong fundamentals across the board. Focus on edge cases and timed mock interviews to sharpen delivery.';
-  } else if (weakList.length === 0) {
-    recommendation = pct >= 70
-      ? 'Solid foundation. Drill weaker spots as they emerge in practice and add timed quizzes for pacing.'
-      : 'Good start. Work through accounting and valuation fundamentals, then layer in deals and behavioral reps.';
-  } else {
-    const list = weakList.length === 2 ? `${weakList[0]} and ${weakList[1]}` : weakList[0];
-    recommendation = `Your weakest area${weakList.length>1?'s are':' is'} ${list}. Your plan drills ${weakList.length>1?'them':'it'} harder — start there.`;
+      if (oldBand === newBand) {
+        const pill = document.createElement('span');
+        pill.className = 'band-pill ' + newBand;
+        pill.textContent = newBand;
+        row.appendChild(pill);
+        const note = document.createElement('div');
+        note.className = 'cal-row-confidence';
+        note.textContent = 'no change';
+        row.appendChild(note);
+      } else {
+        const deltas = document.createElement('div');
+        deltas.className = 'cal-row-deltas';
+        const oldPill = document.createElement('span');
+        oldPill.className = 'band-pill ' + oldBand;
+        oldPill.textContent = oldBand;
+        const arrow = document.createElement('span');
+        arrow.className = 'cal-row-arrow';
+        arrow.textContent = '→';
+        const newPill = document.createElement('span');
+        newPill.className = 'band-pill ' + newBand;
+        newPill.textContent = newBand;
+        deltas.append(oldPill, arrow, newPill);
+        row.appendChild(deltas);
+
+        const note = document.createElement('div');
+        note.className = 'cal-row-confidence';
+        note.textContent = toBandIndex(newBand) > toBandIndex(oldBand) ? 'up' : 'down';
+        row.appendChild(note);
+      }
+      tableEl.appendChild(row);
+    }
   }
-
-  document.getElementById('diag-band').textContent = band;
-  document.getElementById('diag-band').className = 'diagnostic-band ' + bandClass;
-  document.getElementById('diag-score').textContent = pct + '%';
-  document.getElementById('diag-tech-score').textContent = techPct + '%';
-  document.getElementById('diag-beh-score').textContent = behPct + '%';
-  document.getElementById('diag-deal-score').textContent = dealPct + '%';
-  document.getElementById('diag-recommendation').textContent = recommendation;
 
   // Hide the "View my plan" button if the user is in the unauthenticated landing flow.
   const planBtn = document.getElementById('diag-view-plan');
   if (planBtn) planBtn.style.display = window._directDiagnostic ? 'none' : '';
 
-  // Save diagnostic results
+  // Bands are per-topic now — no progress.userBand or aggregate-pct write.
+  // Task 14 will remove the legacy fields entirely once all callers are migrated.
   progress.diagnosticDone = true;
-  progress.userBand = bandClass;
-  const subs = {};
-  for (const k of Object.keys(diagSubCounts)) {
-    if (diagSubCounts[k] > 0) subs[k] = Math.round(diagSubScores[k] / diagSubCounts[k] * 100);
-  }
-  progress.diagnosticScores = { tech: techPct, beh: behPct, deal: dealPct, overall: pct, subs };
   saveProgress();
 }
 
 function skipDiagnostic() {
   progress.diagnosticDone = true;
-  progress.userBand = 'intermediate';
   saveProgress();
   closeDiagnostic();
 }

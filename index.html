@@ -1710,16 +1710,15 @@
     <div id="diagnostic-welcome">
       <div class="diagnostic-header">
         <div class="diagnostic-icon">◎</div>
-        <div class="diagnostic-title">Let's calibrate your prep</div>
-        <div class="diagnostic-sub">Answer 10 quick questions so we can personalize your experience and focus on what you need most.</div>
+        <div class="diagnostic-title">A quick check to fine-tune your levels</div>
+        <div class="diagnostic-sub">Up to 10 questions, targeted to your current band per topic. We'll re-calibrate based on what you get right.</div>
       </div>
       <div class="diagnostic-card">
         <div style="text-align:center">
           <p style="font-size:14px;color:var(--t-2);margin-bottom:20px;line-height:1.6">
-            This 2-minute assessment covers accounting, valuation, LBO, behavioral, and market concepts. 
-            We'll place you in the right difficulty band and customize your learning path.
+            Each question is one band above where we've placed you (or expert if you're already there) — so this tests for promotion, not the basics. Takes about two minutes.
           </p>
-          <button class="quiz-btn primary" style="width:100%" onclick="startDiagnostic()">Start Assessment →</button>
+          <button class="quiz-btn primary" style="width:100%" onclick="startDiagnostic()">Start check →</button>
           <button class="quiz-btn ghost" style="width:100%;margin-top:10px" onclick="skipDiagnostic()">Skip for now</button>
         </div>
       </div>
@@ -1742,42 +1741,21 @@
     <div id="diagnostic-results" style="display:none">
       <div class="diagnostic-header">
         <div class="diagnostic-icon">◇</div>
-        <div class="diagnostic-title">Assessment Complete</div>
+        <div class="diagnostic-title">We've adjusted your levels.</div>
       </div>
       <div class="diagnostic-card">
-        <div class="diagnostic-results">
-          <div class="diagnostic-band" id="diag-band">INTERMEDIATE</div>
-          <div class="diagnostic-score-big" id="diag-score">70%</div>
-          <div class="diagnostic-score-label">Overall Score</div>
-          <div class="diagnostic-breakdown">
-            <div class="diagnostic-breakdown-item">
-              <div class="diagnostic-breakdown-val" id="diag-tech-score">0%</div>
-              <div class="diagnostic-breakdown-label">Technical</div>
-            </div>
-            <div class="diagnostic-breakdown-item">
-              <div class="diagnostic-breakdown-val" id="diag-beh-score">0%</div>
-              <div class="diagnostic-breakdown-label">Behavioral</div>
-            </div>
-            <div class="diagnostic-breakdown-item">
-              <div class="diagnostic-breakdown-val" id="diag-deal-score">0%</div>
-              <div class="diagnostic-breakdown-label">Markets</div>
-            </div>
+        <div class="calibration-table" id="diag-deltas"></div>
+        <!-- Save results email capture (for direct/guest access) -->
+        <div id="diag-save-results" style="display:none;margin:16px 0;padding:16px;background:var(--bg-2);border-radius:var(--r);border:1px solid var(--line)">
+          <div style="font-size:12px;color:var(--t-2);margin-bottom:8px">Save your results and get a personalized plan:</div>
+          <div style="display:flex;gap:8px">
+            <input type="email" id="diag-email" placeholder="your@email.com" style="flex:1;padding:8px 12px;background:var(--bg-3);border:1px solid var(--line);border-radius:var(--r);font-size:13px;color:var(--t);outline:none"/>
+            <button class="quiz-btn primary" style="padding:8px 16px" onclick="saveDiagEmail()">Save →</button>
           </div>
-          <p style="font-size:13px;color:var(--t-2);margin-bottom:20px;line-height:1.6" id="diag-recommendation">
-            Based on your results, we recommend focusing on technical accounting concepts.
-          </p>
-          <!-- Save results email capture (for direct/guest access) -->
-          <div id="diag-save-results" style="display:none;margin-bottom:16px;padding:16px;background:var(--bg-2);border-radius:var(--r);border:1px solid var(--line)">
-            <div style="font-size:12px;color:var(--t-2);margin-bottom:8px">Save your results and get a personalized plan:</div>
-            <div style="display:flex;gap:8px">
-              <input type="email" id="diag-email" placeholder="your@email.com" style="flex:1;padding:8px 12px;background:var(--bg-3);border:1px solid var(--line);border-radius:var(--r);font-size:13px;color:var(--t);outline:none"/>
-              <button class="quiz-btn primary" style="padding:8px 16px" onclick="saveDiagEmail()">Save →</button>
-            </div>
-          </div>
-          <button class="quiz-btn primary" style="width:100%" id="diag-view-plan" onclick="closeDiagnosticToPlan()">View my plan →</button>
-          <button class="quiz-btn ghost" style="width:100%;margin-top:8px" onclick="closeDiagnostic()">Start Learning →</button>
-          <button class="quiz-btn ghost" style="width:100%;margin-top:8px;display:none" id="diag-back-to-landing" onclick="closeDiagnosticToLanding()">← Back to homepage</button>
         </div>
+        <button class="quiz-btn primary" style="width:100%;margin-top:16px" id="diag-view-plan" onclick="closeDiagnosticToPlan()">View my plan →</button>
+        <button class="quiz-btn ghost" style="width:100%;margin-top:8px" onclick="closeDiagnostic()">Start Learning →</button>
+        <button class="quiz-btn ghost" style="width:100%;margin-top:8px;display:none" id="diag-back-to-landing" onclick="closeDiagnosticToLanding()">← Back to homepage</button>
       </div>
     </div>
   </div>
