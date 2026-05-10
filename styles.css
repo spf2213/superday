@@ -2396,6 +2396,34 @@ body:has(.dss-mode.active) { overflow:hidden }
   margin:10px -14px;
 }
 
+/* Chat motion — give the conversation some life. */
+@keyframes chatIn{
+  0%{opacity:0;transform:translateY(8px)}
+  100%{opacity:1;transform:translateY(0)}
+}
+@keyframes chatUsrIn{
+  0%{opacity:0;transform:translateY(4px) translateX(6px)}
+  100%{opacity:1;transform:translateY(0) translateX(0)}
+}
+.chat-msg{animation:chatIn 260ms cubic-bezier(.4,0,.2,1) both}
+.chat-msg.user{animation:chatUsrIn 220ms cubic-bezier(.4,0,.2,1) both}
+.recap-card{animation:chatIn 340ms cubic-bezier(.4,0,.2,1) both}
+
+/* Send button gets a subtle press feedback. */
+.chat-send:not(:disabled):active{transform:scale(0.94)}
+
+/* AI avatar pulses while the typing indicator is on screen — signals
+   "thinking" instead of a flat 3-dot loader. */
+@keyframes avThink{
+  0%,100%{box-shadow:0 0 0 0 rgba(var(--accent-rgb),0.25)}
+  50%    {box-shadow:0 0 0 5px rgba(var(--accent-rgb),0.12)}
+}
+#typing-indicator .cm-av.ai{animation:avThink 1.5s ease-in-out infinite}
+
+/* Score values count up — use tabular numerals so the ticking
+   doesn't shift width during the animation. */
+.recap-score-item .val{font-variant-numeric:tabular-nums}
+
 .typing-indicator{display:flex;gap:4px;align-items:center;padding:10px 14px;background:var(--bg-2);border:1px solid var(--line);border-radius:10px;border-top-left-radius:2px;width:fit-content}
 .t-dot{width:5px;height:5px;border-radius:50%;background:var(--t-3);animation:tdot 1.4s ease infinite}
 .t-dot:nth-child(2){animation-delay:0.18s}

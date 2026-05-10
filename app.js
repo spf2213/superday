@@ -1842,7 +1842,7 @@ function appendMsg(role, text) {
   div.appendChild(av);
   div.appendChild(bubble);
   body.appendChild(div);
-  body.scrollTop = body.scrollHeight;
+  scrollChatToBottom();
 }
 
 // Append plain text to a node, preserving line breaks without injecting HTML.
@@ -1851,6 +1851,28 @@ function appendTextWithBreaks(el, text) {
     if (i > 0) el.appendChild(document.createElement('br'));
     el.appendChild(document.createTextNode(line));
   });
+}
+
+// Smoothly scroll the chat body to its bottom. Used after appending any new
+// message so the user sees the new content slide into view.
+function scrollChatToBottom() {
+  const body = document.getElementById('chat-body');
+  if (!body) return;
+  body.scrollTo({ top: body.scrollHeight, behavior: 'smooth' });
+}
+
+// Ease-out cubic count-up from the element's current value to `target/10`.
+// Used by the recap card to make the score numbers feel earned, not handed
+// over.
+function tickToValue(el, target, duration = 600) {
+  const start = performance.now();
+  const tick = (now) => {
+    const t = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    el.textContent = Math.round(target * eased) + '/10';
+    if (t < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
 }
 
 // Split an interviewer reply into its rubric parts. The system prompt asks
@@ -1950,7 +1972,7 @@ function renderInterviewerReply(reply, scoreMatch) {
     body.appendChild(buildAIBubble(b => appendTextWithBreaks(b, reply)));
   }
 
-  body.scrollTop = body.scrollHeight;
+  scrollChatToBottom();
 }
 
 function buildRecapCard(scoreMatch, feedback) {
@@ -1965,6 +1987,7 @@ function buildRecapCard(scoreMatch, feedback) {
   const row = document.createElement('div');
   row.className = 'recap-score-row';
   const cc = n => n >= 8 ? 'sc-g' : n >= 6 ? 'sc-y' : 'sc-r';
+  const animatedValues = [];
   [['Technical', +scoreMatch[1]], ['Structure', +scoreMatch[2]], ['Confidence', +scoreMatch[3]]].forEach(([label, val]) => {
     const item = document.createElement('div');
     item.className = 'recap-score-item';
@@ -1973,12 +1996,19 @@ function buildRecapCard(scoreMatch, feedback) {
     lbl.textContent = label;
     const v = document.createElement('span');
     v.className = 'val ' + cc(val);
-    v.textContent = val + '/10';
+    v.textContent = '0/10';
+    animatedValues.push([v, val]);
     item.appendChild(lbl);
     item.appendChild(v);
     row.appendChild(item);
   });
   card.appendChild(row);
+
+  // Defer the count-up until the card has actually entered the DOM so the
+  // animation lines up with the slide-in instead of running invisibly.
+  requestAnimationFrame(() => {
+    animatedValues.forEach(([el, target]) => tickToValue(el, target, 650));
+  });
 
   if (feedback) {
     const fb = document.createElement('div');
@@ -2024,7 +2054,7 @@ function showTyping() {
   div.appendChild(av);
   div.appendChild(ind);
   body.appendChild(div);
-  body.scrollTop = body.scrollHeight;
+  scrollChatToBottom();
 }
 
 function removeTyping() { document.getElementById('typing-indicator')?.remove(); }
