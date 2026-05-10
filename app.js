@@ -1845,6 +1845,171 @@ function appendMsg(role, text) {
   body.scrollTop = body.scrollHeight;
 }
 
+// Append plain text to a node, preserving line breaks without injecting HTML.
+function appendTextWithBreaks(el, text) {
+  text.split('\n').forEach((line, i) => {
+    if (i > 0) el.appendChild(document.createElement('br'));
+    el.appendChild(document.createTextNode(line));
+  });
+}
+
+// Split an interviewer reply into its rubric parts. The system prompt asks
+// for: SCORE line, "What would make this stronger:" paragraph, a pivot
+// (PUSHBACK / DRILL DEEPER / MOVE ON), then "Question N:". We parse what's
+// actually there and degrade gracefully when the model omits a section.
+function parseInterviewerReply(reply, scoreMatch) {
+  let rest = reply;
+  if (scoreMatch) {
+    rest = rest.replace(/Technical:\s*\d+\/10\s*\|\s*Structure:\s*\d+\/10\s*\|\s*Confidence:\s*\d+\/10/i, '').trim();
+  }
+
+  // Wrap-up turn — final question of the session. Render as one block.
+  const wrapM = rest.match(/WRAP-?UP\s*:/i);
+  if (wrapM) {
+    const before = rest.substring(0, wrapM.index).trim();
+    const wrapUp = rest.substring(wrapM.index).replace(/^WRAP-?UP\s*:\s*/i, '').trim();
+    return { feedback: stripFeedbackLabel(before), pivot: null, nextQuestion: null, wrapUp };
+  }
+
+  // Pull off "Question N:" first — it's the trailing section.
+  let nextQuestion = null;
+  const qM = rest.match(/(^|\n)\s*Question\s+\d+\s*:\s*/i);
+  if (qM) {
+    nextQuestion = rest.substring(qM.index + qM[0].length).trim();
+    rest = rest.substring(0, qM.index).trim();
+  }
+
+  // Then pivot label from what's left.
+  let pivot = null;
+  const pM = rest.match(/(^|\n)\s*(PUSHBACK|DRILL DEEPER|MOVE ON)\s*:\s*/i);
+  if (pM) {
+    pivot = {
+      kind: pM[2].toUpperCase().replace(/\s+/g, '_'),
+      body: rest.substring(pM.index + pM[0].length).trim()
+    };
+    rest = rest.substring(0, pM.index).trim();
+  }
+
+  return { feedback: stripFeedbackLabel(rest), pivot, nextQuestion, wrapUp: null };
+}
+
+function stripFeedbackLabel(text) {
+  if (!text) return null;
+  const cleaned = text.replace(/^.*?What would make this stronger\s*:\s*/is, '').trim();
+  return cleaned || null;
+}
+
+// Render a parsed interviewer reply as one or two cards: a muted recap card
+// (score + feedback on the last answer) followed by a prominent question
+// bubble (the next ask). Falls back to a plain bubble for first-question
+// turns where there's no score and no rubric structure.
+function renderInterviewerReply(reply, scoreMatch) {
+  const body = document.getElementById('chat-body');
+  if (!body) return;
+  const parsed = parseInterviewerReply(reply, scoreMatch);
+  const hasFollowUp = parsed.wrapUp || parsed.pivot || parsed.nextQuestion;
+
+  // Only show the recap card when there's a next section to follow it —
+  // otherwise the candidate would see feedback with no question to answer.
+  if (scoreMatch && hasFollowUp) {
+    body.appendChild(buildRecapCard(scoreMatch, parsed.feedback));
+  }
+
+  if (parsed.wrapUp) {
+    body.appendChild(buildAIBubble(b => {
+      const tag = document.createElement('span');
+      tag.className = 'q-tag wrap';
+      tag.textContent = 'Wrap-up';
+      b.appendChild(tag);
+      appendTextWithBreaks(b, parsed.wrapUp);
+    }));
+  } else if (parsed.pivot || parsed.nextQuestion) {
+    body.appendChild(buildAIBubble(b => {
+      if (parsed.pivot) {
+        const tag = document.createElement('span');
+        const labels = { PUSHBACK: 'Pushback', DRILL_DEEPER: 'Follow-up', MOVE_ON: 'New topic' };
+        tag.className = 'q-tag ' + parsed.pivot.kind.toLowerCase().replace(/_/g, '-');
+        tag.textContent = labels[parsed.pivot.kind] || 'Next';
+        b.appendChild(tag);
+        appendTextWithBreaks(b, parsed.pivot.body);
+        if (parsed.nextQuestion) b.appendChild(document.createElement('hr')).className = 'q-sep';
+      }
+      if (parsed.nextQuestion) {
+        if (!parsed.pivot) {
+          const tag = document.createElement('span');
+          tag.className = 'q-tag next';
+          tag.textContent = 'Question';
+          b.appendChild(tag);
+        }
+        appendTextWithBreaks(b, parsed.nextQuestion);
+      }
+    }));
+  } else {
+    // No rubric structure (first question, hint, error message): render the
+    // whole reply as a plain bubble so nothing is lost.
+    body.appendChild(buildAIBubble(b => appendTextWithBreaks(b, reply)));
+  }
+
+  body.scrollTop = body.scrollHeight;
+}
+
+function buildRecapCard(scoreMatch, feedback) {
+  const card = document.createElement('div');
+  card.className = 'recap-card';
+
+  const header = document.createElement('div');
+  header.className = 'recap-header';
+  header.textContent = 'Your last answer';
+  card.appendChild(header);
+
+  const row = document.createElement('div');
+  row.className = 'recap-score-row';
+  const cc = n => n >= 8 ? 'sc-g' : n >= 6 ? 'sc-y' : 'sc-r';
+  [['Technical', +scoreMatch[1]], ['Structure', +scoreMatch[2]], ['Confidence', +scoreMatch[3]]].forEach(([label, val]) => {
+    const item = document.createElement('div');
+    item.className = 'recap-score-item';
+    const lbl = document.createElement('span');
+    lbl.className = 'lbl';
+    lbl.textContent = label;
+    const v = document.createElement('span');
+    v.className = 'val ' + cc(val);
+    v.textContent = val + '/10';
+    item.appendChild(lbl);
+    item.appendChild(v);
+    row.appendChild(item);
+  });
+  card.appendChild(row);
+
+  if (feedback) {
+    const fb = document.createElement('div');
+    fb.className = 'recap-feedback';
+    const fbLbl = document.createElement('div');
+    fbLbl.className = 'recap-feedback-label';
+    fbLbl.textContent = 'Stronger answer';
+    fb.appendChild(fbLbl);
+    const fbBody = document.createElement('div');
+    appendTextWithBreaks(fbBody, feedback);
+    fb.appendChild(fbBody);
+    card.appendChild(fb);
+  }
+
+  return card;
+}
+
+function buildAIBubble(populate) {
+  const wrap = document.createElement('div');
+  wrap.className = 'chat-msg';
+  const av = document.createElement('div');
+  av.className = 'cm-av ai';
+  av.textContent = aiAvatarLabel();
+  const bubble = document.createElement('div');
+  bubble.className = 'cm-bubble ai';
+  populate(bubble);
+  wrap.appendChild(av);
+  wrap.appendChild(bubble);
+  return wrap;
+}
+
 function showTyping() {
   const body = document.getElementById('chat-body');
   if (!body) return;
@@ -1961,54 +2126,7 @@ async function runMockTurn(cat, firm) {
       saveProgress();
     }
 
-    const replyText = scoreMatch
-      ? reply.replace(/Technical:\s*\d+\/10\s*\|\s*Structure:\s*\d+\/10\s*\|\s*Confidence:\s*\d+\/10/i, '').trim()
-      : reply;
-    const body = document.getElementById('chat-body');
-    if (body) {
-      const div = document.createElement('div');
-      div.className = 'chat-msg';
-      const av = document.createElement('div');
-      av.className = 'cm-av ai';
-      av.textContent = aiAvatarLabel();
-      const bubble = document.createElement('div');
-      bubble.className = 'cm-bubble ai';
-      // AI text — render with line breaks but no HTML.
-      replyText.split('\n').forEach((line, i) => {
-        if (i > 0) bubble.appendChild(document.createElement('br'));
-        bubble.appendChild(document.createTextNode(line));
-      });
-      if (scoreMatch) {
-        const t = scoreMatch[1], s = scoreMatch[2], c = scoreMatch[3];
-        const cc = n => parseInt(n)>=8?'sc-g':parseInt(n)>=6?'sc-y':'sc-r';
-        const block = document.createElement('div');
-        block.className = 'score-block';
-        block.style.marginTop = '8px';
-        const lines = [
-          ['Technical Accuracy', t],
-          ['Structure & Clarity', s],
-          ['Confidence', c]
-        ];
-        lines.forEach(([label, val]) => {
-          const row = document.createElement('div');
-          row.className = 'score-line';
-          const lbl = document.createElement('span');
-          lbl.className = 'sc-label';
-          lbl.textContent = label;
-          const v = document.createElement('span');
-          v.className = 'sc-val ' + cc(val);
-          v.textContent = val + '/10';
-          row.appendChild(lbl);
-          row.appendChild(v);
-          block.appendChild(row);
-        });
-        bubble.appendChild(block);
-      }
-      div.appendChild(av);
-      div.appendChild(bubble);
-      body.appendChild(div);
-      body.scrollTop = body.scrollHeight;
-    }
+    renderInterviewerReply(reply, scoreMatch);
 
     // Persist updated messages to mock_sessions (best-effort, fire-and-forget).
     if (mockSessionId) {
