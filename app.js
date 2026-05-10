@@ -2,81 +2,15 @@ import { createClient } from '@supabase/supabase-js';
 import { QUESTIONS } from './src/data/questions.js';
 import { LEARN_MODULES } from './src/data/learnModules.js';
 import { setNavActive, toggleTheme } from './src/theme.js';
-import { renderKnowledgeMap, mapZoom, mapFitAll, mapResetView, setMapDeps } from './src/map.js';
-import { migrateLegacy as migrateLevels, recordSignal as recordLevelSignal, getSeed as getLevelSeed, getLevel as getTopicLevel, getAllLevels as getAllLevelsFromProgress, bandIndex as toBandIndex, bandFromIndex as fromBandIndex, distance as bandDistance, BANDS as LEVEL_BANDS, TOPICS as LEVEL_TOPICS } from './src/levels.js';
-
-// Wrap recordSignal with a UI feedback pass: any band transition fires a toast
-// and appends an activity-log entry. Pure model logic stays in levels.js;
-// app.js owns side effects.
-function recordSignalWithFeedback(opts) {
-  const result = recordLevelSignal(progress, opts);
-  if (!result || result.prevBand === result.newBand) return result;
-
-  const goingUp = toBandIndex(result.newBand) > toBandIndex(result.prevBand);
-  const topicLabel = TOPIC_LABELS[result.topic] || result.topic;
-  const samples = result.level.samples;
-  const message = goingUp
-    ? `Calibrated up to ${result.newBand} in ${topicLabel} — based on your last ${samples} answers.`
-    : `Recalibrated to ${result.newBand} in ${topicLabel}. Drill these to come back up.`;
-  showToast(message, { icon: goingUp ? '↑' : '↓', ms: 4500 });
-
-  if (!progress.activityLog) progress.activityLog = [];
-  progress.activityLog.unshift({
-    cat: 'levels',
-    title: message,
-    time: 'Just now'
-  });
-  // Match the existing 6-entry cap used by the bank-answer activity push.
-  if (progress.activityLog.length > 6) progress.activityLog.length = 6;
-
-  // Silently widen/narrow the active flash deck so the user keeps practicing
-  // band-appropriate cards across the transition. PRD §5 Task 9: "no refresh
-  // needed". refreshFlashDeck preserves the current card if still in the
-  // pool, so the transition doesn't yank them mid-flip.
-  if (flashAtLevel) {
-    const flashView = document.getElementById('view-flash');
-    if (flashView && flashView.classList.contains('active')) {
-      refreshFlashDeck();
-      updateMasteryStats();
-    }
-  }
-  return result;
-}
-
-// Stopgap until Task 6 tags every question with a `level` field. Maps the
-// legacy difficulty (1/2/3) to a band string so question-selection logic can
-// target a band today without waiting on the data pass.
-function questionLevel(q) {
-  if (q && LEVEL_BANDS.includes(q.level)) return q.level;
-  if (q && q.difficulty === 1) return 'beginner';
-  if (q && q.difficulty === 2) return 'intermediate';
-  if (q && q.difficulty === 3) return 'advanced';
-  return 'intermediate';
-}
-
-// Friendly labels for the seven calibration topics. Exposed so every UX
-// surface reads from one source.
-const TOPIC_LABELS = {
-  accounting: 'Accounting',
-  valuation:  'Valuation',
-  lbo:        'LBO',
-  ma:         'M&A',
-  markets:    'Markets',
-  behavioral: 'Behavioral',
-  brain:      'Brain teasers'
-};
-
-// Map a question's (cat, sub) into one of the seven calibration topics defined
-// by levels.js. Returns null when the question isn't classified — callers
-// short-circuit instead of recording a junk signal.
-function topicForQuestion(cat, sub) {
-  if (cat === 'tech') return sub || null;
-  if (cat === 'beh') return 'behavioral';
-  if (cat === 'deal') return 'markets';
-  if (cat === 'brain') return 'brain';
-  return null;
-}
 import './src/animations.js';
+
+// Friendly topic labels for mock-score grouping.
+const TOPIC_LABELS = {
+  tech: 'Technical',
+  beh:  'Behavioral',
+  brain:'Brain teasers',
+  deal: 'Deals & Markets'
+};
 /* ─── SCROLL HELPERS ─────────────────── */
 function navScrollTo(id) {
   const el = document.getElementById(id);
@@ -533,27 +467,22 @@ function showInfoModal(title, body) {
 /* ─── EXPOSE GLOBALS FOR INLINE HANDLERS ─── */
 // Hoisted above Supabase init so a missing/broken Supabase client can never
 // strand inline onclick="fn()" handlers as silent no-ops.
-// Temporary: needed because index.html uses onclick="fn()" attributes.
-// These will be removed when we migrate to addEventListener.
 Object.assign(window, {
-  addNewStory, calcROI, closeDiagnostic,
-  closeDiagnosticToLanding, closeDiagnosticToPlan, closeLearnModule, completeOnramp, demoChatSend,
-  demoFilterBank, demoFlipCard, demoFCNav, demoFCShuffle, demoToggleQ,
-  doForgotPassword, doLogin, doSetNewPassword, doSignOut, doSignup, filterBank, filterBankNav, filterSub,
-  flipCard, goToDueReview, goToTopicPractice, mapFitAll, mapResetView, mapZoom,
-  navScrollTo, nextCard, nextLearnSection, nextOnrampStep, nextQuizQuestion,
-  openLearnModule, prevCard, prevLearnSection, prevOnrampStep, prevNav,
+  addNewStory, calcROI, closeLearnModule,
+  demoChatSend, demoFilterBank, demoFlipCard, demoFCNav, demoFCShuffle, demoToggleQ,
+  doForgotPassword, doLogin, doSetNewPassword, doSignOut, doSignup,
+  flipCard,
+  navScrollTo, nextCard, nextLearnSection,
+  openLearnModule, prevCard, prevLearnSection, prevNav,
   pvBankFilter, pvFlipCard, pvFCNav, pvMockSend, pvToggleQ, rateCard,
-  renderBank, reviewQuizMistakes, saveProfileInfo,
-  saveProfilePassword, selectDiagAnswer, selectOnramp, selectQuizAnswer,
-  sendMsg, setFlashCat, setNavActive,
-  setStudyMode, showAuthTab, showForgotPassword, showOnramp, showQuizSetup, startCheckout, startOnrampCalibrationCheck, openSubscriptionPortal,
+  saveProfileInfo, saveProfilePassword,
+  sendMsg, setFlashCat, setNavActive, setStudyMode,
+  showAuthTab, showForgotPassword, startCheckout, openSubscriptionPortal,
   openInlineAuth, closeInlineAuth, switchInlineAuthTab, doInlineLogin, doInlineSignup,
-  showScreen, showView, shuffleFlash, skipDiagnostic, smartPractice,
-  askForHint, startDiagnostic, startDirectDiagnostic, startMock, stepMockMode,
-  startQuiz, switchAuthTab, toggleFaq, toggleOnrampMulti,
-  toggleFlashAtLevel, toggleProfileEdit, toggleQ, toggleStoryPanel, toggleTheme,
-  toggleCardWhy, toggleSylWeek, toggleSyllabusTask, syllabusAction,
+  showScreen, showView, shuffleFlash, smartPractice,
+  askForHint, startMock, stepMockMode,
+  switchAuthTab, toggleFaq,
+  toggleProfileEdit, toggleStoryPanel, toggleTheme, toggleCardWhy,
   viewStoryNote
 });
 
@@ -805,15 +734,10 @@ async function doSignOut() {
     answered: new Set(),
     activityLog: [],
     mastery: {},
-    diagnosticDone: false,
-    onrampComplete: false,
-    userProfile: null,
     notes: [],
     questionNotes: {},
-    completedTasks: [],
     learnProgress: {},
-    completedCases: [],
-    levels: {}
+    mockHistory: []
   };
   // Clear mock-interview state so the next user on a shared device doesn't
   // inherit the previous user's history, session id, or rendered messages.
@@ -996,56 +920,29 @@ async function openSubscriptionPortal() {
 /* ─── PROGRESS PERSISTENCE ───────────────── */
 async function loadProgress() {
   if (!currentUser) return;
-  let triggerDiagnostic = false;
   try {
     const { data, error } = await sb.from('progress').select('*').eq('user_id', currentUser.id).single();
-
     if (error && error.code === 'PGRST116') {
-      // No row exists yet — create one
       await sb.from('progress').insert({ user_id: currentUser.id });
-      triggerDiagnostic = true;
     } else if (error) {
       console.error('loadProgress query error:', error);
     }
-
     if (data) {
       const arr = v => Array.isArray(v) ? v : [];
       const obj = v => (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
       progress.answered = new Set(arr(data.answered));
       progress.activityLog = arr(data.activity_log);
       progress.mastery = obj(data.mastery);
-      progress.diagnosticDone = data.diagnostic_done || false;
-      progress.onrampComplete = data.onramp_complete || false;
-      progress.userProfile = data.user_profile || null;
       progress.notes = arr(data.notes);
       progress.questionNotes = obj(data.question_notes);
-      progress.completedTasks = arr(data.completed_tasks);
       progress.learnProgress = obj(data.learn_progress);
-      progress.completedCases = arr(data.completed_cases);
-      progress.levels = obj(data.levels);
-      // Pass legacy fields explicitly to migrateLevels so they never need to
-      // live on `progress`. PRD §5 Task 14: kill double-write hazards.
-      migrateLevels(progress, {
-        userBand: data.user_band,
-        diagnosticScores: data.diagnostic_scores
-      });
-    } else {
-      migrateLevels(progress);
+      progress.mockHistory = arr(data.mock_history);
     }
   } catch(e) { console.error('loadProgress error:', e); }
   updateDashStats();
   updateMasteryStats();
-  renderPrepPlan();
-
-  if (progress.onrampComplete) {
-    const btn = document.getElementById('story-bank-btn');
-    if (btn) btn.classList.add('show');
-  }
-  // Launch the onboarding flow whenever it's incomplete, not just for brand-new
-  // DB rows. Existing users who skipped or never finished onramp get prompted now.
-  if (triggerDiagnostic || !progress.onrampComplete) {
-    setTimeout(checkFirstVisit, 500);
-  }
+  // Notes button is part of the app chrome — always visible once signed in.
+  document.getElementById('story-bank-btn')?.classList.add('show');
 }
 
 async function saveProgress() {
@@ -1056,15 +953,10 @@ async function saveProgress() {
       answered: [...progress.answered],
       activity_log: progress.activityLog,
       mastery: progress.mastery,
-      diagnostic_done: progress.diagnosticDone,
-      onramp_complete: progress.onrampComplete,
-      user_profile: progress.userProfile,
       notes: progress.notes || [],
       question_notes: progress.questionNotes || {},
-      completed_tasks: progress.completedTasks || [],
       learn_progress: progress.learnProgress || {},
-      completed_cases: progress.completedCases || [],
-      levels: progress.levels || {}
+      mock_history: progress.mockHistory || []
     }, { onConflict: 'user_id' });
   } catch(e) { console.error('saveProgress error:', e); }
 }
@@ -1110,27 +1002,14 @@ function showView(id) {
   document.querySelectorAll('.sb-item').forEach(n => n.classList.remove('active'));
   const view = document.getElementById('view-' + id);
   if (view) view.classList.add('active');
-  const labels = {dashboard:'Dashboard',plan:'My Plan',bank:'Question Bank',flash:'Flashcards',mock:'Mock Interview',quiz:'Quiz Mode',map:'Knowledge Map',learn:'Concepts',profile:'Profile'};
+  const labels = { dashboard: 'Dashboard', flash: 'Flashcards', mock: 'Mock Interview', learn: 'Concepts', profile: 'Profile' };
   document.querySelectorAll('.sb-item').forEach(n => {
-    if (n.textContent.trim().toLowerCase().includes((labels[id]||id).toLowerCase()))
-      n.classList.add('active');
+    if (n.textContent.trim().toLowerCase().includes((labels[id] || id).toLowerCase())) n.classList.add('active');
   });
-  if (id === 'bank') renderBank();
   if (id === 'flash') initFlash();
-  if (id === 'map') renderKnowledgeMap();
-  if (id === 'quiz') showQuizSetup();
   if (id === 'learn') renderLearnModules();
   if (id === 'mock') renderMockModeBanner();
-  if (id === 'plan') renderPrepPlan();
   if (id === 'profile') renderProfile();
-}
-
-function filterBankNav(cat, sub) {
-  showView('bank');
-  setTimeout(() => {
-    filterBank(cat);
-    if (sub) setTimeout(() => filterSub(sub), 30);
-  }, 50);
 }
 
 /* ─── PROGRESS ───────────────────────── */
@@ -1142,15 +1021,10 @@ let progress = {
   answered: new Set(),
   activityLog: [],
   mastery: {},
-  diagnosticDone: false,
-  onrampComplete: false,
-  userProfile: null,
   notes: [],
   questionNotes: {},
-  completedTasks: [],
   learnProgress: {},
-  completedCases: [],
-  levels: {}
+  mockHistory: []
 };
 
 let studyMode = 'all'; // 'all', 'due', 'weak', 'quick'
@@ -1230,19 +1104,6 @@ function markAnswered(id) {
 
 // Map a calibration topic onto the practice surface's cat/sub filter so
 // clicking a Levels-tile row routes the user to the right deck.
-function navForTopic(topic) {
-  switch (topic) {
-    case 'accounting': return { cat: 'tech',  sub: 'accounting' };
-    case 'valuation':  return { cat: 'tech',  sub: 'valuation'  };
-    case 'lbo':        return { cat: 'tech',  sub: 'lbo'        };
-    case 'ma':         return { cat: 'tech',  sub: 'ma'         };
-    case 'markets':    return { cat: 'deal',  sub: null         };
-    case 'behavioral': return { cat: 'beh',   sub: null         };
-    case 'brain':      return { cat: 'brain', sub: null         };
-    default:           return { cat: 'all',   sub: null         };
-  }
-}
-
 function relativeTime(ms) {
   if (!ms || !Number.isFinite(ms)) return 'just now';
   const diff = Date.now() - ms;
@@ -1256,124 +1117,33 @@ function relativeTime(ms) {
   return new Date(ms).toLocaleDateString();
 }
 
-// Walk back through recent history; return 'up'/'down' if the band changed
-// within the most recent N samples, otherwise null. Self-clearing — the
-// arrow fades naturally as the user accumulates more practice.
-function recentBandDelta(lvl) {
-  if (!lvl || !Array.isArray(lvl.history) || lvl.history.length === 0) return null;
-  const N = 5;
-  const slice = lvl.history.slice(-N);
-  const earliest = slice[0];
-  if (!earliest || earliest.band === lvl.band) return null;
-  return toBandIndex(lvl.band) > toBandIndex(earliest.band) ? 'up' : 'down';
-}
-
-function renderLevelsTile() {
-  const tableEl = document.getElementById('levels-table');
-  if (!tableEl) return;
-  const updatedEl = document.getElementById('levels-updated');
-  const levels = getAllLevelsFromProgress(progress);
-
-  tableEl.replaceChildren();
-  let mostRecent = 0;
-  for (const t of LEVEL_TOPICS) {
-    const lvl = levels[t];
-    if (lvl.lastUpdated > mostRecent) mostRecent = lvl.lastUpdated;
-
-    const row = document.createElement('button');
-    row.type = 'button';
-    row.className = 'cal-row cal-row-clickable';
-    row.addEventListener('click', () => goToTopicPractice(t));
-
-    const topic = document.createElement('div');
-    topic.className = 'cal-row-topic';
-    topic.textContent = TOPIC_LABELS[t] || t;
-
-    const pillWrap = document.createElement('span');
-    pillWrap.className = 'cal-row-pill-wrap';
-    const pill = document.createElement('span');
-    pill.className = 'band-pill ' + lvl.band;
-    pill.textContent = lvl.band;
-    pillWrap.appendChild(pill);
-    const delta = recentBandDelta(lvl);
-    if (delta) {
-      const arrow = document.createElement('span');
-      arrow.className = 'cal-row-arrow ' + delta;
-      arrow.textContent = delta === 'up' ? '↑' : '↓';
-      arrow.setAttribute('aria-label', delta === 'up' ? 'Calibrated up recently' : 'Recalibrated down recently');
-      pillWrap.appendChild(arrow);
-    }
-
-    const conf = document.createElement('div');
-    conf.className = 'cal-row-confidence';
-    conf.textContent = lvl.confidence + ' confidence';
-
-    row.append(topic, pillWrap, conf);
-    tableEl.appendChild(row);
-  }
-
-  if (updatedEl) {
-    updatedEl.textContent = mostRecent ? `Updated ${relativeTime(mostRecent)}` : 'Updated just now';
-  }
-}
-
-function goToTopicPractice(topic) {
-  const nav = navForTopic(topic);
-  showView('flash');
-  // Defer until after the view transition so renderCard runs against the
-  // freshly-visible flash pane.
-  setTimeout(() => {
-    flashSub = nav.sub;
-    setFlashCat(nav.cat, { keepSub: true });
-  }, 50);
-}
-
+// Three-row dashboard: Concepts (learn) / Practice (flashcards) / Mock (test).
+// Each row reads its own metric. No synthesis, no level inference. The user
+// sees what they've done in each modality and picks where to spend time.
 function updateDashStats() {
-  renderLevelsTile();
-  const total = QUESTIONS.length;
-  const ans = progress.answered.size;
-  const ka = document.getElementById('kpi-answered');
-  const kt = document.getElementById('kpi-total');
-  const kaf = document.getElementById('kpi-answered-fill');
-  if (ka) ka.textContent = ans;
-  if (kt) kt.textContent = total;
-  if (kaf) kaf.style.width = (ans/total*100) + '%';
+  // Row 1: Concepts read
+  const totalModules = LEARN_MODULES.length;
+  const modulesRead = LEARN_MODULES.filter(m => (progress.learnProgress?.[m.id] || 0) >= m.sections).length;
+  setText('row-concepts-val', `${modulesRead} of ${totalModules}`);
+  setBar('row-concepts-fill', totalModules ? modulesRead / totalModules : 0);
 
-  const cats = ['tech','beh','brain','deal'];
-  const done = cats.filter(c => QUESTIONS.filter(q=>q.cat===c).some(q=>progress.answered.has(q.id)));
-  const kc = document.getElementById('kpi-cats');
-  const kcf = document.getElementById('kpi-cats-fill');
-  if (kc) kc.textContent = done.length;
-  if (kcf) kcf.style.width = (done.length/4*100) + '%';
-
-  // Due for review
-  const dueCount = getDueCount();
-  const kd = document.getElementById('kpi-due');
-  const kdf = document.getElementById('kpi-due-fill');
-  if (kd) kd.textContent = dueCount;
-  if (kdf) kdf.style.width = (dueCount/total*100) + '%';
-
-  // Mastered count
+  // Row 2: Cards mastered + due today
+  const totalCards = QUESTIONS.length;
   const masteredCount = QUESTIONS.filter(q => getMasteryClass(q.id) === 'mastered').length;
-  const km = document.getElementById('kpi-mastered');
-  const kmt = document.getElementById('kpi-mastered-total');
-  const kmf = document.getElementById('kpi-mastered-fill');
-  if (km) km.textContent = masteredCount;
-  if (kmt) kmt.textContent = total;
-  if (kmf) kmf.style.width = (masteredCount/total*100) + '%';
+  const dueCount = getDueCount();
+  setText('row-practice-val', `${masteredCount} of ${totalCards}`);
+  setText('row-practice-due', dueCount > 0 ? `${dueCount} due today` : 'nothing due');
+  setBar('row-practice-fill', totalCards ? masteredCount / totalCards : 0);
 
-  // Today's recommended task drives the primary CTA.
-  const practiceBtn = document.getElementById('practice-btn-text');
-  const reasonEl = document.getElementById('practice-btn-reason');
-  if (practiceBtn) {
-    const task = getTodaysTask();
-    practiceBtn.textContent = task.label;
-    if (reasonEl) reasonEl.textContent = task.reason || '';
-  }
+  // Row 3: Mock — last + best technical score (the knowledge dimension)
+  const mocks = Array.isArray(progress.mockHistory) ? progress.mockHistory : [];
+  const last = mocks[mocks.length - 1];
+  const best = mocks.reduce((m, r) => r.tech > (m?.tech ?? -1) ? r : m, null);
+  setText('row-mock-last', last ? `Last ${last.tech}/10` : 'No mocks yet');
+  setText('row-mock-best', best ? `Best ${best.tech}/10` : '—');
 
   // Streak = consecutive calendar days ending today with at least one
-  // answered card (using mastery.lastSeen as the per-question timestamp).
-  // PRD §5 Task 12: one source of truth, no fabricated counters.
+  // answered card. One source of truth, no fabricated counters.
   const seenDays = new Set();
   for (const m of Object.values(progress.mastery || {})) {
     if (m && m.lastSeen) seenDays.add(new Date(m.lastSeen).toDateString());
@@ -1385,173 +1155,33 @@ function updateDashStats() {
     streak++;
     cursor.setDate(cursor.getDate() - 1);
   }
+  setText('dash-streak', streak);
+  setText('dash-streak-label', streak === 1 ? 'day' : 'days');
 
-  const days = ['M','T','W','T','F','S','S'];
-  const todayIdx = (today.getDay() + 6) % 7;
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - todayIdx);
-  const sd = document.getElementById('streak-dots');
-  if (sd) sd.innerHTML = days.map((d, i) => {
-    const dayDate = new Date(monday);
-    dayDate.setDate(monday.getDate() + i);
-    const isToday = i === todayIdx;
-    const isFuture = dayDate > today && !isToday;
-    const wasActive = seenDays.has(dayDate.toDateString());
-    const cls = isFuture ? 'empty' : (wasActive ? 'done' : (isToday ? 'today' : 'empty'));
-    return '<div class="s-dot ' + cls + '">' + d + '</div>';
-  }).join('');
-  const ks = document.getElementById('kpi-streak');
-  if (ks) ks.textContent = streak;
-
-  cats.forEach(c => {
-    const pool = QUESTIONS.filter(q=>q.cat===c);
-    const n = pool.filter(q=>progress.answered.has(q.id)).length;
-    const pct = Math.round(n/pool.length*100);
-    const pe = document.getElementById('pct-'+c);
-    const fe = document.getElementById('fill-'+c);
-    const ce = document.getElementById('count-'+c);
-    if (pe) pe.textContent = pct+'%';
-    if (fe) fe.style.width = pct+'%';
-    if (ce) ce.textContent = n + ' of ' + pool.length + ' answered';
-  });
   renderActivity();
 }
 
+function setText(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+function setBar(id, frac) {
+  const el = document.getElementById(id);
+  if (el) el.style.width = Math.max(0, Math.min(1, frac)) * 100 + '%';
+}
+
+// Dashboard primary CTA: due cards if any, else read concepts if untouched,
+// else drill flashcards. Simple decision tree, no scoring engine.
 function smartPractice() {
-  const t = getTodaysTask();
-  if (t && typeof t.action === 'function') t.action();
-  else if (getDueCount() > 0) goToDueReview();
-  else showView('flash');
-}
-
-function goToDueReview() {
+  if (getDueCount() > 0) {
+    showView('flash');
+    setTimeout(() => setStudyMode('due'), 100);
+    return;
+  }
+  const totalModules = LEARN_MODULES.length;
+  const modulesRead = LEARN_MODULES.filter(m => (progress.learnProgress?.[m.id] || 0) >= m.sections).length;
+  if (modulesRead === 0) { showView('learn'); return; }
   showView('flash');
-  setTimeout(() => setStudyMode('due'), 100);
-}
-
-/* ─── PERSONALIZATION ────────────────── */
-// Topic = a sub-area we can drill the user on. Combines tech subtopics with
-// the higher-level cat groups for behavioral / markets so the dashboard CTA
-// can recommend something specific.
-const TOPIC_DEFS = {
-  accounting: { label: 'Accounting',  cat: 'tech', sub: 'accounting',
-                match: q => q.cat === 'tech' && q.sub === 'accounting' },
-  valuation:  { label: 'Valuation',   cat: 'tech', sub: 'valuation',
-                match: q => q.cat === 'tech' && q.sub === 'valuation' },
-  lbo:        { label: 'LBO',         cat: 'tech', sub: 'lbo',
-                match: q => q.cat === 'tech' && q.sub === 'lbo' },
-  ma:         { label: 'M&A',         cat: 'tech', sub: 'ma',
-                match: q => q.cat === 'tech' && q.sub === 'ma' },
-  beh:        { label: 'Behavioral',  cat: 'beh',  sub: null,
-                match: q => q.cat === 'beh' },
-  deal:       { label: 'Markets',     cat: 'deal', sub: null,
-                match: q => q.cat === 'deal' },
-};
-
-// Live "topic strength": uses mastery levels (1=missed, 2=unsure, 3=got) on
-// answered questions in the topic. Returns null if too few data points.
-function topicStrengthLive(topicKey) {
-  const def = TOPIC_DEFS[topicKey];
-  if (!def) return null;
-  const seen = QUESTIONS.filter(q => def.match(q) && progress.mastery?.[q.id]);
-  if (seen.length < 3) return null;
-  const sum = seen.reduce((s, q) => s + (progress.mastery[q.id].level || 1), 0);
-  return Math.round(((sum / seen.length) - 1) / 2 * 100); // 1→0%, 3→100%
-}
-
-// Map a band → a strength percentage so the legacy syllabus / focus-area
-// helpers (which talked in pcts) keep working off the per-topic level model.
-const BAND_STRENGTH_PCT = { foundations: 20, beginner: 40, intermediate: 60, advanced: 80, expert: 95 };
-
-// Translate the dashboard's TOPIC_DEFS keys into the calibration-topic vocab.
-const LEGACY_TOPIC_TO_LEVEL = { beh: 'behavioral', deal: 'markets' };
-
-// Per-topic strength derived from the calibration level, keyed by TOPIC_DEFS
-// key for compatibility with existing callers (getWeakTopics etc.). Replaces
-// the old diagnosticScores fallback — bands ARE the source of truth now.
-function topicStrengthFromLevels(topicKey) {
-  const t = LEGACY_TOPIC_TO_LEVEL[topicKey] || topicKey;
-  if (!LEVEL_TOPICS.includes(t)) return null;
-  return BAND_STRENGTH_PCT[getTopicLevel(progress, t).band] ?? null;
-}
-
-// Roll per-topic levels into the {tech, beh, deal, subs} shape that
-// generateSyllabus's drill multipliers expect. Keeps the syllabus signature
-// unchanged while removing the diagnosticScores dependency.
-function levelsToScores() {
-  const lvl = t => getTopicLevel(progress, t).band;
-  const techBands = ['accounting', 'valuation', 'lbo', 'ma'].map(lvl);
-  const techAvg = techBands.reduce((s, b) => s + (BAND_STRENGTH_PCT[b] || 50), 0) / techBands.length;
-  return {
-    tech: Math.round(techAvg),
-    beh:  BAND_STRENGTH_PCT[lvl('behavioral')] || 50,
-    deal: BAND_STRENGTH_PCT[lvl('markets')]    || 50,
-    subs: {
-      accounting: BAND_STRENGTH_PCT[lvl('accounting')] || 50,
-      valuation:  BAND_STRENGTH_PCT[lvl('valuation')]  || 50,
-      lbo:        BAND_STRENGTH_PCT[lvl('lbo')]        || 50,
-      ma:         BAND_STRENGTH_PCT[lvl('ma')]         || 50
-    }
-  };
-}
-
-// Returns up to `max` weak topics: live mastery wins when present, the
-// per-topic calibration level fills in the gaps. "Weak" = strength < 60.
-function getWeakTopics(max = 2) {
-  const ranked = Object.keys(TOPIC_DEFS).map(k => {
-    const live = topicStrengthLive(k);
-    const fromLevels = topicStrengthFromLevels(k);
-    const strength = live != null ? live : fromLevels;
-    const source = live != null ? 'live' : (fromLevels != null ? 'level' : null);
-    return { key: k, label: TOPIC_DEFS[k].label, strength, source };
-  }).filter(t => t.source && t.strength != null && t.strength < 60);
-  ranked.sort((a, b) => a.strength - b.strength);
-  return ranked.slice(0, max);
-}
-
-// Recommends the single most useful action right now.
-function getTodaysTask() {
-  // 1. Due cards: SRS owes us review first.
-  const due = getDueCount();
-  if (due >= 3) {
-    return {
-      label: `Review ${due} due card${due === 1 ? '' : 's'}`,
-      reason: 'Spaced-repetition review keeps fresh material from slipping.',
-      action: goToDueReview
-    };
-  }
-  // 2. Current week of plan has an unfinished task: do that.
-  if (progress.userProfile?.timeline) {
-    const syllabus = generateSyllabus(progress.userProfile, levelsToScores());
-    const cw = syllabusCurrentWeek(syllabus);
-    const week = syllabus.weeks.find(w => w.week === cw);
-    const next = week?.tasks.find(t => !isTaskComplete(t));
-    if (next) {
-      return {
-        label: next.label,
-        reason: `Week ${cw} of your plan: ${week.theme}.`,
-        action: () => syllabusAction(next.id, next.action)
-      };
-    }
-  }
-  // 3. Live or diagnostic weak topic: drill it.
-  const weak = getWeakTopics(1)[0];
-  if (weak) {
-    const def = TOPIC_DEFS[weak.key];
-    return {
-      label: `Drill 5 ${weak.label} questions`,
-      reason: weak.source === 'live'
-        ? `Your accuracy in ${weak.label} is the lowest right now.`
-        : `Your diagnostic flagged ${weak.label} as a weak spot.`,
-      action: () => filterBankNav(def.cat, def.sub)
-    };
-  }
-  // 4. Default: fall back to flashcards.
-  return {
-    label: 'Practice 5 flashcards',
-    reason: 'Keep your daily streak going.',
-    action: () => showView('flash')
-  };
 }
 
 function renderActivity() {
@@ -1584,95 +1214,10 @@ async function loadNews() {
   el.appendChild(placeholder);
 }
 
-/* ─── QUESTION BANK ──────────────────── */
-let bankCat = 'all', bankSub = 'all';
-
-function catLabel(c) {
-  return {tech:'Technical',beh:'Behavioral',brain:'Brain Teaser',deal:'Deals & Markets'}[c]||c;
-}
-
-function filterBank(cat) {
-  bankCat = cat; bankSub = 'all';
-  document.querySelectorAll('.bank-pill[data-cat]').forEach(b =>
-    b.classList.toggle('active', b.dataset.cat === cat));
-  const subRow = document.getElementById('subtopic-row');
-  if (subRow) {
-    subRow.classList.toggle('show', cat === 'tech');
-    document.querySelectorAll('.bank-pill[data-sub]').forEach(b =>
-      b.classList.toggle('active', b.dataset.sub === 'all'));
-  }
-  renderBank();
-}
-
-function filterSub(sub) {
-  bankSub = sub;
-  document.querySelectorAll('.bank-pill[data-sub]').forEach(b =>
-    b.classList.toggle('active', b.dataset.sub === sub));
-  renderBank();
-}
-
-function renderBank() {
-  const search = (document.getElementById('bank-search')?.value||'').toLowerCase();
-  let qs = bankCat === 'all' ? QUESTIONS : QUESTIONS.filter(q => q.cat === bankCat);
-  if (bankCat === 'tech' && bankSub !== 'all') qs = qs.filter(q => q.sub === bankSub);
-  if (search) qs = qs.filter(q => q.q.toLowerCase().includes(search)||q.a.toLowerCase().includes(search));
-  const el = document.getElementById('q-list');
-  if (!el) return;
-
-  if (bankCat === 'tech' && bankSub === 'all' && !search) {
-    const acc = qs.filter(q=>q.sub==='accounting');
-    const val = qs.filter(q=>q.sub==='valuation');
-    const lbo = qs.filter(q=>q.sub==='lbo');
-    const ma = qs.filter(q=>q.sub==='ma');
-    el.innerHTML = renderGroup('Accounting', acc, 0) + renderGroup('Valuation', val, acc.length) + renderGroup('LBO', lbo, acc.length + val.length) + renderGroup('M&A', ma, acc.length + val.length + lbo.length);
-    return;
-  }
-  el.innerHTML = qs.map((q,i) => renderQRow(q,i)).join('');
-}
-
-function renderGroup(title, qs, offset) {
-  if (!qs.length) return '';
-  return '<div class="q-group-header"><span class="q-group-title">' + title + '</span><span class="q-group-count">' + qs.length + ' questions</span><div class="q-group-line"></div></div>' +
-    qs.map((q,i) => renderQRow(q, offset+i)).join('');
-}
-
-function renderQRow(q, i) {
-  const pillClass = {tech:'qp-tech',beh:'qp-beh',brain:'qp-brain',deal:'qp-deal'}[q.cat]||'qp-tech';
-  const subLabels = {accounting:'Accounting', valuation:'Valuation', lbo:'LBO', ma:'M&A'};
-  const tag = q.sub
-    ? '<span class="q-pill ' + pillClass + '">' + (subLabels[q.sub] || q.sub) + '</span>'
-    : '<span class="q-pill ' + pillClass + '">' + catLabel(q.cat) + '</span>';
-  const masteryClass = getMasteryClass(q.id);
-  const masteryDot = '<span class="mastery-dot ' + masteryClass + '" title="' + 
-    (masteryClass === 'mastered' ? 'Mastered' : masteryClass === 'learning' ? 'Learning' : 'New') + '"></span>';
-  return '<div class="q-row" id="qr-' + q.id + '" onclick="toggleQ(' + q.id + ')">' +
-    '<div class="q-head">' + masteryDot + '<span class="q-num">' + String(i+1).padStart(2,'0') + '</span>' +
-    '<span class="q-text">' + q.q + '</span>' + tag +
-    '<span class="q-caret">⌄</span></div>' +
-    '<div class="q-body"><div class="q-body-label">Model Answer</div>' +
-    '<div class="q-body-answer">' + q.a + '</div>' +
-    (q.explain ? '<div class="q-body-explain"><div class="q-body-label">Why</div>' + q.explain + '</div>' : '') +
-    '<div class="q-body-tip"><strong>Interview tip:</strong> ' + q.tip + '</div></div></div>';
-}
-
-function toggleQ(id) {
-  const el = document.getElementById('qr-'+id);
-  if (!el) return;
-  el.classList.toggle('open');
-  if (el.classList.contains('open')) markAnswered(id);
-}
-
 /* ─── FLASHCARDS ─────────────────────── */
 let flashDeck = [], flashIdx = 0, flashFlipped = false;
 let flashCat = 'all';
-// Optional sub-topic filter applied on top of flashCat. Set by goToTopicPractice
-// when the user clicks into a specific tech topic from the Levels tile;
-// cleared whenever the cat pill changes.
 let flashSub = null;
-// "At your level" filter — on by default per PRD §5 Task 9. Keeps cards within
-// distance 1 of the user's per-topic band, so an advanced-accounting +
-// beginner-LBO user sees a deck mixed correctly per topic.
-let flashAtLevel = true;
 
 function setStudyMode(mode) {
   studyMode = mode;
@@ -1696,21 +1241,6 @@ function setStudyMode(mode) {
 function buildFlashDeck() {
   let pool = flashCat === 'all' ? [...QUESTIONS] : QUESTIONS.filter(q => q.cat === flashCat);
   if (flashSub) pool = pool.filter(q => q.sub === flashSub);
-
-  // "At your level" — keep cards within one band of the user's per-topic
-  // band. Per-topic, so a single deck can mix advanced accounting cards with
-  // beginner LBO cards in the same session. Cards we can't classify (no
-  // recognised topic) stay in the deck so the toggle never turns up empty.
-  if (flashAtLevel) {
-    pool = pool.filter(q => {
-      const t = topicForQuestion(q.cat, q.sub);
-      if (!t) return true;
-      const userBand = getTopicLevel(progress, t).band;
-      const cardBand = (q.level && LEVEL_BANDS.includes(q.level)) ? q.level : 'intermediate';
-      return bandDistance(cardBand, userBand) <= 1;
-    });
-  }
-
 
   switch(studyMode) {
     case 'due':
@@ -1761,16 +1291,6 @@ function setFlashCat(cat, opts) {
   flashIdx = 0;
   flashFlipped = false;
   renderCard();
-}
-
-function toggleFlashAtLevel() {
-  flashAtLevel = !flashAtLevel;
-  const pill = document.getElementById('flash-at-level-pill');
-  if (pill) pill.classList.toggle('active', flashAtLevel);
-  refreshFlashDeck();
-  // Mode-count-all reads from the same buildFlashDeck output so the "X of Y"
-  // and the All Cards mode count stay in lockstep.
-  updateMasteryStats();
 }
 
 // Silent deck rebuild used when the underlying filter shifts (band crossings,
@@ -1883,8 +1403,8 @@ function renderCard() {
     const masteryDot = masteryClass === 'mastered' ? '●' : masteryClass === 'learning' ? '◐' : '○';
     const dueIndicator = isDue(q.id) ? ' · DUE' : '';
     
-    if (cl) cl.innerHTML = catLabel(q.cat) + (q.sub ? ' — ' + q.sub.charAt(0).toUpperCase() + q.sub.slice(1) : '') + 
-      ' <span style="opacity:0.6">' + masteryDot + '</span>' + 
+    if (cl) cl.innerHTML = (TOPIC_LABELS[q.cat] || q.cat) + (q.sub ? ' — ' + q.sub.charAt(0).toUpperCase() + q.sub.slice(1) : '') +
+      ' <span style="opacity:0.6">' + masteryDot + '</span>' +
       (dueIndicator ? '<span class="due-badge" style="margin-left:8px">DUE</span>' : '');
     if (qt) qt.textContent = q.q;
     if (bt) bt.textContent = q.a;
@@ -1952,24 +1472,9 @@ function rateCard(rating) {
     m.streak = Math.max(0, m.streak - 1);
   }
 
-  // Calculate next due time
   const intervalMinutes = SRS_INTERVALS[m.streak];
   m.nextDue = Date.now() + (intervalMinutes * 60 * 1000);
 
-  // Per-topic calibration signal (PRD §4.4). "Unsure" is treated as a soft
-  // miss with half weight; a hard miss and a clean hit both carry full weight.
-  const topic = topicForQuestion(q.cat, q.sub);
-  if (topic) {
-    recordSignalWithFeedback({
-      topic,
-      cardLevel: q.level,
-      correct: rating === 3,
-      weight: rating === 2 ? 0.5 : 1,
-      source: 'flash'
-    });
-  }
-
-  // Save and move to next card
   saveProgress();
   updateMasteryStats();
   
@@ -2045,16 +1550,15 @@ const MOCK_MAX_QUESTIONS = 6;
 const MOCK_MODES = ['warmup', 'vp', 'vp_curveball'];
 const MOCK_MODE_LABEL = { warmup: 'Warm-up', vp: 'VP', vp_curveball: 'VP + Curveball' };
 
-// Default mock mode keys off the user's per-topic levels across the topics
-// most relevant to a real interview block: valuation, M&A, behavioral. Below
-// intermediate average → Warm-up; above intermediate → VP; expert → curveball.
+// Default mock mode keys off the user's recent technical scores. New users
+// land in Warm-up; once they're scoring ≥7/10 in two of three recent mocks
+// they get bumped to VP. Curveball is opt-in only.
 function defaultMockMode() {
-  const levels = getAllLevelsFromProgress(progress);
-  const topics = ['valuation', 'ma', 'behavioral'];
-  const avg = topics.reduce((s, t) => s + toBandIndex(levels[t].band), 0) / topics.length;
-  if (avg >= toBandIndex('expert')) return 'vp_curveball';
-  if (avg >= toBandIndex('intermediate')) return 'vp';
-  return 'warmup';
+  const mocks = Array.isArray(progress.mockHistory) ? progress.mockHistory : [];
+  if (mocks.length < 3) return 'warmup';
+  const recent = mocks.slice(-3);
+  const strong = recent.filter(m => (m.tech || 0) >= 7).length;
+  return strong >= 2 ? 'vp' : 'warmup';
 }
 
 // Render the mode banner above the firm picker. Idempotent — safe to call on
@@ -2305,11 +1809,6 @@ async function runMockTurn(cat, firm) {
       if (sendBtn) sendBtn.disabled = false;
       return;
     }
-    // Reduce per-topic levels to a flat shape the server can drop straight
-    // into the system prompt — keeps the API contract small and explicit.
-    const levels = getAllLevelsFromProgress(progress);
-    const levelSummary = {};
-    for (const t of LEVEL_TOPICS) levelSummary[t] = levels[t].band;
     const mockMode = document.getElementById('mock-mode')?.value || 'vp';
     const res = await fetch("/api/claude", {
       method: "POST",
@@ -2322,7 +1821,6 @@ async function runMockTurn(cat, firm) {
         firm,
         category: cat,
         difficulty: mockMode,
-        levels: levelSummary,
         messages: mockHistory.map(m => ({ role: m.role, content: m.content }))
       })
     });
@@ -2350,22 +1848,24 @@ async function runMockTurn(cat, firm) {
 
     const scoreMatch = reply.match(/Technical:\s*(\d+)\/10.*?Structure:\s*(\d+)\/10.*?Confidence:\s*(\d+)\/10/i);
 
-    // Per-topic calibration signal — one signal per scored turn, keyed off the
-    // mock category. Treat technical ≥ 6 as correct; structure/confidence are
-    // delivery dimensions and don't gate the topic-knowledge signal.
+    // Mocks are the one place we record a real signal: closed-book, scored
+    // by a rubric. Every scored turn appends to progress.mockHistory.
     if (scoreMatch) {
-      const mockTopic = topicForQuestion(cat, null);
-      if (mockTopic) {
-        const tech = parseInt(scoreMatch[1], 10);
-        recordSignalWithFeedback({
-          topic: mockTopic,
-          cardLevel: undefined,
-          correct: tech >= 6,
-          weight: 1,
-          source: 'mock'
-        });
-        saveProgress();
+      if (!Array.isArray(progress.mockHistory)) progress.mockHistory = [];
+      progress.mockHistory.push({
+        ts: Date.now(),
+        cat,
+        firm,
+        tech: parseInt(scoreMatch[1], 10),
+        structure: parseInt(scoreMatch[2], 10),
+        confidence: parseInt(scoreMatch[3], 10)
+      });
+      // Keep the last 100 turns — enough for trends, bounded so the row
+      // doesn't bloat over months of practice.
+      if (progress.mockHistory.length > 100) {
+        progress.mockHistory.splice(0, progress.mockHistory.length - 100);
       }
+      saveProgress();
     }
 
     const replyText = scoreMatch
@@ -2433,578 +1933,6 @@ async function runMockTurn(cat, firm) {
     appendMsg('ai', 'Connection error. Please try again.');
   }
   if (sendBtn) sendBtn.disabled = false;
-}
-
-/* ─── QUIZ MODE ─────────────────────── */
-let quizQuestions = [];
-let quizIndex = 0;
-let quizCorrect = 0;
-let quizAnswered = false;
-let quizMistakes = [];
-
-function startQuiz() {
-  const catEl = document.getElementById('quiz-cat-select');
-  const countEl = document.getElementById('quiz-count-select');
-  const diffEl = document.getElementById('quiz-diff-select');
-  const cat = catEl ? catEl.value : 'all';
-  const countVal = countEl ? countEl.value : '10';
-  const diff = diffEl ? diffEl.value : 'all';
-  
-  // Filter questions that have MCQ options
-  let pool = QUESTIONS.filter(q => q.wrong && q.wrong.length > 0);
-  
-  if (cat !== 'all') {
-    pool = pool.filter(q => q.cat === cat);
-  }
-  
-  if (diff !== 'all') {
-    pool = pool.filter(q => q.difficulty === parseInt(diff));
-  }
-  
-  // Shuffle
-  for (let i = pool.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [pool[i], pool[j]] = [pool[j], pool[i]];
-  }
-  
-  // Limit count
-  const count = countVal === 'all' ? pool.length : Math.min(parseInt(countVal), pool.length);
-  quizQuestions = pool.slice(0, count);
-
-  if (!quizQuestions.length) {
-    showToast('No questions match those filters — try a different category or difficulty.', { icon: 'ℹ' });
-    return;
-  }
-
-  quizIndex = 0;
-  quizCorrect = 0;
-  quizMistakes = [];
-  quizAnswered = false;
-  
-  const setupEl = document.getElementById('quiz-setup');
-  const activeEl = document.getElementById('quiz-active');
-  const resultsEl = document.getElementById('quiz-results');
-  if (setupEl) setupEl.style.display = 'none';
-  if (activeEl) activeEl.style.display = 'block';
-  if (resultsEl) resultsEl.style.display = 'none';
-  
-  renderQuizQuestion();
-}
-
-function renderQuizQuestion() {
-  if (quizIndex >= quizQuestions.length) {
-    showQuizResults();
-    return;
-  }
-  
-  const q = quizQuestions[quizIndex];
-  quizAnswered = false;
-  
-  // Update progress
-  const progressFill = document.getElementById('quiz-progress-fill');
-  const progressText = document.getElementById('quiz-progress-text');
-  if (progressFill) progressFill.style.width = ((quizIndex) / quizQuestions.length * 100) + '%';
-  if (progressText) progressText.textContent = (quizIndex + 1) + ' / ' + quizQuestions.length;
-  
-  // Category label
-  const catLabels = {tech: 'TECHNICAL', beh: 'BEHAVIORAL', deal: 'DEALS & MARKETS', brain: 'BRAIN TEASER'};
-  const subLabels = {accounting: ' — ACCOUNTING', valuation: ' — VALUATION', lbo: ' — LBO', ma: ' — M&A'};
-  const currentCat = document.getElementById('quiz-current-cat');
-  const currentQ = document.getElementById('quiz-current-question');
-  if (currentCat) currentCat.textContent = (catLabels[q.cat] || 'TECHNICAL') + (subLabels[q.sub] || '');
-  if (currentQ) currentQ.textContent = q.q;
-  
-  // Shuffle answers
-  const answers = [
-    { text: q.a, correct: true },
-    { text: q.wrong[0], correct: false },
-    { text: q.wrong[1], correct: false },
-    { text: q.wrong[2], correct: false }
-  ].filter(a => a.text);
-  
-  for (let i = answers.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [answers[i], answers[j]] = [answers[j], answers[i]];
-  }
-  
-  const letters = ['A', 'B', 'C', 'D'];
-  const answersEl = document.getElementById('quiz-answers');
-  if (answersEl) answersEl.innerHTML = answers.map((a, i) => 
-    `<div class="quiz-answer" data-correct="${a.correct}" onclick="selectQuizAnswer(this)">
-      <span class="quiz-letter">${letters[i]}</span>
-      <span>${a.text}</span>
-    </div>`
-  ).join('');
-  
-  // Hide feedback and actions
-  const feedbackEl = document.getElementById('quiz-feedback');
-  const actionsEl = document.getElementById('quiz-actions');
-  if (feedbackEl) feedbackEl.className = 'quiz-feedback';
-  if (actionsEl) actionsEl.style.display = 'none';
-}
-
-function selectQuizAnswer(el) {
-  if (quizAnswered) return;
-  quizAnswered = true;
-  
-  const isCorrect = el.dataset.correct === 'true';
-  const q = quizQuestions[quizIndex];
-  
-  // Mark all answers
-  document.querySelectorAll('.quiz-answer').forEach(a => {
-    a.classList.add('disabled');
-    if (a.dataset.correct === 'true') {
-      a.classList.add('correct');
-    } else if (a === el && !isCorrect) {
-      a.classList.add('incorrect');
-    }
-  });
-  
-  // Update score and mastery
-  if (isCorrect) {
-    quizCorrect++;
-    rateCardById(q.id, 3); // Got it
-  } else {
-    quizMistakes.push(q);
-    rateCardById(q.id, 1); // Missed
-  }
-
-  // Per-topic calibration signal — quiz is binary correct/incorrect, full weight.
-  const quizTopic = topicForQuestion(q.cat, q.sub);
-  if (quizTopic) {
-    recordSignalWithFeedback({
-      topic: quizTopic,
-      cardLevel: q.level,
-      correct: isCorrect,
-      weight: 1,
-      source: 'quiz'
-    });
-    saveProgress();
-  }
-
-  // Show feedback
-  const feedback = document.getElementById('quiz-feedback');
-  if (feedback) {
-    feedback.className = 'quiz-feedback show ' + (isCorrect ? 'correct' : 'incorrect');
-    feedback.innerHTML = `
-    <div class="quiz-feedback-title">${isCorrect ? '✓ Correct!' : '✗ Incorrect'}</div>
-    <div class="quiz-feedback-text">${isCorrect ? '' : '<strong>Correct answer:</strong> ' + q.a}</div>
-    ${q.explain ? `<div class="quiz-feedback-explain"><strong>Why:</strong> ${q.explain}</div>` : ''}
-  `;
-  }
-  
-  // Show next button
-  const actionsEl = document.getElementById('quiz-actions');
-  if (actionsEl) actionsEl.style.display = 'flex';
-}
-
-function rateCardById(id, rating) {
-  const m = getMastery(id);
-  m.level = rating;
-  m.lastSeen = Date.now();
-  if (rating === 3) {
-    m.streak = Math.min(m.streak + 1, SRS_INTERVALS.length - 1);
-  } else if (rating === 1) {
-    m.streak = 0;
-  } else {
-    m.streak = Math.max(0, m.streak - 1);
-  }
-  const intervalMinutes = SRS_INTERVALS[m.streak];
-  m.nextDue = Date.now() + (intervalMinutes * 60 * 1000);
-  saveProgress();
-}
-
-function nextQuizQuestion() {
-  quizIndex++;
-  renderQuizQuestion();
-}
-
-function showQuizResults() {
-  const activeEl = document.getElementById('quiz-active');
-  const resultsEl = document.getElementById('quiz-results');
-  if (activeEl) activeEl.style.display = 'none';
-  if (resultsEl) resultsEl.style.display = 'block';
-  
-  const pct = quizQuestions.length ? Math.round(quizCorrect / quizQuestions.length * 100) : 0;
-  const scoreEl = document.getElementById('quiz-final-score');
-  const correctEl = document.getElementById('quiz-correct-count');
-  const incorrectEl = document.getElementById('quiz-incorrect-count');
-  const totalEl = document.getElementById('quiz-total-count');
-  if (scoreEl) scoreEl.textContent = pct + '%';
-  if (correctEl) correctEl.textContent = quizCorrect;
-  if (incorrectEl) incorrectEl.textContent = quizQuestions.length - quizCorrect;
-  if (totalEl) totalEl.textContent = quizQuestions.length;
-  
-  updateMasteryStats();
-  updateDashStats();
-}
-
-function showQuizSetup() {
-  const setupEl = document.getElementById('quiz-setup');
-  const activeEl = document.getElementById('quiz-active');
-  const resultsEl = document.getElementById('quiz-results');
-  if (setupEl) setupEl.style.display = 'block';
-  if (activeEl) activeEl.style.display = 'none';
-  if (resultsEl) resultsEl.style.display = 'none';
-}
-
-function reviewQuizMistakes() {
-  if (!quizMistakes.length) {
-    showToast('No mistakes to review — nicely done.', { icon: '✓' });
-    return;
-  }
-  // Go to flashcards with just the mistakes
-  flashDeck = [...quizMistakes];
-  flashIdx = 0;
-  flashFlipped = false;
-  showView('flash');
-  renderCard();
-}
-
-/* ─── DIAGNOSTIC ASSESSMENT ─────────── */
-let diagQuestions = [];
-let diagIndex = 0;
-// Per-topic band snapshot taken when the diagnostic starts so showDiagResults
-// can render the [old → new] deltas after recordSignal accumulates.
-let diagBefore = {};
-// Legacy aggregates — preserved during migration so any path still touching
-// them doesn't crash. Bands are now per-topic.
-let diagScores = { tech: 0, beh: 0, deal: 0 };
-let diagCounts = { tech: 0, beh: 0, deal: 0 };
-let diagSubScores = { accounting: 0, valuation: 0, lbo: 0, ma: 0 };
-let diagSubCounts = { accounting: 0, valuation: 0, lbo: 0, ma: 0 };
-
-function checkFirstVisit() {
-  if (!currentUser) return;
-  if (!progress.onrampComplete) {
-    showOnramp();
-  } else if (!progress.diagnosticDone) {
-    document.getElementById('diagnostic-overlay').classList.add('show');
-  }
-}
-
-// Pick up to `count` MCQ questions for a topic, biased toward the target band.
-// Bucketed by |distance from target| so the closest-fit band is exhausted
-// before falling back to neighbours.
-function pickDiagQuestionsForTopic(topic, targetBand, count) {
-  const pool = QUESTIONS.filter(q =>
-    q.wrong && q.wrong.length > 0 && topicForQuestion(q.cat, q.sub) === topic
-  );
-  if (!pool.length) return [];
-  const targetIdx = toBandIndex(targetBand);
-  const buckets = new Map();
-  for (const q of pool) {
-    const d = Math.abs(toBandIndex(questionLevel(q)) - targetIdx);
-    if (!buckets.has(d)) buckets.set(d, []);
-    buckets.get(d).push(q);
-  }
-  const distances = [...buckets.keys()].sort((a, b) => a - b);
-  const out = [];
-  for (const d of distances) {
-    const bucket = buckets.get(d);
-    for (let i = bucket.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [bucket[i], bucket[j]] = [bucket[j], bucket[i]];
-    }
-    for (const q of bucket) {
-      out.push(q);
-      if (out.length >= count) return out;
-    }
-  }
-  return out;
-}
-
-function startDiagnostic() {
-  const levels = getAllLevelsFromProgress(progress);
-
-  // Snapshot pre-bands so showDiagResults can render [old → new] deltas after
-  // signals accumulate. Mid-diagnostic abandonment leaves this set, but it's
-  // overwritten at the start of every run.
-  diagBefore = {};
-  for (const t of LEVEL_TOPICS) diagBefore[t] = levels[t].band;
-
-  // Topic priority: low confidence first, then medium, then high. Within a
-  // tier we shuffle so repeat attempts pick a different topic order.
-  const confidenceRank = c => (c === 'low' ? 0 : c === 'medium' ? 1 : 2);
-  const order = [...LEVEL_TOPICS];
-  for (let i = order.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [order[i], order[j]] = [order[j], order[i]];
-  }
-  order.sort((a, b) => confidenceRank(levels[a].confidence) - confidenceRank(levels[b].confidence));
-
-  // For each topic pick up to 2 questions: one band above current band
-  // (testing for promotion) or expert when already at expert (testing for
-  // stability). Cap of 2 per topic enforced by pickDiagQuestionsForTopic.
-  const buckets = [];
-  for (const topic of order) {
-    const lvl = levels[topic];
-    const targetBand = lvl.band === 'expert'
-      ? 'expert'
-      : fromBandIndex(toBandIndex(lvl.band) + 1);
-    const picks = pickDiagQuestionsForTopic(topic, targetBand, 2);
-    if (picks.length) buckets.push(picks);
-  }
-
-  // Round-robin interleave so consecutive questions are from different topics.
-  diagQuestions = [];
-  outer: while (diagQuestions.length < 10) {
-    let added = false;
-    for (const bucket of buckets) {
-      if (bucket.length === 0) continue;
-      diagQuestions.push(bucket.shift());
-      added = true;
-      if (diagQuestions.length >= 10) break outer;
-    }
-    if (!added) break;
-  }
-
-  if (!diagQuestions.length) {
-    diagQuestions = QUESTIONS.filter(q => q.wrong && q.wrong.length > 0).slice(0, 10);
-  }
-  if (!diagQuestions.length) {
-    showToast("Diagnostic isn't available right now — please try again later.", { icon: 'ℹ' });
-    return;
-  }
-
-  diagIndex = 0;
-  diagScores = { tech: 0, beh: 0, deal: 0, brain: 0 };
-  diagCounts = { tech: 0, beh: 0, deal: 0, brain: 0 };
-  diagSubScores = { accounting: 0, valuation: 0, lbo: 0, ma: 0 };
-  diagSubCounts = { accounting: 0, valuation: 0, lbo: 0, ma: 0 };
-
-  document.getElementById('diagnostic-welcome').style.display = 'none';
-  document.getElementById('diagnostic-active').style.display = 'block';
-  document.getElementById('diagnostic-results').style.display = 'none';
-
-  renderDiagQuestion();
-}
-
-function renderDiagQuestion() {
-  if (diagIndex >= diagQuestions.length) {
-    showDiagResults();
-    return;
-  }
-  
-  const q = diagQuestions[diagIndex];
-  
-  document.getElementById('diag-progress-fill').style.width = ((diagIndex) / diagQuestions.length * 100) + '%';
-  document.getElementById('diag-progress-text').textContent = (diagIndex + 1) + ' / ' + diagQuestions.length;
-  
-  const catLabels = {tech: 'TECHNICAL', beh: 'BEHAVIORAL', deal: 'MARKETS', brain: 'BRAIN TEASER'};
-  document.getElementById('diag-cat').textContent = catLabels[q.cat] || 'QUESTION';
-  document.getElementById('diag-question').textContent = q.q;
-  
-  const answers = [
-    { text: q.a, correct: true },
-    { text: q.wrong[0], correct: false },
-    { text: q.wrong[1], correct: false },
-    { text: q.wrong[2], correct: false }
-  ].filter(a => a.text);
-  
-  for (let i = answers.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [answers[i], answers[j]] = [answers[j], answers[i]];
-  }
-  
-  const letters = ['A', 'B', 'C', 'D'];
-  document.getElementById('diag-answers').innerHTML = answers.map((a, i) =>
-    `<div class="quiz-answer" data-correct="${a.correct}" onclick="selectDiagAnswer(this, '${q.cat}', '${q.sub || ''}')">
-      <span class="quiz-letter">${letters[i]}</span>
-      <span>${a.text}</span>
-    </div>`
-  ).join('');
-}
-
-function selectDiagAnswer(el, cat, sub) {
-  const isCorrect = el.dataset.correct === 'true';
-
-  diagCounts[cat]++;
-  if (isCorrect) diagScores[cat]++;
-  if (sub && diagSubCounts[sub] !== undefined) {
-    diagSubCounts[sub]++;
-    if (isCorrect) diagSubScores[sub]++;
-  }
-
-  // Diagnostic answers carry weight 3 — concentrated signal designed to
-  // confirm/promote the seeded band quickly. cardLevel is taken from the
-  // question if tagged; recordSignal defaults to intermediate otherwise.
-  const diagTopic = topicForQuestion(cat, sub);
-  if (diagTopic) {
-    const q = diagQuestions[diagIndex];
-    recordSignalWithFeedback({
-      topic: diagTopic,
-      cardLevel: q && q.level,
-      correct: isCorrect,
-      weight: 3,
-      source: 'diagnostic'
-    });
-    saveProgress();
-  }
-
-  // Brief visual feedback
-  el.classList.add(isCorrect ? 'correct' : 'incorrect');
-  document.querySelectorAll('#diag-answers .quiz-answer').forEach(a => a.style.pointerEvents = 'none');
-
-  setTimeout(() => {
-    diagIndex++;
-    renderDiagQuestion();
-  }, 500);
-}
-
-function showDiagResults() {
-  document.getElementById('diagnostic-active').style.display = 'none';
-  document.getElementById('diagnostic-results').style.display = 'block';
-
-  // Per-topic deltas: compare the snapshot taken at startDiagnostic against
-  // the bands updated by recordSignal (Task 3) over the course of the run.
-  // PRD §5 Task 5: title is "We've adjusted your levels", no global %.
-  const tableEl = document.getElementById('diag-deltas');
-  if (tableEl) {
-    tableEl.replaceChildren();
-    const after = getAllLevelsFromProgress(progress);
-    for (const t of LEVEL_TOPICS) {
-      const oldBand = diagBefore[t] || after[t].band;
-      const newBand = after[t].band;
-      const row = document.createElement('div');
-      row.className = 'cal-row';
-
-      const label = document.createElement('div');
-      label.className = 'cal-row-topic';
-      label.textContent = TOPIC_LABELS[t] || t;
-      row.appendChild(label);
-
-      if (oldBand === newBand) {
-        const pill = document.createElement('span');
-        pill.className = 'band-pill ' + newBand;
-        pill.textContent = newBand;
-        row.appendChild(pill);
-        const note = document.createElement('div');
-        note.className = 'cal-row-confidence';
-        note.textContent = 'no change';
-        row.appendChild(note);
-      } else {
-        const deltas = document.createElement('div');
-        deltas.className = 'cal-row-deltas';
-        const oldPill = document.createElement('span');
-        oldPill.className = 'band-pill ' + oldBand;
-        oldPill.textContent = oldBand;
-        const arrow = document.createElement('span');
-        arrow.className = 'cal-row-arrow';
-        arrow.textContent = '→';
-        const newPill = document.createElement('span');
-        newPill.className = 'band-pill ' + newBand;
-        newPill.textContent = newBand;
-        deltas.append(oldPill, arrow, newPill);
-        row.appendChild(deltas);
-
-        const note = document.createElement('div');
-        note.className = 'cal-row-confidence';
-        note.textContent = toBandIndex(newBand) > toBandIndex(oldBand) ? 'up' : 'down';
-        row.appendChild(note);
-      }
-      tableEl.appendChild(row);
-    }
-  }
-
-  // Hide the "View my plan" button if the user is in the unauthenticated landing flow.
-  const planBtn = document.getElementById('diag-view-plan');
-  if (planBtn) planBtn.style.display = window._directDiagnostic ? 'none' : '';
-
-  // Bands are per-topic now — no progress.userBand or aggregate-pct write.
-  // Task 14 will remove the legacy fields entirely once all callers are migrated.
-  progress.diagnosticDone = true;
-  saveProgress();
-}
-
-function skipDiagnostic() {
-  progress.diagnosticDone = true;
-  saveProgress();
-  closeDiagnostic();
-}
-
-// User finished the diagnostic and wants to see how their plan changed.
-// Mid-onramp users finish onramp first (so timeline gets set); post-onramp
-// users jump straight to the Plan view.
-function closeDiagnosticToPlan() {
-  if (window._onrampPendingResume || !progress.onrampComplete) {
-    closeDiagnostic();
-    return;
-  }
-  document.getElementById('diagnostic-overlay').classList.remove('show');
-  showView('plan');
-}
-
-function closeDiagnostic() {
-  document.getElementById('diagnostic-overlay').classList.remove('show');
-  // If user came from landing with no auth via direct diagnostic button
-  if (window._directDiagnostic) {
-    window._directDiagnostic = false;
-    showAuthTab('signup');
-    return;
-  }
-  updateDashStats();
-  updateMasteryStats();
-
-  // Resuming mid-onramp: jump to timeline step.
-  if (window._onrampPendingResume) {
-    window._onrampPendingResume = false;
-    setTimeout(() => {
-      onrampStep = 2;
-      document.querySelectorAll('.onramp-step').forEach(s => s.classList.remove('active'));
-      document.getElementById('onramp-step-2').classList.add('active');
-      setOnrampDotsActive(3); // timeline is dot 3
-      document.getElementById('onramp-overlay').classList.add('show');
-    }, 300);
-    return;
-  }
-
-  // Legacy path: user finished a standalone diagnostic and hasn't onramped yet.
-  if (!progress.onrampComplete) {
-    setTimeout(() => {
-      showOnramp();
-    }, 300);
-  }
-}
-
-/* Direct diagnostic from landing page (no auth required) */
-function startDirectDiagnostic() {
-  window._directDiagnostic = true;
-  // Show save results email capture and back button
-  const saveEl = document.getElementById('diag-save-results');
-  if (saveEl) saveEl.style.display = 'block';
-  const backBtn = document.getElementById('diag-back-to-landing');
-  if (backBtn) backBtn.style.display = '';
-  // Show the diagnostic overlay
-  document.getElementById('diagnostic-overlay').classList.add('show');
-  // Reset state
-  document.getElementById('diagnostic-welcome').style.display = '';
-  document.getElementById('diagnostic-active').style.display = 'none';
-  document.getElementById('diagnostic-results').style.display = 'none';
-}
-
-function saveDiagEmail() {
-  const email = document.getElementById('diag-email')?.value?.trim();
-  // Validate before persisting so we don't store junk that ends up on a
-  // future signup form. Browser email-input does loose validation already,
-  // but anyone can hand-type into it or remove the type=email.
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return;
-  try { localStorage.setItem('sd_diag_email', email); } catch (e) {}
-  const saveEl = document.getElementById('diag-save-results');
-  if (!saveEl) return;
-  // DOM API instead of innerHTML — currently safe (string is static) but
-  // keeps the file innerHTML-free for any user-derived content.
-  saveEl.replaceChildren();
-  const div = document.createElement('div');
-  div.style.cssText = 'font-size:12px;color:var(--green);text-align:center';
-  div.textContent = '✓ Saved! Create an account to access your personalized plan.';
-  saveEl.appendChild(div);
-}
-
-function closeDiagnosticToLanding() {
-  document.getElementById('diagnostic-overlay').classList.remove('show');
-  window._directDiagnostic = false;
-  showScreen('landing');
 }
 
 /* ─── STORY BANK ────────────────────── */
@@ -3085,685 +2013,6 @@ function viewStoryNote(index) {
   if (note) {
     showInfoModal(note.title || 'Untitled', note.content || '');
   }
-}
-
-/* ─── BEGINNER ON-RAMP ──────────────── */
-let onrampStep = 1;
-let onrampData = { prep: null, timeline: null, banks: [] };
-
-function selectOnramp(el, field, value) {
-  // Single select - deselect others
-  el.parentElement.querySelectorAll('.onramp-option').forEach(o => o.classList.remove('selected'));
-  el.classList.add('selected');
-  onrampData[field] = value;
-}
-
-function toggleOnrampMulti(el, field, value) {
-  el.classList.toggle('selected');
-  if (!onrampData[field]) onrampData[field] = [];
-  
-  if (el.classList.contains('selected')) {
-    if (!onrampData[field].includes(value)) onrampData[field].push(value);
-  } else {
-    onrampData[field] = onrampData[field].filter(v => v !== value);
-  }
-}
-
-// onrampStep is the visible card (1=bg, 2=timeline, 3=banks, 4=plan).
-// Diagnostic is a side-trip between visible step 1 and visible step 2;
-// the dot at index 2 represents it.
-function nextOnrampStep() {
-  // After prep level, run the diagnostic (unless already done). Task 5
-  // reframes this gate as opt-in; for now the legacy gate stays in place.
-  if (onrampStep === 1 && !progress.diagnosticDone) {
-    saveOnrampProfileSoFar();
-    document.getElementById('onramp-step-1').classList.remove('active');
-    setOnrampDotsActive(2); // diagnostic is the 2nd dot
-    document.getElementById('onramp-overlay').classList.remove('show');
-    setTimeout(() => {
-      window._onrampPendingResume = true;
-      document.getElementById('diagnostic-overlay').classList.add('show');
-      document.getElementById('diagnostic-welcome').style.display = '';
-      document.getElementById('diagnostic-active').style.display = 'none';
-      document.getElementById('diagnostic-results').style.display = 'none';
-    }, 200);
-    return;
-  }
-
-  if (onrampStep < 4) {
-    document.getElementById('onramp-step-' + onrampStep).classList.remove('active');
-    onrampStep++;
-    document.getElementById('onramp-step-' + onrampStep).classList.add('active');
-    setOnrampDotsActive(onrampStep + 1); // +1 because dot 2 is diagnostic
-
-    saveOnrampProfileSoFar(); // persist resume point on every advance
-
-    if (onrampStep === 4) {
-      generateOnrampSummary();
-      renderPlanPreview();
-    }
-  }
-}
-
-function prevOnrampStep() {
-  if (onrampStep > 1) {
-    document.getElementById('onramp-step-' + onrampStep).classList.remove('active');
-    onrampStep--;
-    document.getElementById('onramp-step-' + onrampStep).classList.add('active');
-    setOnrampDotsActive(onrampStep + 1);
-  }
-}
-
-// dotIndex is 1..5. Dots before dotIndex render as "done", dotIndex is active.
-function setOnrampDotsActive(dotIndex) {
-  document.querySelectorAll('.onramp-dot').forEach((dot, i) => {
-    dot.classList.remove('active', 'done');
-    if (i + 1 === dotIndex) dot.classList.add('active');
-    if (i + 1 < dotIndex) dot.classList.add('done');
-  });
-}
-
-function updateOnrampDots() {
-  setOnrampDotsActive(onrampStep === 1 ? 1 : onrampStep + 1);
-}
-
-function saveOnrampProfileSoFar() {
-  // Persist partial profile so a refresh mid-onramp doesn't lose answers.
-  progress.userProfile = {
-    ...(progress.userProfile || {}),
-    ...onrampData,
-    onrampStep // remember which step the user was on so we can resume
-  };
-  saveProgress();
-}
-
-function generateOnrampSummary() {
-  // Render the per-topic calibration card. Same component for every user —
-  // the band pill colors do the work, so an all-foundations user and an
-  // all-advanced user see the identical layout.
-  const tableEl = document.getElementById('onramp-calibration');
-  if (!tableEl) return;
-
-  // Seed from the user's declared prep + timeline. If the user has already
-  // accumulated signal (re-entering onramp via "Edit plan"), prefer their
-  // current per-topic levels over the seed so we don't overwrite progress.
-  const haveSignal = LEVEL_TOPICS.some(t => progress.levels?.[t]?.samples > 0);
-  const levels = haveSignal
-    ? getAllLevelsFromProgress(progress)
-    : getLevelSeed({ prep: onrampData.prep, timeline: onrampData.timeline });
-
-  tableEl.replaceChildren();
-  for (const t of LEVEL_TOPICS) {
-    const lvl = levels[t];
-    const row = document.createElement('div');
-    row.className = 'cal-row';
-
-    const topic = document.createElement('div');
-    topic.className = 'cal-row-topic';
-    topic.textContent = TOPIC_LABELS[t] || t;
-
-    const pill = document.createElement('span');
-    pill.className = 'band-pill ' + lvl.band;
-    pill.textContent = lvl.band;
-
-    const conf = document.createElement('div');
-    conf.className = 'cal-row-confidence';
-    conf.textContent = lvl.confidence + ' confidence';
-
-    row.append(topic, pill, conf);
-    tableEl.appendChild(row);
-  }
-}
-
-// Launch the diagnostic from Step 4's optional check CTA. Task 5 will rebuild
-// the diagnostic content; here we just hand off to the existing entry point so
-// the user can confirm or fine-tune their seed before completing onramp.
-function startOnrampCalibrationCheck() {
-  const overlay = document.getElementById('onramp-overlay');
-  if (overlay) overlay.classList.remove('show');
-  setTimeout(() => {
-    const diagOverlay = document.getElementById('diagnostic-overlay');
-    if (diagOverlay) diagOverlay.classList.add('show');
-    const welcome = document.getElementById('diagnostic-welcome');
-    const active = document.getElementById('diagnostic-active');
-    const results = document.getElementById('diagnostic-results');
-    if (welcome) welcome.style.display = '';
-    if (active) active.style.display = 'none';
-    if (results) results.style.display = 'none';
-    // Mark this as a mid-onramp resume so closeDiagnostic returns the user
-    // to the onramp summary instead of dumping them on the dashboard.
-    window._onrampPendingResume = true;
-  }, 200);
-}
-
-function completeOnramp() {
-  progress.onrampComplete = true;
-  progress.userProfile = onrampData;
-  saveProgress();
-
-  document.getElementById('onramp-overlay').classList.remove('show');
-  updateDashStats();
-  // Land the user on the plan view so they see what we just built.
-  showView('plan');
-
-  // Show story bank button in app
-  document.getElementById('story-bank-btn').classList.add('show');
-}
-
-/* ─── SYLLABUS / PLAN ────────────────── */
-
-const SYLLABUS_TIMELINE_WEEKS = {
-  '2weeks': 2,
-  '1month': 4,
-  '3months': 12,
-  'exploring': 8
-};
-
-const TIMELINE_LABEL = {
-  '2weeks': '2 WEEKS',
-  '1month': '4 WEEKS',
-  '3months': '12 WEEKS',
-  'exploring': 'FLEXIBLE'
-};
-
-// Task helpers also tag each task with the calibration `topic` it serves
-// and the `taskLevel` band the content targets. PRD §5 Task 10 uses these
-// to compute the user's gap (userBand − taskLevel) and render accordingly.
-
-// Each Learn module → its dominant calibration topic. Used to derive
-// taskLevel context when the syllabus declares a learn task.
-const LEARN_MODULE_TOPIC = {
-  'three-statements':  'accounting',
-  'working-capital':   'accounting',
-  'dcf-basics':        'valuation',
-  'ev-equity':         'valuation',
-  'lbo-mechanics':     'lbo',
-  'accretion-dilution':'ma'
-};
-
-function _learnTask(week, moduleIds, taskLevel, topic) {
-  const mods = moduleIds.map(id => LEARN_MODULES.find(m => m.id === id)).filter(Boolean);
-  // PRD §5 Task 13: drop the row when no module resolves rather than
-  // rendering "Learn: " with an empty title. Syllabus generators filter
-  // null tasks below.
-  if (mods.length === 0) return null;
-  const titles = mods.map(m => m.title);
-  const totalMin = mods.reduce((s, m) => s + (parseInt(m.time, 10) || 15), 0);
-  const inferredTopic = topic || LEARN_MODULE_TOPIC[moduleIds[0]] || null;
-  return {
-    id: `w${week}-learn-${moduleIds.join('-')}`,
-    type: 'learn',
-    moduleIds,
-    label: titles.length === 1 ? `Learn: ${titles[0]}` : `Learn: ${titles.join(' + ')}`,
-    time: `${totalMin} min`,
-    action: 'learn',
-    topic: inferredTopic,
-    taskLevel: taskLevel || 'foundations'
-  };
-}
-function _practiceTask(week, sub, count, taskLevel) {
-  const subLabel = { accounting: 'accounting', valuation: 'valuation', lbo: 'LBO', ma: 'M&A' }[sub] || sub;
-  return {
-    id: `w${week}-practice-${sub}`,
-    type: 'practice', sub, count,
-    label: `Drill ${count} ${subLabel} questions`,
-    time: `~${Math.ceil(count * 1.2)} min`,
-    action: 'practice',
-    topic: sub,
-    taskLevel: taskLevel || 'beginner'
-  };
-}
-function _behavioralTask(week, count, taskLevel) {
-  return {
-    id: `w${week}-beh-${count}`,
-    type: 'behavioral', count,
-    label: `Prep ${count} behavioral ${count === 1 ? 'story' : 'stories'}`,
-    time: `${count * 10} min`,
-    action: 'behavioral',
-    topic: 'behavioral',
-    taskLevel: taskLevel || 'beginner'
-  };
-}
-function _dealTask(week, count, taskLevel) {
-  return {
-    id: `w${week}-deal-${count}`,
-    type: 'deal', count,
-    label: `Review ${count} markets / deal questions`,
-    time: `~${Math.ceil(count * 1.2)} min`,
-    action: 'deal',
-    topic: 'markets',
-    taskLevel: taskLevel || 'beginner'
-  };
-}
-function _mockTask(week, kind, taskLevel) {
-  return {
-    id: `w${week}-mock-${kind}`,
-    type: 'mock', kind,
-    label: kind === 'full' ? 'Full mock interview' : 'Technical mock interview',
-    time: '30 min',
-    action: 'mock',
-    // Mocks span topics; gap computation skips tasks with no topic.
-    topic: null,
-    taskLevel: taskLevel || 'intermediate'
-  };
-}
-
-function generateSyllabus(profile, scores) {
-  const totalWeeks = SYLLABUS_TIMELINE_WEEKS[profile?.timeline] || 4;
-  const techPct = scores?.tech ?? 50;
-  const behPct = scores?.beh ?? 50;
-  const dealPct = scores?.deal ?? 50;
-  // Drill multiplier: weaker subject → more questions, stronger → fewer.
-  const drillMult = (pct) => pct < 40 ? 1.4 : pct >= 70 ? 0.7 : 1.0;
-  const tM = drillMult(techPct), bM = drillMult(behPct), dM = drillMult(dealPct);
-  const r = (n) => Math.max(5, Math.round(n / 5) * 5);
-
-  // Per-week target band: the calibration band the task content is built for.
-  // Earlier weeks teach foundations/beginner mechanics; later weeks reach
-  // intermediate/advanced application. The user's gap (userBand − taskLevel)
-  // drives the visual treatment — see renderSyllabusTask.
-  let weeks;
-  if (totalWeeks === 2) {
-    weeks = [
-      { week: 1, theme: 'Technical Crunch', focus: 'tech', tasks: [
-        _learnTask(1, ['three-statements', 'dcf-basics'], 'beginner'),
-        _practiceTask(1, 'accounting', r(20 * tM), 'intermediate'),
-        _practiceTask(1, 'valuation', r(20 * tM), 'intermediate'),
-        _behavioralTask(1, 3 * (bM > 1 ? 2 : 1) > 4 ? 4 : 3, 'beginner'),
-      ]},
-      { week: 2, theme: 'Polish & Mock', focus: 'mixed', tasks: [
-        _practiceTask(2, 'lbo', r(15 * tM), 'intermediate'),
-        _practiceTask(2, 'ma', r(10 * tM), 'intermediate'),
-        _dealTask(2, r(10 * dM), 'intermediate'),
-        _behavioralTask(2, 3, 'intermediate'),
-        _mockTask(2, 'full', 'intermediate'),
-      ]}
-    ];
-  } else if (totalWeeks === 4) {
-    weeks = [
-      { week: 1, theme: 'Accounting Foundations', focus: 'accounting', tasks: [
-        _learnTask(1, ['three-statements', 'working-capital'], 'foundations'),
-        _practiceTask(1, 'accounting', r(25 * tM), 'beginner'),
-        _behavioralTask(1, 2, 'foundations'),
-      ]},
-      { week: 2, theme: 'Valuation Core', focus: 'valuation', tasks: [
-        _learnTask(2, ['dcf-basics', 'ev-equity'], 'beginner'),
-        _practiceTask(2, 'valuation', r(25 * tM), 'beginner'),
-        _behavioralTask(2, 2, 'beginner'),
-      ]},
-      { week: 3, theme: 'LBO & M&A', focus: 'deals', tasks: [
-        _learnTask(3, ['lbo-mechanics', 'accretion-dilution'], 'intermediate'),
-        _practiceTask(3, 'lbo', r(15 * tM), 'intermediate'),
-        _practiceTask(3, 'ma', r(15 * tM), 'intermediate'),
-        _dealTask(3, r(10 * dM), 'intermediate'),
-      ]},
-      { week: 4, theme: 'Polish & Mocks', focus: 'mixed', tasks: [
-        _behavioralTask(4, 3, 'intermediate'),
-        _dealTask(4, r(10 * dM), 'intermediate'),
-        _practiceTask(4, 'accounting', r(10 * tM), 'intermediate'),
-        _mockTask(4, 'full', 'intermediate'),
-      ]}
-    ];
-  } else if (totalWeeks === 8) {
-    weeks = [
-      { week: 1, theme: 'Accounting I', focus: 'accounting', tasks: [
-        _learnTask(1, ['three-statements'], 'foundations'), _practiceTask(1, 'accounting', r(15 * tM), 'beginner'), _behavioralTask(1, 1, 'foundations') ]},
-      { week: 2, theme: 'Accounting II', focus: 'accounting', tasks: [
-        _learnTask(2, ['working-capital'], 'beginner'), _practiceTask(2, 'accounting', r(20 * tM), 'intermediate'), _behavioralTask(2, 1, 'beginner') ]},
-      { week: 3, theme: 'Valuation I', focus: 'valuation', tasks: [
-        _learnTask(3, ['dcf-basics'], 'beginner'), _practiceTask(3, 'valuation', r(15 * tM), 'beginner'), _behavioralTask(3, 1, 'beginner') ]},
-      { week: 4, theme: 'Valuation II', focus: 'valuation', tasks: [
-        _learnTask(4, ['ev-equity'], 'beginner'), _practiceTask(4, 'valuation', r(15 * tM), 'intermediate'), _behavioralTask(4, 1, 'beginner') ]},
-      { week: 5, theme: 'LBO Mechanics', focus: 'lbo', tasks: [
-        _learnTask(5, ['lbo-mechanics'], 'intermediate'), _practiceTask(5, 'lbo', r(20 * tM), 'intermediate') ]},
-      { week: 6, theme: 'M&A', focus: 'ma', tasks: [
-        _learnTask(6, ['accretion-dilution'], 'intermediate'), _practiceTask(6, 'ma', r(20 * tM), 'intermediate') ]},
-      { week: 7, theme: 'Markets & Behavioral', focus: 'mixed', tasks: [
-        _dealTask(7, r(15 * dM), 'beginner'), _behavioralTask(7, 3, 'beginner') ]},
-      { week: 8, theme: 'Mocks & Polish', focus: 'mixed', tasks: [
-        _mockTask(8, 'full', 'intermediate'), _practiceTask(8, 'accounting', r(10 * tM), 'advanced'), _practiceTask(8, 'valuation', r(10 * tM), 'advanced') ]}
-    ];
-  } else { // 12 weeks
-    weeks = [
-      { week: 1, theme: 'Accounting I', focus: 'accounting', tasks: [
-        _learnTask(1, ['three-statements'], 'foundations'), _practiceTask(1, 'accounting', r(15 * tM), 'beginner'), _behavioralTask(1, 1, 'foundations') ]},
-      { week: 2, theme: 'Accounting II', focus: 'accounting', tasks: [
-        _learnTask(2, ['working-capital'], 'beginner'), _practiceTask(2, 'accounting', r(15 * tM), 'beginner') ]},
-      { week: 3, theme: 'Accounting Drill', focus: 'accounting', tasks: [
-        _practiceTask(3, 'accounting', r(20 * tM), 'intermediate'), _behavioralTask(3, 1, 'beginner') ]},
-      { week: 4, theme: 'Valuation I', focus: 'valuation', tasks: [
-        _learnTask(4, ['dcf-basics'], 'beginner'), _practiceTask(4, 'valuation', r(15 * tM), 'beginner') ]},
-      { week: 5, theme: 'Valuation II', focus: 'valuation', tasks: [
-        _learnTask(5, ['ev-equity'], 'beginner'), _practiceTask(5, 'valuation', r(15 * tM), 'beginner') ]},
-      { week: 6, theme: 'Valuation Drill', focus: 'valuation', tasks: [
-        _practiceTask(6, 'valuation', r(20 * tM), 'intermediate'), _behavioralTask(6, 2, 'beginner') ]},
-      { week: 7, theme: 'LBO Mechanics', focus: 'lbo', tasks: [
-        _learnTask(7, ['lbo-mechanics'], 'intermediate'), _practiceTask(7, 'lbo', r(15 * tM), 'intermediate') ]},
-      { week: 8, theme: 'LBO Drill', focus: 'lbo', tasks: [
-        _practiceTask(8, 'lbo', r(20 * tM), 'intermediate'), _dealTask(8, r(10 * dM), 'intermediate') ]},
-      { week: 9, theme: 'M&A', focus: 'ma', tasks: [
-        _learnTask(9, ['accretion-dilution'], 'intermediate'), _practiceTask(9, 'ma', r(20 * tM), 'intermediate') ]},
-      { week: 10, theme: 'Markets & Deals', focus: 'markets', tasks: [
-        _dealTask(10, r(20 * dM), 'intermediate'), _behavioralTask(10, 2, 'intermediate') ]},
-      { week: 11, theme: 'Behavioral & Polish', focus: 'behavioral', tasks: [
-        _behavioralTask(11, 4, 'intermediate'), _practiceTask(11, 'accounting', r(10 * tM), 'advanced'), _practiceTask(11, 'valuation', r(10 * tM), 'advanced') ]},
-      { week: 12, theme: 'Mock Marathon', focus: 'mixed', tasks: [
-        _mockTask(12, 'full', 'advanced'), _mockTask(12, 'tech', 'advanced'), _practiceTask(12, 'lbo', r(10 * tM), 'advanced') ]}
-    ];
-  }
-
-  // Drop any null tasks (e.g. _learnTask returned null because the referenced
-  // learn module hasn't been authored yet — PRD §5 Task 13). Cleaner than
-  // sprinkling .filter(Boolean) at every call site.
-  return { totalWeeks, weeks: weeks.map(w => ({ ...w, tasks: w.tasks.filter(Boolean) })) };
-}
-
-function isTaskComplete(task) {
-  if (progress.completedTasks?.includes(task.id)) return true;
-  if (task.type === 'learn') {
-    return task.moduleIds.every(id => {
-      const mod = LEARN_MODULES.find(m => m.id === id);
-      if (!mod) return false;
-      return (progress.learnProgress?.[id] || 0) >= mod.sections;
-    });
-  }
-  if (task.type === 'practice') {
-    const n = QUESTIONS.filter(q => q.sub === task.sub && progress.answered?.has?.(q.id)).length;
-    return n >= task.count;
-  }
-  if (task.type === 'deal') {
-    const n = QUESTIONS.filter(q => q.cat === 'deal' && progress.answered?.has?.(q.id)).length;
-    return n >= task.count;
-  }
-  if (task.type === 'behavioral') {
-    return (progress.notes?.length || 0) >= task.count;
-  }
-  return false; // mock: manual check only
-}
-
-function syllabusCurrentWeek(syllabus) {
-  for (const w of syllabus.weeks) {
-    if (w.tasks.some(t => !isTaskComplete(t))) return w.week;
-  }
-  return syllabus.weeks.length;
-}
-
-// Gap = userTopicBand − taskLevel. >0 means user is past the content;
-// <0 means the content is above the user. Tasks without a topic (mocks)
-// return null and render normally without dimming or stretch hints.
-function gapForTask(task) {
-  if (!task || !task.topic) return null;
-  const userBand = getTopicLevel(progress, task.topic).band;
-  return toBandIndex(userBand) - toBandIndex(task.taskLevel || 'intermediate');
-}
-
-// Reorder uncompleted weeks so the user's biggest negative-gap week (the
-// content most above their current level) floats to the top, and weeks
-// they're past sink to the bottom. Completed weeks keep their original
-// chronological position. PRD §5 Task 10.
-function reorderWeeksByGap(weeks) {
-  const completed = [];
-  const uncompleted = [];
-  for (const w of weeks) {
-    const allDone = w.tasks.every(isTaskComplete);
-    if (allDone) completed.push(w);
-    else uncompleted.push(w);
-  }
-  const weekGap = w => {
-    const gaps = w.tasks.map(gapForTask).filter(g => g !== null);
-    if (!gaps.length) return 0;
-    return gaps.reduce((s, g) => s + g, 0) / gaps.length;
-  };
-  // Sort by avg gap ascending (most negative first); break ties by week.
-  uncompleted.sort((a, b) => {
-    const ga = weekGap(a), gb = weekGap(b);
-    if (ga !== gb) return ga - gb;
-    return a.week - b.week;
-  });
-  return [...completed, ...uncompleted];
-}
-
-function renderPrepPlan() {
-  const container = document.getElementById('prep-plan-container');
-  if (!container) return;
-  if (!progress.userProfile || !progress.userProfile.timeline) {
-    container.innerHTML = `
-      <div class="prep-plan-card">
-        <div class="prep-plan-header">
-          <div class="prep-plan-title">📋 Your Plan</div>
-        </div>
-        <div style="padding:8px 0 4px">
-          <div style="font-size:13px;color:var(--t-2);line-height:1.6;margin-bottom:14px">
-            Set up your interview prep plan in under 2 minutes. We'll calibrate to your level and timeline, then build a weekly schedule that adapts as you progress.
-          </div>
-          <button class="quiz-btn primary" onclick="showOnramp()" style="width:100%">Build my plan →</button>
-        </div>
-      </div>
-    `;
-    return;
-  }
-  const syllabus = generateSyllabus(progress.userProfile, levelsToScores());
-  const currentWeek = syllabusCurrentWeek(syllabus);
-  // Reorder uncompleted weeks by gap before computing renderable list. The
-  // overall progress count is order-agnostic so we compute it from the
-  // original weeks array.
-  const overallTasks = syllabus.weeks.reduce((s, w) => s + w.tasks.length, 0);
-  const overallDone = syllabus.weeks.reduce((s, w) => s + w.tasks.filter(isTaskComplete).length, 0);
-  const pct = Math.round(overallDone / overallTasks * 100) || 0;
-  const orderedWeeks = reorderWeeksByGap(syllabus.weeks);
-
-  const weak = getWeakTopics(2);
-  const focusHtml = weak.length ? `
-    <div class="focus-areas-card">
-      <div class="focus-areas-head">
-        <div class="focus-areas-title">Focus areas</div>
-        <div class="focus-areas-sub">${
-          weak.every(w => w.source === 'live')
-            ? 'Based on your practice so far'
-            : weak.every(w => w.source === 'level')
-              ? 'Based on your current per-topic levels'
-              : 'Based on your levels and recent practice'
-        }</div>
-      </div>
-      <div class="focus-areas-list">
-        ${weak.map(w => `
-          <div class="focus-area">
-            <div class="focus-area-info">
-              <div class="focus-area-label">${w.label}</div>
-              <div class="focus-area-bar"><div class="focus-area-fill" style="width:${Math.max(8, w.strength)}%"></div></div>
-              <div class="focus-area-meta">${w.strength}% strength · ${w.source === 'live' ? 'live' : 'level'}</div>
-            </div>
-            <button class="focus-area-btn" onclick="filterBankNav('${TOPIC_DEFS[w.key].cat}'${TOPIC_DEFS[w.key].sub ? `, '${TOPIC_DEFS[w.key].sub}'` : ''})">Drill →</button>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-  ` : '';
-
-  container.innerHTML = `
-    ${focusHtml}
-    <div class="prep-plan-card">
-      <div class="prep-plan-header">
-        <div class="prep-plan-title">
-          📋 Your Plan
-          <span class="prep-plan-badge">WEEK ${currentWeek} OF ${syllabus.totalWeeks}</span>
-        </div>
-        <span class="prep-plan-edit" onclick="showOnramp()">Edit plan</span>
-      </div>
-      <div class="syl-overall">
-        <div class="syl-overall-bar"><div class="syl-overall-fill" style="width:${pct}%"></div></div>
-        <div class="syl-overall-text">${overallDone} / ${overallTasks} tasks complete</div>
-      </div>
-      <div class="syllabus-weeks">
-        ${orderedWeeks.map(w => renderSyllabusWeek(w, currentWeek)).join('')}
-      </div>
-    </div>
-  `;
-}
-
-function renderSyllabusWeek(week, currentWeek) {
-  const isCurrent = week.week === currentWeek;
-  const isPast = week.week < currentWeek;
-  const tasksDone = week.tasks.filter(isTaskComplete).length;
-  const total = week.tasks.length;
-  const allDone = tasksDone === total;
-  // A week where every task's gap > 1 means the user is past every piece of
-  // its content — collapse it by default with a "you're past this" treatment.
-  const allTaskGaps = week.tasks.map(gapForTask).filter(g => g !== null);
-  const userPastWeek = allTaskGaps.length > 0 && allTaskGaps.every(g => g > 1);
-  const stateClass = isCurrent ? 'current' : (isPast ? 'past' : (userPastWeek ? 'past-by-level' : 'future'));
-  const collapsed = !isCurrent || userPastWeek;
-
-  return `
-    <div class="syl-week ${stateClass} ${collapsed ? 'collapsed' : ''}" data-week="${week.week}">
-      <div class="syl-week-head" onclick="toggleSylWeek(${week.week})">
-        <div class="syl-week-num">W${week.week}</div>
-        <div class="syl-week-titlewrap">
-          <div class="syl-week-theme">${week.theme}${userPastWeek ? ' <span class="syl-week-past-tag">you\'re past this</span>' : ''}</div>
-          <div class="syl-week-progress">${tasksDone}/${total}${allDone ? ' ✓' : ''}</div>
-        </div>
-        <div class="syl-week-toggle">${collapsed ? '+' : '−'}</div>
-      </div>
-      <div class="syl-week-body">
-        ${week.tasks.map(t => renderSyllabusTask(t)).join('')}
-      </div>
-    </div>
-  `;
-}
-
-function renderSyllabusTask(task) {
-  const done = isTaskComplete(task);
-  const gap = gapForTask(task);
-  // Gap >1: user is past content; render skippable with a Drill anyway link.
-  // Gap == 1: dimmed but accessible. Gap == 0 or -1: sweet spot. Gap < -1:
-  // stretch hint to set expectations.
-  let gapClass = '';
-  let stretchHint = '';
-  let pastNote = '';
-  if (gap !== null) {
-    if (gap > 1) gapClass = 'gap-past';
-    else if (gap === 1) gapClass = 'gap-easy';
-    else if (gap < -1) gapClass = 'gap-stretch';
-  }
-  if (gapClass === 'gap-stretch') {
-    stretchHint = `<div class="syl-task-hint">This will stretch you</div>`;
-  }
-  if (gapClass === 'gap-past') {
-    pastNote = `<div class="syl-task-hint">You're past this — we'll send you to harder cards instead. <button type="button" class="syl-task-drill-anyway" onclick="event.stopPropagation();syllabusAction('${task.id}','${task.action}')">Drill anyway →</button></div>`;
-  }
-  const badge = task.taskLevel
-    ? `<span class="syl-task-level band-pill ${task.taskLevel}">${task.taskLevel}</span>`
-    : '';
-  // Hide the action button on past tasks — Drill-anyway link inside the hint
-  // is the only way through, signalling the user has alternatives.
-  const actionBtn = gapClass === 'gap-past'
-    ? ''
-    : `<button class="syl-task-action" onclick="event.stopPropagation();syllabusAction('${task.id}','${task.action}')">→</button>`;
-  return `
-    <div class="syl-task ${done ? 'done' : ''} ${gapClass}">
-      <div class="syl-task-check ${done ? 'done' : ''}" onclick="event.stopPropagation();toggleSyllabusTask('${task.id}')">${done ? '✓' : ''}</div>
-      <div class="syl-task-main">
-        <div class="syl-task-row">
-          ${badge}
-          <span class="syl-task-label">${task.label}</span>
-          <span class="syl-task-time">${task.time}</span>
-        </div>
-        ${stretchHint || pastNote}
-      </div>
-      ${actionBtn}
-    </div>
-  `;
-}
-
-function toggleSylWeek(weekNum) {
-  const el = document.querySelector(`.syl-week[data-week="${weekNum}"]`);
-  if (!el) return;
-  const collapsed = el.classList.toggle('collapsed');
-  const toggle = el.querySelector('.syl-week-toggle');
-  if (toggle) toggle.textContent = collapsed ? '+' : '−';
-}
-
-function toggleSyllabusTask(taskId) {
-  if (!progress.completedTasks) progress.completedTasks = [];
-  const has = progress.completedTasks.includes(taskId);
-  progress.completedTasks = has
-    ? progress.completedTasks.filter(t => t !== taskId)
-    : [...progress.completedTasks, taskId];
-  saveProgress();
-  renderPrepPlan();
-}
-
-function syllabusAction(taskId, action) {
-  if (action === 'learn') showView('learn');
-  else if (action === 'practice' || action === 'deal') showView('quiz');
-  else if (action === 'behavioral') toggleStoryPanel();
-  else if (action === 'mock') showView('mock');
-}
-
-function renderPlanPreview() {
-  const container = document.getElementById('onramp-plan-preview');
-  if (!container) return;
-  const profile = { ...onrampData };
-  const scores = levelsToScores();
-  const syllabus = generateSyllabus(profile, scores);
-  // Pick the weakest of {tech avg, behavioral, markets} for the headline tag.
-  const arr = [
-    { label: 'technicals', pct: scores.tech },
-    { label: 'behavioral', pct: scores.beh },
-    { label: 'markets',    pct: scores.deal }
-  ];
-  arr.sort((a, b) => a.pct - b.pct);
-  const weakestLabel = arr[0].pct < 70 ? arr[0].label : null;
-
-  container.innerHTML = `
-    <div class="syl-pre-meta">
-      <div class="syl-pre-stat"><span class="syl-pre-stat-num">${syllabus.totalWeeks}</span><span class="syl-pre-stat-lbl">weeks</span></div>
-      <div class="syl-pre-stat"><span class="syl-pre-stat-num">${syllabus.weeks.reduce((s,w)=>s+w.tasks.length,0)}</span><span class="syl-pre-stat-lbl">tasks</span></div>
-      ${weakestLabel ? `<div class="syl-pre-stat"><span class="syl-pre-stat-num">${weakestLabel}</span><span class="syl-pre-stat-lbl">extra focus</span></div>` : ''}
-    </div>
-    <div class="syl-pre-weeks">
-      ${syllabus.weeks.map(w => `
-        <div class="syl-pre-week">
-          <div class="syl-pre-num">W${w.week}</div>
-          <div class="syl-pre-theme">${w.theme}</div>
-          <div class="syl-pre-tasks">${w.tasks.length} tasks</div>
-        </div>
-      `).join('')}
-    </div>
-  `;
-}
-
-function showOnramp() {
-  // Hydrate onrampData from any previously saved profile so "Edit plan" doesn't blank fields.
-  if (progress.userProfile) {
-    onrampData = {
-      prep: progress.userProfile.prep || null,
-      timeline: progress.userProfile.timeline || null,
-      banks: Array.isArray(progress.userProfile.banks) ? [...progress.userProfile.banks] : []
-    };
-    // Re-mark previously selected options as selected.
-    requestAnimationFrame(() => {
-      document.querySelectorAll('.onramp-option').forEach(opt => opt.classList.remove('selected'));
-      document.querySelectorAll('#onramp-step-1 .onramp-option').forEach(opt => {
-        if (opt.getAttribute('onclick')?.includes(`'${onrampData.prep}'`)) opt.classList.add('selected');
-      });
-      document.querySelectorAll('#onramp-step-2 .onramp-option').forEach(opt => {
-        if (opt.getAttribute('onclick')?.includes(`'${onrampData.timeline}'`)) opt.classList.add('selected');
-      });
-      (onrampData.banks || []).forEach(bank => {
-        document.querySelectorAll('#onramp-step-3 .onramp-option').forEach(opt => {
-          if (opt.getAttribute('onclick')?.includes(`'${bank}'`)) opt.classList.add('selected');
-        });
-      });
-    });
-  }
-  // Resume at the user's last step (capped to 3 — step 4 is the summary, regenerated on demand).
-  const savedStep = progress.userProfile?.onrampStep;
-  onrampStep = Math.max(1, Math.min(savedStep || 1, 3));
-  document.querySelectorAll('.onramp-step').forEach(s => s.classList.remove('active'));
-  document.getElementById('onramp-step-' + onrampStep).classList.add('active');
-  setOnrampDotsActive(onrampStep === 1 ? 1 : onrampStep + 1);
-  document.getElementById('onramp-overlay').classList.add('show');
 }
 
 /* ─── LEARN MODULES ─────────────────── */
@@ -4239,6 +2488,3 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
-
-/* ─── WIRE MODULE DEPENDENCIES ──────── */
-setMapDeps({ getMasteryClass, showView });
