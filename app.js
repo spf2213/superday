@@ -301,7 +301,7 @@ function demoFCRender() {
   const labelEl = document.getElementById('demo-fc-label');
   const progEl = document.getElementById('demo-fc-prog');
   if (aEl) aEl.textContent = c.a;
-  if (tipEl) tipEl.textContent = '💡 ' + c.tip;
+  if (tipEl) tipEl.textContent = 'Tip — ' + c.tip;
   const pct = Math.round((demoFCIndex / DEMO_CARDS.length) * 100);
   if (labelEl) labelEl.textContent = c.cat.split('—')[1]?.trim().toUpperCase() + ' · Card ' + (demoFCIndex+1) + ' of ' + DEMO_CARDS.length;
   if (progEl) progEl.textContent = pct + '% complete';
@@ -1191,11 +1191,11 @@ function renderActivity() {
     el.innerHTML = '<div style="padding:32px 16px;text-align:center;font-size:12.5px;color:var(--t-3)">Answer your first question to start your activity log.</div>';
     return;
   }
-  const icons = { tech:'📊', beh:'💬', brain:'🧠', deal:'📈', levels:'↑' };
+  const labels = { tech:'T', beh:'B', brain:'?', deal:'M', levels:'L' };
   const colors = { tech:'var(--accent-dim)', beh:'var(--green-dim)', brain:'var(--amber-dim)', deal:'var(--blue-dim)', levels:'var(--green-dim)' };
   el.innerHTML = progress.activityLog.map(a =>
     '<div class="act-item">' +
-    '<div class="act-icon" style="background:' + (colors[a.cat]||'var(--bg-3)') + '">' + (icons[a.cat]||'📋') + '</div>' +
+    '<div class="act-icon" style="background:' + (colors[a.cat]||'var(--bg-3)') + '">' + (labels[a.cat]||'·') + '</div>' +
     '<div class="act-text">' + (a.title.length > 55 ? a.title.slice(0,55)+'…' : a.title) + '</div>' +
     '<div class="act-time">' + a.time + '</div></div>'
   ).join('');
@@ -1499,7 +1499,7 @@ function showQuickSessionComplete() {
   const confBar = document.getElementById('confidence-bar');
   
   if (cl) cl.textContent = 'SESSION COMPLETE';
-  if (qt) qt.innerHTML = '🎉 You finished 10 cards!<br><br>' +
+  if (qt) qt.innerHTML = 'You finished 10 cards.<br><br>' +
     '<button class="btn-primary" onclick="setStudyMode(\'quick\')" style="font-size:13px;padding:10px 20px">Start Another Quick 10</button>';
   if (confBar) confBar.classList.remove('show');
   
@@ -2034,13 +2034,13 @@ function renderLearnModules() {
     
     return `
       <div class="learn-module ${isLocked ? 'locked' : ''}" onclick="${isLocked ? '' : `openLearnModule('${mod.id}')`}">
-        <span class="learn-module-badge ${badge}">${isLocked ? '🔒 SOON' : badgeText}</span>
-        <div class="learn-module-icon">${mod.icon}</div>
+        <span class="learn-module-badge ${badge}">${isLocked ? 'SOON' : badgeText}</span>
+        <div class="learn-module-cat">${mod.category}</div>
         <div class="learn-module-title">${mod.title}</div>
         <div class="learn-module-desc">${mod.desc}</div>
         <div class="learn-module-meta">
-          <span>⏱ ${mod.time}</span>
-          <span>📄 ${totalSections} sections</span>
+          <span>${mod.time}</span>
+          <span>${totalSections} sections</span>
         </div>
         <div class="learn-module-progress">
           <div class="learn-module-progress-fill" style="width:${pct}%"></div>
@@ -2118,10 +2118,7 @@ function renderLearnSection() {
     </div>
     
     <div class="learn-section">
-      <div class="learn-section-title">
-        <span class="learn-section-icon">${section.icon}</span>
-        ${section.title}
-      </div>
+      <div class="learn-section-title">${section.title}</div>
       <div class="learn-text">${section.text}</div>
       ${visualHtml}
       ${section.formula ? `<div class="learn-formula">${section.formula.replace(/\n/g, '<br>')}</div>` : ''}
