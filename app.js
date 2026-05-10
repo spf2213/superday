@@ -1359,8 +1359,10 @@ function updateDashStats() {
   // Mastered count
   const masteredCount = QUESTIONS.filter(q => getMasteryClass(q.id) === 'mastered').length;
   const km = document.getElementById('kpi-mastered');
+  const kmt = document.getElementById('kpi-mastered-total');
   const kmf = document.getElementById('kpi-mastered-fill');
   if (km) km.textContent = masteredCount;
+  if (kmt) kmt.textContent = total;
   if (kmf) kmf.style.width = (masteredCount/total*100) + '%';
 
   // Today's recommended task drives the primary CTA.
@@ -3257,6 +3259,10 @@ const LEARN_MODULE_TOPIC = {
 
 function _learnTask(week, moduleIds, taskLevel, topic) {
   const mods = moduleIds.map(id => LEARN_MODULES.find(m => m.id === id)).filter(Boolean);
+  // PRD §5 Task 13: drop the row when no module resolves rather than
+  // rendering "Learn: " with an empty title. Syllabus generators filter
+  // null tasks below.
+  if (mods.length === 0) return null;
   const titles = mods.map(m => m.title);
   const totalMin = mods.reduce((s, m) => s + (parseInt(m.time, 10) || 15), 0);
   const inferredTopic = topic || LEARN_MODULE_TOPIC[moduleIds[0]] || null;
@@ -3422,7 +3428,10 @@ function generateSyllabus(profile, scores) {
     ];
   }
 
-  return { totalWeeks, weeks };
+  // Drop any null tasks (e.g. _learnTask returned null because the referenced
+  // learn module hasn't been authored yet — PRD §5 Task 13). Cleaner than
+  // sprinkling .filter(Boolean) at every call site.
+  return { totalWeeks, weeks: weeks.map(w => ({ ...w, tasks: w.tasks.filter(Boolean) })) };
 }
 
 function isTaskComplete(task) {
