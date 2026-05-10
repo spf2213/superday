@@ -2591,7 +2591,6 @@ body:has(.dss-mode.active) { overflow:hidden }
   display:flex;align-items:center;gap:24px;
   margin-top:20px;padding:24px 28px;
   background:var(--bg-2);border:1px solid var(--line);
-  border-left:3px solid var(--accent);
   border-radius:var(--r-lg);
 }
 .dash-hero-content{flex:1;min-width:0}
