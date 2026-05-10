@@ -502,7 +502,7 @@ Object.assign(window, {
   closeDiagnosticToLanding, closeDiagnosticToPlan, closeLearnModule, completeOnramp, demoChatSend,
   demoFilterBank, demoFlipCard, demoFCNav, demoFCShuffle, demoToggleQ,
   doForgotPassword, doLogin, doSetNewPassword, doSignOut, doSignup, filterBank, filterBankNav, filterSub,
-  flipCard, goToDueReview, mapFitAll, mapResetView, mapZoom,
+  flipCard, goToDueReview, goToTopicPractice, mapFitAll, mapResetView, mapZoom,
   navScrollTo, nextCard, nextLearnSection, nextOnrampStep, nextQuizQuestion,
   openLearnModule, prevCard, prevLearnSection, prevOnrampStep, prevNav,
   pvBankFilter, pvFlipCard, pvFCNav, pvMockSend, pvToggleQ, rateCard,
@@ -1180,7 +1180,108 @@ function markAnswered(id) {
   saveProgress();
 }
 
+// Map a calibration topic onto the practice surface's cat/sub filter so
+// clicking a Levels-tile row routes the user to the right deck.
+function navForTopic(topic) {
+  switch (topic) {
+    case 'accounting': return { cat: 'tech',  sub: 'accounting' };
+    case 'valuation':  return { cat: 'tech',  sub: 'valuation'  };
+    case 'lbo':        return { cat: 'tech',  sub: 'lbo'        };
+    case 'ma':         return { cat: 'tech',  sub: 'ma'         };
+    case 'markets':    return { cat: 'deal',  sub: null         };
+    case 'behavioral': return { cat: 'beh',   sub: null         };
+    case 'brain':      return { cat: 'brain', sub: null         };
+    default:           return { cat: 'all',   sub: null         };
+  }
+}
+
+function relativeTime(ms) {
+  if (!ms || !Number.isFinite(ms)) return 'just now';
+  const diff = Date.now() - ms;
+  if (diff < 60_000) return 'just now';
+  const min = Math.floor(diff / 60_000);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const days = Math.floor(hr / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(ms).toLocaleDateString();
+}
+
+// Walk back through recent history; return 'up'/'down' if the band changed
+// within the most recent N samples, otherwise null. Self-clearing — the
+// arrow fades naturally as the user accumulates more practice.
+function recentBandDelta(lvl) {
+  if (!lvl || !Array.isArray(lvl.history) || lvl.history.length === 0) return null;
+  const N = 5;
+  const slice = lvl.history.slice(-N);
+  const earliest = slice[0];
+  if (!earliest || earliest.band === lvl.band) return null;
+  return toBandIndex(lvl.band) > toBandIndex(earliest.band) ? 'up' : 'down';
+}
+
+function renderLevelsTile() {
+  const tableEl = document.getElementById('levels-table');
+  if (!tableEl) return;
+  const updatedEl = document.getElementById('levels-updated');
+  const levels = getAllLevelsFromProgress(progress);
+
+  tableEl.replaceChildren();
+  let mostRecent = 0;
+  for (const t of LEVEL_TOPICS) {
+    const lvl = levels[t];
+    if (lvl.lastUpdated > mostRecent) mostRecent = lvl.lastUpdated;
+
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'cal-row cal-row-clickable';
+    row.addEventListener('click', () => goToTopicPractice(t));
+
+    const topic = document.createElement('div');
+    topic.className = 'cal-row-topic';
+    topic.textContent = TOPIC_LABELS[t] || t;
+
+    const pillWrap = document.createElement('span');
+    pillWrap.className = 'cal-row-pill-wrap';
+    const pill = document.createElement('span');
+    pill.className = 'band-pill ' + lvl.band;
+    pill.textContent = lvl.band;
+    pillWrap.appendChild(pill);
+    const delta = recentBandDelta(lvl);
+    if (delta) {
+      const arrow = document.createElement('span');
+      arrow.className = 'cal-row-arrow ' + delta;
+      arrow.textContent = delta === 'up' ? '↑' : '↓';
+      arrow.setAttribute('aria-label', delta === 'up' ? 'Calibrated up recently' : 'Recalibrated down recently');
+      pillWrap.appendChild(arrow);
+    }
+
+    const conf = document.createElement('div');
+    conf.className = 'cal-row-confidence';
+    conf.textContent = lvl.confidence + ' confidence';
+
+    row.append(topic, pillWrap, conf);
+    tableEl.appendChild(row);
+  }
+
+  if (updatedEl) {
+    updatedEl.textContent = mostRecent ? `Updated ${relativeTime(mostRecent)}` : 'Updated just now';
+  }
+}
+
+function goToTopicPractice(topic) {
+  const nav = navForTopic(topic);
+  showView('flash');
+  // Defer until after the view transition so renderCard runs against the
+  // freshly-visible flash pane.
+  setTimeout(() => {
+    flashSub = nav.sub;
+    setFlashCat(nav.cat, { keepSub: true });
+  }, 50);
+}
+
 function updateDashStats() {
+  renderLevelsTile();
   const total = QUESTIONS.length;
   const ans = progress.answered.size;
   const ka = document.getElementById('kpi-answered');
@@ -1465,6 +1566,10 @@ function toggleQ(id) {
 /* ─── FLASHCARDS ─────────────────────── */
 let flashDeck = [], flashIdx = 0, flashFlipped = false;
 let flashCat = 'all';
+// Optional sub-topic filter applied on top of flashCat. Set by goToTopicPractice
+// when the user clicks into a specific tech topic from the Levels tile;
+// cleared whenever the cat pill changes.
+let flashSub = null;
 
 function setStudyMode(mode) {
   studyMode = mode;
@@ -1487,6 +1592,7 @@ function setStudyMode(mode) {
 
 function buildFlashDeck() {
   let pool = flashCat === 'all' ? [...QUESTIONS] : QUESTIONS.filter(q => q.cat === flashCat);
+  if (flashSub) pool = pool.filter(q => q.sub === flashSub);
   
   switch(studyMode) {
     case 'due':
@@ -1527,8 +1633,10 @@ function buildFlashDeck() {
   flashDeck = pool;
 }
 
-function setFlashCat(cat) {
+function setFlashCat(cat, opts) {
   flashCat = cat;
+  // Clicking a category pill clears any sub filter set by the Levels tile.
+  if (!opts || !opts.keepSub) flashSub = null;
   document.querySelectorAll('.bank-pill[data-fcat]').forEach(b =>
     b.classList.toggle('active', b.dataset.fcat === cat));
   buildFlashDeck();

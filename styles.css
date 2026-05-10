@@ -1809,6 +1809,17 @@ body:has(.dss-mode.active) { overflow:hidden }
 .cal-row-confidence{font-size:11px;color:var(--t-3);text-transform:uppercase;letter-spacing:0.05em}
 .cal-row-deltas{display:flex;align-items:center;gap:6px}
 .cal-row-arrow{color:var(--t-3);font-size:13px;line-height:1}
+.cal-row-arrow.up{color:var(--green)}
+.cal-row-arrow.down{color:var(--red)}
+.cal-row-pill-wrap{display:inline-flex;align-items:center;gap:6px}
+.cal-row.cal-row-clickable{
+  cursor:pointer;text-align:left;font:inherit;color:inherit;
+  width:100%;border:1px solid var(--line);
+  transition:var(--trans);
+}
+.cal-row.cal-row-clickable:hover{
+  background:var(--bg-3);border-color:var(--line-2);
+}
 .band-pill{
   display:inline-block;padding:4px 12px;border-radius:12px;
   font-size:11px;font-weight:600;text-transform:capitalize;letter-spacing:0.02em;
