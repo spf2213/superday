@@ -1787,10 +1787,35 @@ body:has(.dss-mode.active) { overflow:hidden }
   display:inline-block;padding:8px 20px;border-radius:20px;
   font-size:14px;font-weight:600;margin-bottom:16px;
 }
+.diagnostic-band.foundations{background:rgba(140,140,140,0.12);color:var(--t-2)}
 .diagnostic-band.beginner{background:var(--red-dim);color:var(--red)}
 .diagnostic-band.intermediate{background:var(--amber-dim);color:var(--amber)}
 .diagnostic-band.advanced{background:var(--blue-dim);color:var(--blue)}
 .diagnostic-band.expert{background:var(--green-dim);color:var(--green)}
+
+/* PER-TOPIC CALIBRATION TABLE — used in onramp Step 4, dashboard Level tile,
+   and diagnostic results. Same component for every band so movement reads
+   visually as a color shift, not a layout change. */
+.calibration-table{
+  display:flex;flex-direction:column;gap:6px;
+  margin:16px 0 20px;text-align:left;
+}
+.cal-row{
+  display:grid;grid-template-columns:1fr auto auto;align-items:center;
+  gap:12px;padding:10px 14px;
+  background:var(--bg-2);border:1px solid var(--line);border-radius:var(--r);
+}
+.cal-row-topic{font-size:13px;color:var(--t);font-weight:500;text-transform:capitalize}
+.cal-row-confidence{font-size:11px;color:var(--t-3);text-transform:uppercase;letter-spacing:0.05em}
+.band-pill{
+  display:inline-block;padding:4px 12px;border-radius:12px;
+  font-size:11px;font-weight:600;text-transform:capitalize;letter-spacing:0.02em;
+}
+.band-pill.foundations{background:rgba(140,140,140,0.12);color:var(--t-2)}
+.band-pill.beginner{background:var(--red-dim);color:var(--red)}
+.band-pill.intermediate{background:var(--amber-dim);color:var(--amber)}
+.band-pill.advanced{background:var(--blue-dim);color:var(--blue)}
+.band-pill.expert{background:var(--green-dim);color:var(--green)}
 .diagnostic-score-big{font-size:72px;font-weight:600;line-height:1}
 .diagnostic-score-label{font-size:14px;color:var(--t-2);margin-bottom:24px}
 .diagnostic-breakdown{

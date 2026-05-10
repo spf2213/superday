@@ -1589,28 +1589,32 @@
       <div class="onramp-dot" data-step="5"></div>
     </div>
     
-    <!-- Step 1: Background -->
+    <!-- Step 1: Prep level -->
     <div class="onramp-step active" id="onramp-step-1">
       <div class="onramp-card">
         <div class="onramp-icon">🎓</div>
-        <div class="onramp-title">What's your background?</div>
-        <div class="onramp-desc">We'll customize your learning path based on your experience level.</div>
+        <div class="onramp-title">Where are you in your prep?</div>
+        <div class="onramp-desc">A direct read on prep beats guessing from your major. We'll calibrate per topic from this and adjust as you practice.</div>
         <div class="onramp-options">
-          <div class="onramp-option" onclick="selectOnramp(this, 'background', 'finance')">
-            <span class="onramp-option-icon">◆</span>
-            <span class="onramp-option-text">Finance / Accounting major</span>
-          </div>
-          <div class="onramp-option" onclick="selectOnramp(this, 'background', 'econ')">
-            <span class="onramp-option-icon">◇</span>
-            <span class="onramp-option-text">Economics / Business major</span>
-          </div>
-          <div class="onramp-option" onclick="selectOnramp(this, 'background', 'stem')">
+          <div class="onramp-option" onclick="selectOnramp(this, 'prep', 'brand_new')">
             <span class="onramp-option-icon">○</span>
-            <span class="onramp-option-text">STEM major (Engineering, CS, Math)</span>
+            <span class="onramp-option-text">Brand new — never read a guide</span>
           </div>
-          <div class="onramp-option" onclick="selectOnramp(this, 'background', 'other')">
-            <span class="onramp-option-icon">□</span>
-            <span class="onramp-option-text">Liberal Arts / Other</span>
+          <div class="onramp-option" onclick="selectOnramp(this, 'prep', 'self_study')">
+            <span class="onramp-option-icon">◐</span>
+            <span class="onramp-option-text">Some self-study — books, YouTube, online guides</span>
+          </div>
+          <div class="onramp-option" onclick="selectOnramp(this, 'prep', 'coursework')">
+            <span class="onramp-option-icon">◑</span>
+            <span class="onramp-option-text">Coursework — taken corporate finance or accounting</span>
+          </div>
+          <div class="onramp-option" onclick="selectOnramp(this, 'prep', 'real_practice')">
+            <span class="onramp-option-icon">◕</span>
+            <span class="onramp-option-text">Real practice — mocks, clubs, prep programs</span>
+          </div>
+          <div class="onramp-option" onclick="selectOnramp(this, 'prep', 'working')">
+            <span class="onramp-option-icon">●</span>
+            <span class="onramp-option-text">Working in finance — current intern or analyst</span>
           </div>
         </div>
         <div class="onramp-actions">
@@ -1681,16 +1685,18 @@
       </div>
     </div>
     
-    <!-- Step 4: Plan Preview -->
+    <!-- Step 4: Calibration card + plan preview -->
     <div class="onramp-step" id="onramp-step-4">
       <div class="onramp-card onramp-card-wide">
         <div class="onramp-icon">📋</div>
-        <div class="onramp-title">Here's your plan</div>
-        <div class="onramp-desc" id="onramp-summary">Built from your diagnostic and timeline. We'll adapt it as you progress.</div>
+        <div class="onramp-title">Here's where we've placed you</div>
+        <div class="calibration-table" id="onramp-calibration"></div>
+        <div class="onramp-desc" id="onramp-summary">Based on what you told us. We'll re-calibrate as you practice — or take an optional 5-question check to fine-tune now.</div>
         <div class="syllabus-preview" id="onramp-plan-preview"></div>
         <div class="onramp-actions">
           <button class="quiz-btn ghost" onclick="prevOnrampStep()">← Back</button>
-          <button class="quiz-btn primary" onclick="completeOnramp()">Start Preparing →</button>
+          <button class="quiz-btn ghost" onclick="startOnrampCalibrationCheck()">Take 5-question check</button>
+          <button class="quiz-btn primary" onclick="completeOnramp()">Skip — start learning →</button>
         </div>
       </div>
     </div>

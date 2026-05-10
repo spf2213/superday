@@ -3,6 +3,30 @@ import { QUESTIONS } from './src/data/questions.js';
 import { LEARN_MODULES } from './src/data/learnModules.js';
 import { setNavActive, toggleTheme } from './src/theme.js';
 import { renderKnowledgeMap, mapZoom, mapFitAll, mapResetView, setMapDeps } from './src/map.js';
+import { migrateLegacy as migrateLevels, recordSignal as recordLevelSignal, getSeed as getLevelSeed, getAllLevels as getAllLevelsFromProgress, TOPICS as LEVEL_TOPICS } from './src/levels.js';
+
+// Friendly labels for the seven calibration topics. Exposed so every UX
+// surface reads from one source.
+const TOPIC_LABELS = {
+  accounting: 'Accounting',
+  valuation:  'Valuation',
+  lbo:        'LBO',
+  ma:         'M&A',
+  markets:    'Markets',
+  behavioral: 'Behavioral',
+  brain:      'Brain teasers'
+};
+
+// Map a question's (cat, sub) into one of the seven calibration topics defined
+// by levels.js. Returns null when the question isn't classified — callers
+// short-circuit instead of recording a junk signal.
+function topicForQuestion(cat, sub) {
+  if (cat === 'tech') return sub || null;
+  if (cat === 'beh') return 'behavioral';
+  if (cat === 'deal') return 'markets';
+  if (cat === 'brain') return 'brain';
+  return null;
+}
 import './src/animations.js';
 /* ─── SCROLL HELPERS ─────────────────── */
 function navScrollTo(id) {
@@ -457,15 +481,61 @@ function showInfoModal(title, body) {
   document.body.appendChild(overlay);
 }
 
+/* ─── EXPOSE GLOBALS FOR INLINE HANDLERS ─── */
+// Hoisted above Supabase init so a missing/broken Supabase client can never
+// strand inline onclick="fn()" handlers as silent no-ops.
+// Temporary: needed because index.html uses onclick="fn()" attributes.
+// These will be removed when we migrate to addEventListener.
+Object.assign(window, {
+  addNewStory, calcROI, closeDiagnostic,
+  closeDiagnosticToLanding, closeDiagnosticToPlan, closeLearnModule, completeOnramp, demoChatSend,
+  demoFilterBank, demoFlipCard, demoFCNav, demoFCShuffle, demoToggleQ,
+  doForgotPassword, doLogin, doSetNewPassword, doSignOut, doSignup, filterBank, filterBankNav, filterSub,
+  flipCard, goToDueReview, mapFitAll, mapResetView, mapZoom,
+  navScrollTo, nextCard, nextLearnSection, nextOnrampStep, nextQuizQuestion,
+  openLearnModule, prevCard, prevLearnSection, prevOnrampStep, prevNav,
+  pvBankFilter, pvFlipCard, pvFCNav, pvMockSend, pvToggleQ, rateCard,
+  renderBank, reviewQuizMistakes, saveProfileInfo,
+  saveProfilePassword, selectDiagAnswer, selectOnramp, selectQuizAnswer,
+  sendMsg, setFlashCat, setNavActive,
+  setStudyMode, showAuthTab, showForgotPassword, showOnramp, showQuizSetup, startCheckout, startOnrampCalibrationCheck, openSubscriptionPortal,
+  openInlineAuth, closeInlineAuth, switchInlineAuthTab, doInlineLogin, doInlineSignup,
+  showScreen, showView, shuffleFlash, skipDiagnostic, smartPractice,
+  startDiagnostic, startDirectDiagnostic, startMock,
+  startQuiz, switchAuthTab, toggleFaq, toggleOnrampMulti,
+  toggleProfileEdit, toggleQ, toggleStoryPanel, toggleTheme,
+  toggleCardWhy, toggleSylWeek, toggleSyllabusTask, syllabusAction,
+  viewStoryNote
+});
+
 /* ─── SUPABASE ────────────────────────── */
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY env vars.');
+let sb = null;
+try {
+  sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { lock: (_name, _timeout, fn) => fn() }
+  });
+} catch (e) {
+  console.error('Supabase init failed — check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local.', e);
 }
-const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { lock: (_name, _timeout, fn) => fn() }
-});
+
+function requireSupabase() {
+  if (sb) return true;
+  showToast('Supabase not configured — check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local.', { icon: 'ℹ' });
+  return false;
+}
+
+function renderConfigBanner() {
+  if (sb) return;
+  if (document.getElementById('config-banner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'config-banner';
+  banner.setAttribute('role', 'alert');
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:12000;background:#b91c1c;color:#fff;padding:10px 16px;font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.2)';
+  banner.textContent = 'Supabase not configured — set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local, then restart the dev server.';
+  document.body.appendChild(banner);
+}
 
 let currentUser = null;
 
@@ -507,6 +577,7 @@ async function doForgotPassword() {
   const btn = document.getElementById('forgot-btn');
   const msg = document.getElementById('forgot-msg');
   if (!email) { if (msg) showMsg(msg, 'error', 'Please enter your email.'); return; }
+  if (!requireSupabase()) return;
   if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
   const { error } = await sb.auth.resetPasswordForEmail(email, {
     redirectTo: window.location.origin
@@ -525,6 +596,7 @@ async function doSetNewPassword() {
   const msg = document.getElementById('newpw-msg');
   if (pw.length < 8) { if (msg) showMsg(msg, 'error', 'Password must be at least 8 characters.'); return; }
   if (pw !== confirm) { if (msg) showMsg(msg, 'error', 'Passwords do not match.'); return; }
+  if (!requireSupabase()) return;
   if (btn) { btn.disabled = true; btn.textContent = 'Updating…'; }
   const { error } = await sb.auth.updateUser({ password: pw });
   if (btn) { btn.disabled = false; btn.textContent = 'Update password →'; }
@@ -546,6 +618,7 @@ async function doLogin() {
   const msg = document.getElementById('login-msg');
   if (msg) { msg.className = 'auth-msg'; msg.textContent = ''; }
   if (!email || !password) { if (msg) showMsg(msg, 'error', 'Please fill in all fields.'); return; }
+  if (!requireSupabase()) return;
   if (btn) { btn.disabled = true; btn.textContent = 'Logging in…'; }
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   if (btn) { btn.disabled = false; btn.textContent = 'Log in →'; }
@@ -570,6 +643,7 @@ async function doSignup() {
   if (msg) { msg.className = 'auth-msg'; msg.textContent = ''; }
   if (!name || !email || !password) { if (msg) showMsg(msg, 'error', 'Please fill in all fields.'); return; }
   if (password.length < 8) { if (msg) showMsg(msg, 'error', 'Password must be at least 8 characters.'); return; }
+  if (!requireSupabase()) return;
   if (btn) { btn.disabled = true; btn.textContent = 'Creating account…'; }
   const { data, error } = await sb.auth.signUp({
     email, password,
@@ -634,6 +708,7 @@ async function doInlineLogin() {
   const msg = document.getElementById('inline-login-msg');
   if (msg) { msg.className = 'auth-msg'; msg.textContent = ''; }
   if (!email || !password) { if (msg) showMsg(msg, 'error', 'Please fill in all fields.'); return; }
+  if (!requireSupabase()) return;
   if (btn) { btn.disabled = true; btn.textContent = 'Logging in…'; }
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   if (btn) { btn.disabled = false; btn.textContent = 'Log in →'; }
@@ -655,6 +730,7 @@ async function doInlineSignup() {
   if (msg) { msg.className = 'auth-msg'; msg.textContent = ''; }
   if (!name || !email || !password) { if (msg) showMsg(msg, 'error', 'Please fill in all fields.'); return; }
   if (password.length < 8) { if (msg) showMsg(msg, 'error', 'Password must be at least 8 characters.'); return; }
+  if (!requireSupabase()) return;
   if (btn) { btn.disabled = true; btn.textContent = 'Creating account…'; }
   const { data, error } = await sb.auth.signUp({
     email, password,
@@ -673,6 +749,7 @@ async function doInlineSignup() {
 }
 
 async function doSignOut() {
+  if (!requireSupabase()) return;
   await sb.auth.signOut();
   currentUser = null;
   progress = {
@@ -688,7 +765,8 @@ async function doSignOut() {
     questionNotes: {},
     completedTasks: [],
     learnProgress: {},
-    completedCases: []
+    completedCases: [],
+    levels: {}
   };
   // Clear mock-interview state so the next user on a shared device doesn't
   // inherit the previous user's history, session id, or rendered messages.
@@ -818,6 +896,7 @@ async function startCheckout(plan) {
   if (msg) { msg.style.color = ''; msg.textContent = ''; }
   if (btn) { btn.disabled = true; btn.textContent = 'Redirecting…'; }
   try {
+    if (!requireSupabase()) throw new Error('Supabase not configured.');
     const { data: { session } } = await sb.auth.getSession();
     const accessToken = session?.access_token;
     if (!accessToken) throw new Error('Please sign in again.');
@@ -840,6 +919,7 @@ async function startCheckout(plan) {
 }
 
 async function openSubscriptionPortal() {
+  if (!requireSupabase()) return;
   try {
     const { data: { session } } = await sb.auth.getSession();
     const accessToken = session?.access_token;
@@ -887,7 +967,11 @@ async function loadProgress() {
       progress.completedTasks = arr(data.completed_tasks);
       progress.learnProgress = obj(data.learn_progress);
       progress.completedCases = arr(data.completed_cases);
+      progress.levels = obj(data.levels);
     }
+    // Always run migration: idempotent for new-shape rows, fills in per-topic
+    // levels for legacy rows that only have userBand + diagnosticScores.
+    migrateLevels(progress);
   } catch(e) { console.error('loadProgress error:', e); }
   updateDashStats();
   updateMasteryStats();
@@ -921,7 +1005,8 @@ async function saveProgress() {
       question_notes: progress.questionNotes || {},
       completed_tasks: progress.completedTasks || [],
       learn_progress: progress.learnProgress || {},
-      completed_cases: progress.completedCases || []
+      completed_cases: progress.completedCases || [],
+      levels: progress.levels || {}
     }, { onConflict: 'user_id' });
   } catch(e) { console.error('saveProgress error:', e); }
 }
@@ -994,8 +1079,8 @@ function filterBankNav(cat, sub) {
 // SRS intervals in minutes: [1, 10, 60, 360, 1440, 4320, 10080] (1min to 1 week)
 const SRS_INTERVALS = [1, 10, 60, 360, 1440, 4320, 10080];
 
-let progress = { 
-  answered: new Set(), 
+let progress = {
+  answered: new Set(),
   activityLog: [],
   mastery: {},
   diagnosticDone: false,
@@ -1007,7 +1092,8 @@ let progress = {
   questionNotes: {},
   completedTasks: [],
   learnProgress: {},
-  completedCases: []
+  completedCases: [],
+  levels: {}
 };
 
 let studyMode = 'all'; // 'all', 'due', 'weak', 'quick'
@@ -1581,14 +1667,14 @@ function flipCard() {
 
 function rateCard(rating) {
   if (!flashDeck.length || !flashFlipped) return;
-  
+
   const q = flashDeck[flashIdx];
   const m = getMastery(q.id);
-  
+
   // Update mastery based on rating
   m.level = rating;
   m.lastSeen = Date.now();
-  
+
   if (rating === 3) {
     // Got it - increase streak, schedule further out
     m.streak = Math.min(m.streak + 1, SRS_INTERVALS.length - 1);
@@ -1599,11 +1685,24 @@ function rateCard(rating) {
     // Unsure - decrease streak slightly
     m.streak = Math.max(0, m.streak - 1);
   }
-  
+
   // Calculate next due time
   const intervalMinutes = SRS_INTERVALS[m.streak];
   m.nextDue = Date.now() + (intervalMinutes * 60 * 1000);
-  
+
+  // Per-topic calibration signal (PRD §4.4). "Unsure" is treated as a soft
+  // miss with half weight; a hard miss and a clean hit both carry full weight.
+  const topic = topicForQuestion(q.cat, q.sub);
+  if (topic) {
+    recordLevelSignal(progress, {
+      topic,
+      cardLevel: q.level,
+      correct: rating === 3,
+      weight: rating === 2 ? 0.5 : 1,
+      source: 'flash'
+    });
+  }
+
   // Save and move to next card
   saveProgress();
   updateMasteryStats();
@@ -1855,6 +1954,12 @@ async function sendMsg() {
 async function runMockTurn(cat, firm) {
   const sendBtn = document.getElementById('chat-send');
   try {
+    if (!requireSupabase()) {
+      removeTyping();
+      appendMsg('ai', 'Supabase is not configured — please contact support.');
+      if (sendBtn) sendBtn.disabled = false;
+      return;
+    }
     const { data: { session } } = await sb.auth.getSession();
     const accessToken = session?.access_token;
     if (!accessToken) {
@@ -1899,6 +2004,25 @@ async function runMockTurn(cat, firm) {
     if (!isWrapUp) setMockProgress(mockQuestionsAsked + 1);
 
     const scoreMatch = reply.match(/Technical:\s*(\d+)\/10.*?Structure:\s*(\d+)\/10.*?Confidence:\s*(\d+)\/10/i);
+
+    // Per-topic calibration signal — one signal per scored turn, keyed off the
+    // mock category. Treat technical ≥ 6 as correct; structure/confidence are
+    // delivery dimensions and don't gate the topic-knowledge signal.
+    if (scoreMatch) {
+      const mockTopic = topicForQuestion(cat, null);
+      if (mockTopic) {
+        const tech = parseInt(scoreMatch[1], 10);
+        recordLevelSignal(progress, {
+          topic: mockTopic,
+          cardLevel: undefined,
+          correct: tech >= 6,
+          weight: 1,
+          source: 'mock'
+        });
+        saveProgress();
+      }
+    }
+
     const replyText = scoreMatch
       ? reply.replace(/Technical:\s*\d+\/10\s*\|\s*Structure:\s*\d+\/10\s*\|\s*Confidence:\s*\d+\/10/i, '').trim()
       : reply;
@@ -2099,7 +2223,20 @@ function selectQuizAnswer(el) {
     quizMistakes.push(q);
     rateCardById(q.id, 1); // Missed
   }
-  
+
+  // Per-topic calibration signal — quiz is binary correct/incorrect, full weight.
+  const quizTopic = topicForQuestion(q.cat, q.sub);
+  if (quizTopic) {
+    recordLevelSignal(progress, {
+      topic: quizTopic,
+      cardLevel: q.level,
+      correct: isCorrect,
+      weight: 1,
+      source: 'quiz'
+    });
+    saveProgress();
+  }
+
   // Show feedback
   const feedback = document.getElementById('quiz-feedback');
   if (feedback) {
@@ -2281,11 +2418,27 @@ function selectDiagAnswer(el, cat, sub) {
     diagSubCounts[sub]++;
     if (isCorrect) diagSubScores[sub]++;
   }
-  
+
+  // Diagnostic answers carry weight 3 — concentrated signal designed to
+  // confirm/promote the seeded band quickly. cardLevel is taken from the
+  // question if tagged; recordSignal defaults to intermediate otherwise.
+  const diagTopic = topicForQuestion(cat, sub);
+  if (diagTopic) {
+    const q = diagQuestions[diagIndex];
+    recordLevelSignal(progress, {
+      topic: diagTopic,
+      cardLevel: q && q.level,
+      correct: isCorrect,
+      weight: 3,
+      source: 'diagnostic'
+    });
+    saveProgress();
+  }
+
   // Brief visual feedback
   el.classList.add(isCorrect ? 'correct' : 'incorrect');
   document.querySelectorAll('#diag-answers .quiz-answer').forEach(a => a.style.pointerEvents = 'none');
-  
+
   setTimeout(() => {
     diagIndex++;
     renderDiagQuestion();
@@ -2529,7 +2682,7 @@ function viewStoryNote(index) {
 
 /* ─── BEGINNER ON-RAMP ──────────────── */
 let onrampStep = 1;
-let onrampData = { background: null, timeline: null, banks: [] };
+let onrampData = { prep: null, timeline: null, banks: [] };
 
 function selectOnramp(el, field, value) {
   // Single select - deselect others
@@ -2553,7 +2706,8 @@ function toggleOnrampMulti(el, field, value) {
 // Diagnostic is a side-trip between visible step 1 and visible step 2;
 // the dot at index 2 represents it.
 function nextOnrampStep() {
-  // After background, run the diagnostic (unless already done).
+  // After prep level, run the diagnostic (unless already done). Task 5
+  // reframes this gate as opt-in; for now the legacy gate stays in place.
   if (onrampStep === 1 && !progress.diagnosticDone) {
     saveOnrampProfileSoFar();
     document.getElementById('onramp-step-1').classList.remove('active');
@@ -2617,32 +2771,62 @@ function saveOnrampProfileSoFar() {
 }
 
 function generateOnrampSummary() {
-  const summaryEl = document.getElementById('onramp-summary');
-  let summary = '';
-  
-  const timelineLabels = {
-    '2weeks': '2-week intensive plan',
-    '1month': '4-week structured plan',
-    '3months': 'comprehensive 12-week plan',
-    'exploring': 'exploratory learning path'
-  };
-  
-  const backgroundLabels = {
-    'finance': 'finance background',
-    'econ': 'economics background',
-    'stem': 'STEM background',
-    'other': 'non-finance background'
-  };
-  
-  summary = `Based on your ${backgroundLabels[onrampData.background] || 'profile'}, we've created a ${timelineLabels[onrampData.timeline] || 'personalized plan'}`;
-  
-  if (onrampData.banks?.length) {
-    summary += ` focused on your target banks.`;
-  } else {
-    summary += ` covering all major bank interview styles.`;
+  // Render the per-topic calibration card. Same component for every user —
+  // the band pill colors do the work, so an all-foundations user and an
+  // all-advanced user see the identical layout.
+  const tableEl = document.getElementById('onramp-calibration');
+  if (!tableEl) return;
+
+  // Seed from the user's declared prep + timeline. If the user has already
+  // accumulated signal (re-entering onramp via "Edit plan"), prefer their
+  // current per-topic levels over the seed so we don't overwrite progress.
+  const haveSignal = LEVEL_TOPICS.some(t => progress.levels?.[t]?.samples > 0);
+  const levels = haveSignal
+    ? getAllLevelsFromProgress(progress)
+    : getLevelSeed({ prep: onrampData.prep, timeline: onrampData.timeline });
+
+  tableEl.replaceChildren();
+  for (const t of LEVEL_TOPICS) {
+    const lvl = levels[t];
+    const row = document.createElement('div');
+    row.className = 'cal-row';
+
+    const topic = document.createElement('div');
+    topic.className = 'cal-row-topic';
+    topic.textContent = TOPIC_LABELS[t] || t;
+
+    const pill = document.createElement('span');
+    pill.className = 'band-pill ' + lvl.band;
+    pill.textContent = lvl.band;
+
+    const conf = document.createElement('div');
+    conf.className = 'cal-row-confidence';
+    conf.textContent = lvl.confidence + ' confidence';
+
+    row.append(topic, pill, conf);
+    tableEl.appendChild(row);
   }
-  
-  summaryEl.textContent = summary;
+}
+
+// Launch the diagnostic from Step 4's optional check CTA. Task 5 will rebuild
+// the diagnostic content; here we just hand off to the existing entry point so
+// the user can confirm or fine-tune their seed before completing onramp.
+function startOnrampCalibrationCheck() {
+  const overlay = document.getElementById('onramp-overlay');
+  if (overlay) overlay.classList.remove('show');
+  setTimeout(() => {
+    const diagOverlay = document.getElementById('diagnostic-overlay');
+    if (diagOverlay) diagOverlay.classList.add('show');
+    const welcome = document.getElementById('diagnostic-welcome');
+    const active = document.getElementById('diagnostic-active');
+    const results = document.getElementById('diagnostic-results');
+    if (welcome) welcome.style.display = '';
+    if (active) active.style.display = 'none';
+    if (results) results.style.display = 'none';
+    // Mark this as a mid-onramp resume so closeDiagnostic returns the user
+    // to the onramp summary instead of dumping them on the dashboard.
+    window._onrampPendingResume = true;
+  }, 200);
 }
 
 function completeOnramp() {
@@ -3037,7 +3221,7 @@ function showOnramp() {
   // Hydrate onrampData from any previously saved profile so "Edit plan" doesn't blank fields.
   if (progress.userProfile) {
     onrampData = {
-      background: progress.userProfile.background || null,
+      prep: progress.userProfile.prep || null,
       timeline: progress.userProfile.timeline || null,
       banks: Array.isArray(progress.userProfile.banks) ? [...progress.userProfile.banks] : []
     };
@@ -3045,7 +3229,7 @@ function showOnramp() {
     requestAnimationFrame(() => {
       document.querySelectorAll('.onramp-option').forEach(opt => opt.classList.remove('selected'));
       document.querySelectorAll('#onramp-step-1 .onramp-option').forEach(opt => {
-        if (opt.getAttribute('onclick')?.includes(`'${onrampData.background}'`)) opt.classList.add('selected');
+        if (opt.getAttribute('onclick')?.includes(`'${onrampData.prep}'`)) opt.classList.add('selected');
       });
       document.querySelectorAll('#onramp-step-2 .onramp-option').forEach(opt => {
         if (opt.getAttribute('onclick')?.includes(`'${onrampData.timeline}'`)) opt.classList.add('selected');
@@ -3276,6 +3460,11 @@ window.addEventListener('DOMContentLoaded', async function() {
     console.error('Init error:', e);
   }
 
+  // Show config banner immediately if Supabase failed to initialize. The
+  // landing renders normally; auth actions short-circuit with a toast.
+  renderConfigBanner();
+  if (!sb) return;
+
   const hashParams = new URLSearchParams(window.location.hash.slice(1));
   const searchParams = new URLSearchParams(window.location.search);
 
@@ -3463,6 +3652,7 @@ async function saveProfileInfo() {
   if (!nameVal) { showProfileMsg('info', 'error', 'Name cannot be empty.'); return; }
   if (!emailVal || !emailVal.includes('@')) { showProfileMsg('info', 'error', 'Please enter a valid email.'); return; }
 
+  if (!requireSupabase()) return;
   try {
     const updates = { data: { full_name: nameVal } };
     if (emailVal !== currentUser?.email) updates.email = emailVal;
@@ -3495,6 +3685,7 @@ async function saveProfilePassword() {
 
   if (!pw || pw.length < 8) { showProfileMsg('pw', 'error', 'Password must be at least 8 characters.'); return; }
   if (pw !== confirm) { showProfileMsg('pw', 'error', 'Passwords do not match.'); return; }
+  if (!requireSupabase()) return;
 
   try {
     const { data, error } = await sb.auth.updateUser({ password: pw });
@@ -3535,28 +3726,3 @@ document.addEventListener('DOMContentLoaded', function() {
 
 /* ─── WIRE MODULE DEPENDENCIES ──────── */
 setMapDeps({ getMasteryClass, showView });
-
-/* ─── EXPOSE GLOBALS FOR INLINE HANDLERS ─── */
-// Temporary: needed because index.html uses onclick="fn()" attributes.
-// These will be removed when we migrate to addEventListener.
-Object.assign(window, {
-  addNewStory, calcROI, closeDiagnostic,
-  closeDiagnosticToLanding, closeDiagnosticToPlan, closeLearnModule, completeOnramp, demoChatSend,
-  demoFilterBank, demoFlipCard, demoFCNav, demoFCShuffle, demoToggleQ,
-  doForgotPassword, doLogin, doSetNewPassword, doSignOut, doSignup, filterBank, filterBankNav, filterSub,
-  flipCard, goToDueReview, mapFitAll, mapResetView, mapZoom,
-  navScrollTo, nextCard, nextLearnSection, nextOnrampStep, nextQuizQuestion,
-  openLearnModule, prevCard, prevLearnSection, prevOnrampStep, prevNav,
-  pvBankFilter, pvFlipCard, pvFCNav, pvMockSend, pvToggleQ, rateCard,
-  renderBank, reviewQuizMistakes, saveProfileInfo,
-  saveProfilePassword, selectDiagAnswer, selectOnramp, selectQuizAnswer,
-  sendMsg, setFlashCat, setNavActive,
-  setStudyMode, showAuthTab, showForgotPassword, showOnramp, showQuizSetup, startCheckout, openSubscriptionPortal,
-  openInlineAuth, closeInlineAuth, switchInlineAuthTab, doInlineLogin, doInlineSignup,
-  showScreen, showView, shuffleFlash, skipDiagnostic, smartPractice,
-  startDiagnostic, startDirectDiagnostic, startMock,
-  startQuiz, switchAuthTab, toggleFaq, toggleOnrampMulti,
-  toggleProfileEdit, toggleQ, toggleStoryPanel, toggleTheme,
-  toggleCardWhy, toggleSylWeek, toggleSyllabusTask, syllabusAction,
-  viewStoryNote
-});
