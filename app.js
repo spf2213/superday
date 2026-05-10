@@ -1002,7 +1002,7 @@ function showView(id) {
   document.querySelectorAll('.sb-item').forEach(n => n.classList.remove('active'));
   const view = document.getElementById('view-' + id);
   if (view) view.classList.add('active');
-  const labels = { dashboard: 'Dashboard', flash: 'Flashcards', mock: 'Mock Interview', learn: 'Concepts', profile: 'Profile' };
+  const labels = { dashboard: 'Dashboard', flash: 'Flashcards', mock: 'Mock Interview', video: 'Video Interview', learn: 'Concepts', profile: 'Profile' };
   document.querySelectorAll('.sb-item').forEach(n => {
     if (n.textContent.trim().toLowerCase().includes((labels[id] || id).toLowerCase())) n.classList.add('active');
   });

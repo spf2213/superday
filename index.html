@@ -923,6 +923,7 @@
       <div class="sb-item" onclick="showView('flash')"><span class="sb-icon">⬡</span>Flashcards</div>
       <div class="sb-section">Test</div>
       <div class="sb-item" onclick="showView('mock')"><span class="sb-icon">◎</span>Mock Interview</div>
+      <div class="sb-item" onclick="showView('video')"><span class="sb-icon">▶</span>Video Interview</div>
     </div>
     <div class="sb-spacer"></div>
     <div class="sb-bottom">
@@ -1296,6 +1297,21 @@
             <textarea class="chat-ta" id="chat-input" placeholder="Type your answer…" rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
             <button class="chat-send" id="chat-send" onclick="sendMsg()">↑</button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── VIDEO INTERVIEW ── -->
+    <div class="app-view" id="view-video">
+      <div class="view-header">
+        <div class="view-title">Video Interview</div>
+        <div class="view-sub">Record yourself answering on camera. Coming soon.</div>
+      </div>
+      <div class="video-wrap">
+        <div class="video-placeholder">
+          <div class="video-placeholder-icon">▶</div>
+          <div class="video-placeholder-title">Video Interview</div>
+          <div class="video-placeholder-sub">We're building this. Check back soon.</div>
         </div>
       </div>
     </div>
