@@ -1787,10 +1787,48 @@ body:has(.dss-mode.active) { overflow:hidden }
   display:inline-block;padding:8px 20px;border-radius:20px;
   font-size:14px;font-weight:600;margin-bottom:16px;
 }
+.diagnostic-band.foundations{background:rgba(140,140,140,0.12);color:var(--t-2)}
 .diagnostic-band.beginner{background:var(--red-dim);color:var(--red)}
 .diagnostic-band.intermediate{background:var(--amber-dim);color:var(--amber)}
 .diagnostic-band.advanced{background:var(--blue-dim);color:var(--blue)}
 .diagnostic-band.expert{background:var(--green-dim);color:var(--green)}
+
+/* PER-TOPIC CALIBRATION TABLE — used in onramp Step 4, dashboard Level tile,
+   and diagnostic results. Same component for every band so movement reads
+   visually as a color shift, not a layout change. */
+.calibration-table{
+  display:flex;flex-direction:column;gap:6px;
+  margin:16px 0 20px;text-align:left;
+}
+.cal-row{
+  display:grid;grid-template-columns:1fr auto auto;align-items:center;
+  gap:12px;padding:10px 14px;
+  background:var(--bg-2);border:1px solid var(--line);border-radius:var(--r);
+}
+.cal-row-topic{font-size:13px;color:var(--t);font-weight:500;text-transform:capitalize}
+.cal-row-confidence{font-size:11px;color:var(--t-3);text-transform:uppercase;letter-spacing:0.05em}
+.cal-row-deltas{display:flex;align-items:center;gap:6px}
+.cal-row-arrow{color:var(--t-3);font-size:13px;line-height:1}
+.cal-row-arrow.up{color:var(--green)}
+.cal-row-arrow.down{color:var(--red)}
+.cal-row-pill-wrap{display:inline-flex;align-items:center;gap:6px}
+.cal-row.cal-row-clickable{
+  cursor:pointer;text-align:left;font:inherit;color:inherit;
+  width:100%;border:1px solid var(--line);
+  transition:var(--trans);
+}
+.cal-row.cal-row-clickable:hover{
+  background:var(--bg-3);border-color:var(--line-2);
+}
+.band-pill{
+  display:inline-block;padding:4px 12px;border-radius:12px;
+  font-size:11px;font-weight:600;text-transform:capitalize;letter-spacing:0.02em;
+}
+.band-pill.foundations{background:rgba(140,140,140,0.12);color:var(--t-2)}
+.band-pill.beginner{background:var(--red-dim);color:var(--red)}
+.band-pill.intermediate{background:var(--amber-dim);color:var(--amber)}
+.band-pill.advanced{background:var(--blue-dim);color:var(--blue)}
+.band-pill.expert{background:var(--green-dim);color:var(--green)}
 .diagnostic-score-big{font-size:72px;font-weight:600;line-height:1}
 .diagnostic-score-label{font-size:14px;color:var(--t-2);margin-bottom:24px}
 .diagnostic-breakdown{
@@ -2061,6 +2099,36 @@ body:has(.dss-mode.active) { overflow:hidden }
 }
 .syl-task-action:hover{background:var(--accent);border-color:var(--accent);color:white}
 
+/* PRD §5 Task 10: per-task gap-based treatment.
+   gap > 1   → user is past content (.gap-past)    → strikethrough + Drill anyway
+   gap == 1  → one band below user (.gap-easy)     → dimmed but accessible
+   gap < -1  → above user's level (.gap-stretch)   → "stretch you" hint
+   gap 0/-1                                         → normal sweet spot */
+.syl-task-main{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0}
+.syl-task-row{display:flex;align-items:center;gap:8px;min-width:0}
+.syl-task-row .syl-task-label{flex:1;min-width:0}
+.syl-task-level{flex-shrink:0}
+.syl-task-hint{
+  font-size:11px;color:var(--t-3);line-height:1.4;
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+}
+.syl-task-drill-anyway{
+  background:transparent;border:none;padding:0;
+  color:var(--accent);font-size:11px;cursor:pointer;
+  font-family:inherit;text-decoration:underline;
+}
+.syl-task-drill-anyway:hover{opacity:0.8}
+.syl-task.gap-easy{opacity:0.55}
+.syl-task.gap-past{opacity:0.55}
+.syl-task.gap-past .syl-task-label{text-decoration:line-through;color:var(--t-3)}
+.syl-task.gap-stretch{border-color:var(--amber)}
+.syl-week.past-by-level{opacity:0.55}
+.syl-week-past-tag{
+  display:inline-block;margin-left:8px;padding:1px 8px;
+  border-radius:10px;background:var(--bg-3);color:var(--t-3);
+  font-size:10px;font-weight:500;text-transform:lowercase;letter-spacing:0.02em;
+}
+
 /* SYLLABUS — onramp preview */
 .syllabus-preview{margin:16px 0 20px;text-align:left}
 .syl-pre-meta{
@@ -2268,6 +2336,29 @@ body:has(.dss-mode.active) { overflow:hidden }
 }
 .chat-send:hover{opacity:0.85}
 .chat-send:disabled{opacity:0.3;cursor:not-allowed}
+.chat-hint{
+  flex-shrink:0;align-self:center;height:36px;padding:0 12px;
+  background:transparent;border:1px solid var(--line);border-radius:var(--r);
+  color:var(--t-2);font-size:12px;cursor:pointer;font-family:inherit;
+  transition:var(--trans);
+}
+.chat-hint:hover{border-color:var(--accent);color:var(--accent)}
+
+/* PRD §5 Task 11: per-topic mock-mode banner. Auto-set from per-topic
+   levels; the user can step up/down without touching the dropdown. */
+.mock-mode-banner{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  margin-bottom:12px;padding:10px 14px;
+  background:var(--bg-2);border:1px solid var(--line);border-radius:var(--r);
+  font-size:12px;color:var(--t-2);
+}
+.mock-mode-step{
+  background:transparent;border:1px solid var(--line);border-radius:var(--r);
+  padding:4px 10px;font-size:11px;color:var(--t-2);cursor:pointer;
+  font-family:inherit;transition:var(--trans);
+}
+.mock-mode-step:hover{border-color:var(--accent);color:var(--accent)}
+.mock-mode-step:disabled{opacity:0.4;cursor:not-allowed}
 
 /* MEDIA */
 @media(max-width:1000px){

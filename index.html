@@ -244,7 +244,7 @@
         <p class="hero-neg">No bullsh*t.</p>
         <p class="hero-close">Just a learning plan tailored to your level, hundreds of real interview questions, and real-time AI feedback.</p>
         <div style="margin-top:80px">
-          <button onclick="openInlineAuth('signup')" style="width:fit-content;padding:9px 14px;font-size:12px;font-family:inherit;font-weight:500;cursor:pointer;border-radius:var(--r);background:var(--accent);border:none;color:#fff;letter-spacing:-0.01em;transition:opacity 0.2s" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">Learn the 400 in 4 Weeks →</button>
+          <button onclick="openInlineAuth('signup')" style="width:fit-content;padding:9px 14px;font-size:12px;font-family:inherit;font-weight:500;cursor:pointer;border-radius:var(--r);background:var(--accent);border:none;color:#fff;letter-spacing:-0.01em;transition:opacity 0.2s" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">Start your 4-week plan →</button>
         </div>
       </div>
 
@@ -298,14 +298,14 @@
           <!-- ── DASHBOARD ── -->
           <div id="pv-dashboard" style="display:flex;flex-direction:column;gap:0;height:100%">
             <div style="flex-shrink:0">
-              <div class="pm-greeting">Good morning, Alex.</div>
+              <div class="pm-greeting">Good morning.</div>
               <div class="pm-date">Sunday · Feb 15, 2026</div>
             </div>
             <div class="pm-stats" style="flex-shrink:0">
               <div class="pm-stat">
                 <div class="pm-stat-label">Answered</div>
                 <div class="pm-stat-val" style="color:var(--t)">14</div>
-                <div class="pm-stat-sub">of 250 questions</div>
+                <div class="pm-stat-sub">of 280+ questions</div>
                 <div class="pm-stat-bar"><div class="pm-stat-fill" style="width:22%"></div></div>
               </div>
               <div class="pm-stat">
@@ -537,7 +537,7 @@
         <div data-reveal="left" data-dur="slow">
           <div class="feat-tag">Learn Effortlessly</div>
           <h2 class="feat-h">Start anywhere. Master everything.</h2>
-          <p class="feat-p">250+ real interview questions with expert answers. Firm-specific question sets for Goldman, Morgan Stanley, and more. Learn at your pace — Superday does the heavy lifting.</p>
+          <p class="feat-p">280+ real interview questions with expert answers. Firm-specific question sets for Goldman, Morgan Stanley, and more. Learn at your pace — Superday does the heavy lifting.</p>
           <button class="btn-primary" onclick="openInlineAuth('signup')">Start learning →</button>
         </div>
         <div class="demo-card" data-reveal="right" data-dur="slow">
@@ -728,7 +728,7 @@
         <button class="pricing-btn ghost" onclick="openInlineAuth('signup')">Start free trial</button>
         <div class="pricing-divider"></div>
         <div class="pricing-features">
-          <div class="pf-item"><span class="pf-check">✓</span>Full question bank (250+ questions)</div>
+          <div class="pf-item"><span class="pf-check">✓</span>Full question bank (280+ questions)</div>
           <div class="pf-item"><span class="pf-check">✓</span>Flashcard mode</div>
           <div class="pf-item"><span class="pf-check">✓</span>Progress tracking</div>
           <div class="pf-item muted"><span class="pf-check">–</span>AI mock interviews</div>
@@ -749,7 +749,7 @@
         <button class="pricing-btn primary" onclick="openInlineAuth('signup')">Get full access →</button>
         <div class="pricing-divider"></div>
         <div class="pricing-features">
-          <div class="pf-item"><span class="pf-check">✓</span>Full question bank (250+ questions)</div>
+          <div class="pf-item"><span class="pf-check">✓</span>Full question bank (280+ questions)</div>
           <div class="pf-item"><span class="pf-check">✓</span>Flashcard mode</div>
           <div class="pf-item"><span class="pf-check">✓</span>Progress tracking</div>
           <div class="pf-item"><span class="pf-check">✓</span>AI mock interviews (unlimited)</div>
@@ -853,7 +853,7 @@
     <div class="faq-list">
       <div class="faq-item" onclick="toggleFaq(this)">
         <div class="faq-q">What types of questions are covered? <span class="faq-caret">⌄</span></div>
-        <div class="faq-a">Everything you'll face in a real IB interview: 140 technical questions (Accounting, Valuation, LBO, and M&amp;A), 35 Behaviorals, 25 Brain Teasers, and 50 Deals &amp; Markets questions — 250 total. Every single one comes with a model answer and an interviewer tip that tells you how a banker actually evaluates the response.</div>
+        <div class="faq-a">Everything you'll face in a real IB interview: 150 technical questions (Accounting, Valuation, LBO, and M&amp;A), 39 Behaviorals, 36 Brain Teasers, and 59 Deals &amp; Markets questions — 284 total. Every single one comes with a model answer and an interviewer tip that tells you how a banker actually evaluates the response.</div>
       </div>
       <div class="faq-item" onclick="toggleFaq(this)">
         <div class="faq-q">How is the AI mock different from just reading answers? <span class="faq-caret">⌄</span></div>
@@ -931,9 +931,9 @@
     <div class="sb-spacer"></div>
     <div class="sb-bottom">
       <div class="sb-user" style="cursor:pointer" onclick="showView('profile')">
-        <div class="sb-avatar" id="sb-avatar">J</div>
+        <div class="sb-avatar" id="sb-avatar"></div>
         <div style="flex:1;min-width:0">
-          <div class="sb-user-name" id="sb-name">Jamie</div>
+          <div class="sb-user-name" id="sb-name"></div>
           <div class="sb-user-plan" id="sb-email-display" style="font-size:10px;color:var(--t-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
         </div>
         <div class="sb-theme-toggle" onclick="event.stopPropagation();toggleTheme()" title="Toggle theme">
@@ -958,15 +958,12 @@
       <!-- HERO: Welcome + Streak + Daily Goal Ring -->
       <div class="dash-hero">
         <div class="dash-hero-left">
-          <div class="dash-h">Good morning, <span id="greeting-name">Jamie</span>.</div>
+          <div class="dash-h">Good morning<span id="greeting-name-wrap" style="display:none">, <span id="greeting-name"></span></span>.</div>
           <div class="dash-date" id="dash-date"></div>
         </div>
         <div class="dash-hero-right">
-          <div class="dash-hero-streak" id="dash-hero-streak">
-            <span class="streak-flame">●</span>
-            <span class="streak-num" id="hero-streak-num">0</span>
-            <span class="streak-label">day streak</span>
-          </div>
+          <!-- PRD §5 Task 12: streak lives in the KPI ring (one source of
+               truth). Hero panel keeps just the daily-goal indicator. -->
           <div class="dash-hero-goal" id="dash-hero-goal">
             <svg class="goal-ring" width="48" height="48" viewBox="0 0 48 48">
               <circle cx="24" cy="24" r="20" fill="none" stroke="var(--bg-4)" stroke-width="4"/>
@@ -1000,7 +997,7 @@
               <div class="kpi-ring-inner">
                 <div class="kpi-val" id="kpi-answered">0</div>
                 <div class="kpi-label">Answered</div>
-                <div class="kpi-sub">of <span id="kpi-total">250</span></div>
+                <div class="kpi-sub">of <span id="kpi-total">0</span></div>
               </div>
             </div>
             <div class="kpi-card kpi-card-ring">
@@ -1011,7 +1008,7 @@
               <div class="kpi-ring-inner">
                 <div class="kpi-val" id="kpi-mastered" style="color:var(--green)">0</div>
                 <div class="kpi-label">Mastered</div>
-                <div class="kpi-sub">of 250</div>
+                <div class="kpi-sub">of <span id="kpi-mastered-total">0</span></div>
               </div>
             </div>
             <div class="kpi-card kpi-card-ring">
@@ -1026,6 +1023,16 @@
               </div>
               <div class="streak-row" id="streak-dots"></div>
             </div>
+          </div>
+
+          <!-- Per-topic calibration tile (PRD Task 7). Practice updates this
+               in real time so users at every band see their placement move. -->
+          <div class="dash-panel" id="levels-panel">
+            <div class="dp-header">
+              <span class="dp-title">Your levels</span>
+              <span class="dp-action" id="levels-updated" style="cursor:default">Updated just now</span>
+            </div>
+            <div class="calibration-table" id="levels-table"></div>
           </div>
 
           <!-- Daily Goal + Learning Path Side-by-Side -->
@@ -1110,7 +1117,7 @@
               <span class="dp-title">Recent Activity</span>
             </div>
             <div class="activity-list activity-list-compact" id="activity-list">
-              <div style="padding:32px 16px;text-align:center;font-size:12.5px;color:var(--t-3)">No activity yet — start practicing.</div>
+              <div style="padding:32px 16px;text-align:center;font-size:12.5px;color:var(--t-3)">Answer your first question to start your activity log.</div>
             </div>
           </div>
         </div>
@@ -1148,7 +1155,7 @@
     <div class="app-view" id="view-bank">
       <div class="view-header">
         <div class="view-title">Question Bank</div>
-        <div class="view-sub">250+ curated questions with model answers and interview tips</div>
+        <div class="view-sub">280+ curated questions with model answers and interview tips</div>
       </div>
       <div class="bank-toolbar">
         <input class="bank-search" type="text" id="bank-search" placeholder="Search questions…" oninput="renderBank()"/>
@@ -1179,7 +1186,7 @@
         <!-- Study Modes -->
         <div class="study-mode-bar" id="study-mode-bar">
           <button class="mode-btn active" data-mode="all" onclick="setStudyMode('all')">
-            <span class="mode-icon">📚</span>All Cards<span class="mode-count" id="mode-count-all">120</span>
+            <span class="mode-icon">📚</span>All Cards<span class="mode-count" id="mode-count-all">0</span>
           </button>
           <button class="mode-btn" data-mode="due" onclick="setStudyMode('due')">
             <span class="mode-icon">○</span>Due for Review<span class="mode-count" id="mode-count-due">0</span>
@@ -1197,7 +1204,7 @@
           <div class="mastery-stat">
             <span class="mastery-dot new"></span>
             <span>New:</span>
-            <span class="mastery-stat-val" id="stat-new">120</span>
+            <span class="mastery-stat-val" id="stat-new">0</span>
           </div>
           <div class="mastery-stat">
             <span class="mastery-dot learning"></span>
@@ -1217,9 +1224,10 @@
           <button class="bank-pill" data-fcat="beh" onclick="setFlashCat('beh')">Behavioral</button>
           <button class="bank-pill" data-fcat="brain" onclick="setFlashCat('brain')">Brain Teasers</button>
           <button class="bank-pill" data-fcat="deal" onclick="setFlashCat('deal')">Deals &amp; Markets</button>
+          <button class="bank-pill active" id="flash-at-level-pill" onclick="toggleFlashAtLevel()" title="Filter to cards within one band of your current level for each topic">At your level</button>
           <button class="bank-pill" onclick="shuffleFlash()">⟳ Shuffle</button>
         </div>
-        <div class="flash-meta" id="flash-meta">Card 1 of 120</div>
+        <div class="flash-meta" id="flash-meta">Card 1 of 0</div>
         <div class="flash-bar"><div class="flash-bar-fill" id="flash-bar-fill" style="width:0%"></div></div>
         <div class="card-scene" onclick="flipCard()">
           <div class="card-inner" id="card-inner">
@@ -1419,9 +1427,9 @@
       <div class="profile-wrap">
         <!-- Avatar + Name Header -->
         <div class="profile-hero">
-          <div class="profile-avatar-lg" id="profile-avatar-lg">J</div>
+          <div class="profile-avatar-lg" id="profile-avatar-lg"></div>
           <div class="profile-hero-info">
-            <div class="profile-hero-name" id="profile-hero-name">Jamie</div>
+            <div class="profile-hero-name" id="profile-hero-name"></div>
             <div class="profile-hero-email" id="profile-hero-email"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="ef858e82868aaf8a978e829f838ac18c8082">[email&#160;protected]</a></div>
           </div>
         </div>
@@ -1513,6 +1521,13 @@
         <div class="view-sub">Practice with a VP-level interviewer. Get scored on every answer.</div>
       </div>
       <div class="mock-wrap">
+        <!-- Per-topic calibration banner — auto-set based on the user's
+             per-topic levels; user can override either way. -->
+        <div class="mock-mode-banner" id="mock-mode-banner" style="display:none">
+          <span id="mock-mode-banner-text">We've started you in VP.</span>
+          <button type="button" class="mock-mode-step" id="mock-mode-step-down" onclick="stepMockMode(-1)">Step down</button>
+          <button type="button" class="mock-mode-step" id="mock-mode-step-up" onclick="stepMockMode(1)">Step up</button>
+        </div>
         <div class="mock-config">
           <select class="app-select" id="mock-cat">
             <option value="tech">Technical</option>
@@ -1521,12 +1536,23 @@
             <option value="deal">Deals &amp; Markets</option>
           </select>
           <select class="app-select" id="mock-firm">
-            <option>Goldman Sachs</option>
-            <option>J.P. Morgan</option>
-            <option>Morgan Stanley</option>
-            <option>Evercore</option>
-            <option>Lazard</option>
-            <option>Blackstone</option>
+            <optgroup label="Bulge bracket">
+              <option>Goldman Sachs</option>
+              <option>J.P. Morgan</option>
+              <option>Morgan Stanley</option>
+            </optgroup>
+            <optgroup label="Elite boutiques">
+              <option>Evercore</option>
+              <option>Lazard</option>
+            </optgroup>
+            <optgroup label="Private equity">
+              <option>Blackstone</option>
+            </optgroup>
+          </select>
+          <select class="app-select" id="mock-mode">
+            <option value="warmup">Warm-up</option>
+            <option value="vp" selected>VP</option>
+            <option value="vp_curveball">VP + Curveball</option>
           </select>
           <button class="btn-start-mock" onclick="startMock()">Start Interview</button>
         </div>
@@ -1553,6 +1579,7 @@
             </div>
           </div>
           <div class="chat-input-bar">
+            <button type="button" class="chat-hint" id="chat-hint" onclick="askForHint()" style="display:none" title="Ask the interviewer for a hint">Hint</button>
             <textarea class="chat-ta" id="chat-input" placeholder="Type your answer…" rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
             <button class="chat-send" id="chat-send" onclick="sendMsg()">↑</button>
           </div>
@@ -1589,28 +1616,32 @@
       <div class="onramp-dot" data-step="5"></div>
     </div>
     
-    <!-- Step 1: Background -->
+    <!-- Step 1: Prep level -->
     <div class="onramp-step active" id="onramp-step-1">
       <div class="onramp-card">
         <div class="onramp-icon">🎓</div>
-        <div class="onramp-title">What's your background?</div>
-        <div class="onramp-desc">We'll customize your learning path based on your experience level.</div>
+        <div class="onramp-title">Where are you in your prep?</div>
+        <div class="onramp-desc">A direct read on prep beats guessing from your major. We'll calibrate per topic from this and adjust as you practice.</div>
         <div class="onramp-options">
-          <div class="onramp-option" onclick="selectOnramp(this, 'background', 'finance')">
-            <span class="onramp-option-icon">◆</span>
-            <span class="onramp-option-text">Finance / Accounting major</span>
-          </div>
-          <div class="onramp-option" onclick="selectOnramp(this, 'background', 'econ')">
-            <span class="onramp-option-icon">◇</span>
-            <span class="onramp-option-text">Economics / Business major</span>
-          </div>
-          <div class="onramp-option" onclick="selectOnramp(this, 'background', 'stem')">
+          <div class="onramp-option" onclick="selectOnramp(this, 'prep', 'brand_new')">
             <span class="onramp-option-icon">○</span>
-            <span class="onramp-option-text">STEM major (Engineering, CS, Math)</span>
+            <span class="onramp-option-text">Brand new — never read a guide</span>
           </div>
-          <div class="onramp-option" onclick="selectOnramp(this, 'background', 'other')">
-            <span class="onramp-option-icon">□</span>
-            <span class="onramp-option-text">Liberal Arts / Other</span>
+          <div class="onramp-option" onclick="selectOnramp(this, 'prep', 'self_study')">
+            <span class="onramp-option-icon">◐</span>
+            <span class="onramp-option-text">Some self-study — books, YouTube, online guides</span>
+          </div>
+          <div class="onramp-option" onclick="selectOnramp(this, 'prep', 'coursework')">
+            <span class="onramp-option-icon">◑</span>
+            <span class="onramp-option-text">Coursework — taken corporate finance or accounting</span>
+          </div>
+          <div class="onramp-option" onclick="selectOnramp(this, 'prep', 'real_practice')">
+            <span class="onramp-option-icon">◕</span>
+            <span class="onramp-option-text">Real practice — mocks, clubs, prep programs</span>
+          </div>
+          <div class="onramp-option" onclick="selectOnramp(this, 'prep', 'working')">
+            <span class="onramp-option-icon">●</span>
+            <span class="onramp-option-text">Working in finance — current intern or analyst</span>
           </div>
         </div>
         <div class="onramp-actions">
@@ -1681,16 +1712,18 @@
       </div>
     </div>
     
-    <!-- Step 4: Plan Preview -->
+    <!-- Step 4: Calibration card + plan preview -->
     <div class="onramp-step" id="onramp-step-4">
       <div class="onramp-card onramp-card-wide">
         <div class="onramp-icon">📋</div>
-        <div class="onramp-title">Here's your plan</div>
-        <div class="onramp-desc" id="onramp-summary">Built from your diagnostic and timeline. We'll adapt it as you progress.</div>
+        <div class="onramp-title">Here's where we've placed you</div>
+        <div class="calibration-table" id="onramp-calibration"></div>
+        <div class="onramp-desc" id="onramp-summary">Based on what you told us. We'll re-calibrate as you practice — or take an optional 5-question check to fine-tune now.</div>
         <div class="syllabus-preview" id="onramp-plan-preview"></div>
         <div class="onramp-actions">
           <button class="quiz-btn ghost" onclick="prevOnrampStep()">← Back</button>
-          <button class="quiz-btn primary" onclick="completeOnramp()">Start Preparing →</button>
+          <button class="quiz-btn ghost" onclick="startOnrampCalibrationCheck()">Take 5-question check</button>
+          <button class="quiz-btn primary" onclick="completeOnramp()">Skip — start learning →</button>
         </div>
       </div>
     </div>
@@ -1704,16 +1737,15 @@
     <div id="diagnostic-welcome">
       <div class="diagnostic-header">
         <div class="diagnostic-icon">◎</div>
-        <div class="diagnostic-title">Let's calibrate your prep</div>
-        <div class="diagnostic-sub">Answer 10 quick questions so we can personalize your experience and focus on what you need most.</div>
+        <div class="diagnostic-title">A quick check to fine-tune your levels</div>
+        <div class="diagnostic-sub">Up to 10 questions, targeted to your current band per topic. We'll re-calibrate based on what you get right.</div>
       </div>
       <div class="diagnostic-card">
         <div style="text-align:center">
           <p style="font-size:14px;color:var(--t-2);margin-bottom:20px;line-height:1.6">
-            This 2-minute assessment covers accounting, valuation, LBO, behavioral, and market concepts. 
-            We'll place you in the right difficulty band and customize your learning path.
+            Each question is one band above where we've placed you (or expert if you're already there) — so this tests for promotion, not the basics. Takes about two minutes.
           </p>
-          <button class="quiz-btn primary" style="width:100%" onclick="startDiagnostic()">Start Assessment →</button>
+          <button class="quiz-btn primary" style="width:100%" onclick="startDiagnostic()">Start check →</button>
           <button class="quiz-btn ghost" style="width:100%;margin-top:10px" onclick="skipDiagnostic()">Skip for now</button>
         </div>
       </div>
@@ -1736,42 +1768,21 @@
     <div id="diagnostic-results" style="display:none">
       <div class="diagnostic-header">
         <div class="diagnostic-icon">◇</div>
-        <div class="diagnostic-title">Assessment Complete</div>
+        <div class="diagnostic-title">We've adjusted your levels.</div>
       </div>
       <div class="diagnostic-card">
-        <div class="diagnostic-results">
-          <div class="diagnostic-band" id="diag-band">INTERMEDIATE</div>
-          <div class="diagnostic-score-big" id="diag-score">70%</div>
-          <div class="diagnostic-score-label">Overall Score</div>
-          <div class="diagnostic-breakdown">
-            <div class="diagnostic-breakdown-item">
-              <div class="diagnostic-breakdown-val" id="diag-tech-score">0%</div>
-              <div class="diagnostic-breakdown-label">Technical</div>
-            </div>
-            <div class="diagnostic-breakdown-item">
-              <div class="diagnostic-breakdown-val" id="diag-beh-score">0%</div>
-              <div class="diagnostic-breakdown-label">Behavioral</div>
-            </div>
-            <div class="diagnostic-breakdown-item">
-              <div class="diagnostic-breakdown-val" id="diag-deal-score">0%</div>
-              <div class="diagnostic-breakdown-label">Markets</div>
-            </div>
+        <div class="calibration-table" id="diag-deltas"></div>
+        <!-- Save results email capture (for direct/guest access) -->
+        <div id="diag-save-results" style="display:none;margin:16px 0;padding:16px;background:var(--bg-2);border-radius:var(--r);border:1px solid var(--line)">
+          <div style="font-size:12px;color:var(--t-2);margin-bottom:8px">Save your results and get a personalized plan:</div>
+          <div style="display:flex;gap:8px">
+            <input type="email" id="diag-email" placeholder="your@email.com" style="flex:1;padding:8px 12px;background:var(--bg-3);border:1px solid var(--line);border-radius:var(--r);font-size:13px;color:var(--t);outline:none"/>
+            <button class="quiz-btn primary" style="padding:8px 16px" onclick="saveDiagEmail()">Save →</button>
           </div>
-          <p style="font-size:13px;color:var(--t-2);margin-bottom:20px;line-height:1.6" id="diag-recommendation">
-            Based on your results, we recommend focusing on technical accounting concepts.
-          </p>
-          <!-- Save results email capture (for direct/guest access) -->
-          <div id="diag-save-results" style="display:none;margin-bottom:16px;padding:16px;background:var(--bg-2);border-radius:var(--r);border:1px solid var(--line)">
-            <div style="font-size:12px;color:var(--t-2);margin-bottom:8px">Save your results and get a personalized plan:</div>
-            <div style="display:flex;gap:8px">
-              <input type="email" id="diag-email" placeholder="your@email.com" style="flex:1;padding:8px 12px;background:var(--bg-3);border:1px solid var(--line);border-radius:var(--r);font-size:13px;color:var(--t);outline:none"/>
-              <button class="quiz-btn primary" style="padding:8px 16px" onclick="saveDiagEmail()">Save →</button>
-            </div>
-          </div>
-          <button class="quiz-btn primary" style="width:100%" id="diag-view-plan" onclick="closeDiagnosticToPlan()">View my plan →</button>
-          <button class="quiz-btn ghost" style="width:100%;margin-top:8px" onclick="closeDiagnostic()">Start Learning →</button>
-          <button class="quiz-btn ghost" style="width:100%;margin-top:8px;display:none" id="diag-back-to-landing" onclick="closeDiagnosticToLanding()">← Back to homepage</button>
         </div>
+        <button class="quiz-btn primary" style="width:100%;margin-top:16px" id="diag-view-plan" onclick="closeDiagnosticToPlan()">View my plan →</button>
+        <button class="quiz-btn ghost" style="width:100%;margin-top:8px" onclick="closeDiagnostic()">Start Learning →</button>
+        <button class="quiz-btn ghost" style="width:100%;margin-top:8px;display:none" id="diag-back-to-landing" onclick="closeDiagnosticToLanding()">← Back to homepage</button>
       </div>
     </div>
   </div>

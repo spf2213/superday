@@ -3,6 +3,79 @@ import { QUESTIONS } from './src/data/questions.js';
 import { LEARN_MODULES } from './src/data/learnModules.js';
 import { setNavActive, toggleTheme } from './src/theme.js';
 import { renderKnowledgeMap, mapZoom, mapFitAll, mapResetView, setMapDeps } from './src/map.js';
+import { migrateLegacy as migrateLevels, recordSignal as recordLevelSignal, getSeed as getLevelSeed, getLevel as getTopicLevel, getAllLevels as getAllLevelsFromProgress, bandIndex as toBandIndex, bandFromIndex as fromBandIndex, distance as bandDistance, BANDS as LEVEL_BANDS, TOPICS as LEVEL_TOPICS } from './src/levels.js';
+
+// Wrap recordSignal with a UI feedback pass: any band transition fires a toast
+// and appends an activity-log entry. Pure model logic stays in levels.js;
+// app.js owns side effects.
+function recordSignalWithFeedback(opts) {
+  const result = recordLevelSignal(progress, opts);
+  if (!result || result.prevBand === result.newBand) return result;
+
+  const goingUp = toBandIndex(result.newBand) > toBandIndex(result.prevBand);
+  const topicLabel = TOPIC_LABELS[result.topic] || result.topic;
+  const samples = result.level.samples;
+  const message = goingUp
+    ? `Calibrated up to ${result.newBand} in ${topicLabel} — based on your last ${samples} answers.`
+    : `Recalibrated to ${result.newBand} in ${topicLabel}. Drill these to come back up.`;
+  showToast(message, { icon: goingUp ? '↑' : '↓', ms: 4500 });
+
+  if (!progress.activityLog) progress.activityLog = [];
+  progress.activityLog.unshift({
+    cat: 'levels',
+    title: message,
+    time: 'Just now'
+  });
+  // Match the existing 6-entry cap used by the bank-answer activity push.
+  if (progress.activityLog.length > 6) progress.activityLog.length = 6;
+
+  // Silently widen/narrow the active flash deck so the user keeps practicing
+  // band-appropriate cards across the transition. PRD §5 Task 9: "no refresh
+  // needed". refreshFlashDeck preserves the current card if still in the
+  // pool, so the transition doesn't yank them mid-flip.
+  if (flashAtLevel) {
+    const flashView = document.getElementById('view-flash');
+    if (flashView && flashView.classList.contains('active')) {
+      refreshFlashDeck();
+      updateMasteryStats();
+    }
+  }
+  return result;
+}
+
+// Stopgap until Task 6 tags every question with a `level` field. Maps the
+// legacy difficulty (1/2/3) to a band string so question-selection logic can
+// target a band today without waiting on the data pass.
+function questionLevel(q) {
+  if (q && LEVEL_BANDS.includes(q.level)) return q.level;
+  if (q && q.difficulty === 1) return 'beginner';
+  if (q && q.difficulty === 2) return 'intermediate';
+  if (q && q.difficulty === 3) return 'advanced';
+  return 'intermediate';
+}
+
+// Friendly labels for the seven calibration topics. Exposed so every UX
+// surface reads from one source.
+const TOPIC_LABELS = {
+  accounting: 'Accounting',
+  valuation:  'Valuation',
+  lbo:        'LBO',
+  ma:         'M&A',
+  markets:    'Markets',
+  behavioral: 'Behavioral',
+  brain:      'Brain teasers'
+};
+
+// Map a question's (cat, sub) into one of the seven calibration topics defined
+// by levels.js. Returns null when the question isn't classified — callers
+// short-circuit instead of recording a junk signal.
+function topicForQuestion(cat, sub) {
+  if (cat === 'tech') return sub || null;
+  if (cat === 'beh') return 'behavioral';
+  if (cat === 'deal') return 'markets';
+  if (cat === 'brain') return 'brain';
+  return null;
+}
 import './src/animations.js';
 /* ─── SCROLL HELPERS ─────────────────── */
 function navScrollTo(id) {
@@ -457,15 +530,61 @@ function showInfoModal(title, body) {
   document.body.appendChild(overlay);
 }
 
+/* ─── EXPOSE GLOBALS FOR INLINE HANDLERS ─── */
+// Hoisted above Supabase init so a missing/broken Supabase client can never
+// strand inline onclick="fn()" handlers as silent no-ops.
+// Temporary: needed because index.html uses onclick="fn()" attributes.
+// These will be removed when we migrate to addEventListener.
+Object.assign(window, {
+  addNewStory, calcROI, closeDiagnostic,
+  closeDiagnosticToLanding, closeDiagnosticToPlan, closeLearnModule, completeOnramp, demoChatSend,
+  demoFilterBank, demoFlipCard, demoFCNav, demoFCShuffle, demoToggleQ,
+  doForgotPassword, doLogin, doSetNewPassword, doSignOut, doSignup, filterBank, filterBankNav, filterSub,
+  flipCard, goToDueReview, goToTopicPractice, mapFitAll, mapResetView, mapZoom,
+  navScrollTo, nextCard, nextLearnSection, nextOnrampStep, nextQuizQuestion,
+  openLearnModule, prevCard, prevLearnSection, prevOnrampStep, prevNav,
+  pvBankFilter, pvFlipCard, pvFCNav, pvMockSend, pvToggleQ, rateCard,
+  renderBank, reviewQuizMistakes, saveProfileInfo,
+  saveProfilePassword, selectDiagAnswer, selectOnramp, selectQuizAnswer,
+  sendMsg, setFlashCat, setNavActive,
+  setStudyMode, showAuthTab, showForgotPassword, showOnramp, showQuizSetup, startCheckout, startOnrampCalibrationCheck, openSubscriptionPortal,
+  openInlineAuth, closeInlineAuth, switchInlineAuthTab, doInlineLogin, doInlineSignup,
+  showScreen, showView, shuffleFlash, skipDiagnostic, smartPractice,
+  askForHint, startDiagnostic, startDirectDiagnostic, startMock, stepMockMode,
+  startQuiz, switchAuthTab, toggleFaq, toggleOnrampMulti,
+  toggleFlashAtLevel, toggleProfileEdit, toggleQ, toggleStoryPanel, toggleTheme,
+  toggleCardWhy, toggleSylWeek, toggleSyllabusTask, syllabusAction,
+  viewStoryNote
+});
+
 /* ─── SUPABASE ────────────────────────── */
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY env vars.');
+let sb = null;
+try {
+  sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { lock: (_name, _timeout, fn) => fn() }
+  });
+} catch (e) {
+  console.error('Supabase init failed — check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local.', e);
 }
-const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { lock: (_name, _timeout, fn) => fn() }
-});
+
+function requireSupabase() {
+  if (sb) return true;
+  showToast('Supabase not configured — check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local.', { icon: 'ℹ' });
+  return false;
+}
+
+function renderConfigBanner() {
+  if (sb) return;
+  if (document.getElementById('config-banner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'config-banner';
+  banner.setAttribute('role', 'alert');
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:12000;background:#b91c1c;color:#fff;padding:10px 16px;font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.2)';
+  banner.textContent = 'Supabase not configured — set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local, then restart the dev server.';
+  document.body.appendChild(banner);
+}
 
 let currentUser = null;
 
@@ -507,6 +626,7 @@ async function doForgotPassword() {
   const btn = document.getElementById('forgot-btn');
   const msg = document.getElementById('forgot-msg');
   if (!email) { if (msg) showMsg(msg, 'error', 'Please enter your email.'); return; }
+  if (!requireSupabase()) return;
   if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
   const { error } = await sb.auth.resetPasswordForEmail(email, {
     redirectTo: window.location.origin
@@ -525,6 +645,7 @@ async function doSetNewPassword() {
   const msg = document.getElementById('newpw-msg');
   if (pw.length < 8) { if (msg) showMsg(msg, 'error', 'Password must be at least 8 characters.'); return; }
   if (pw !== confirm) { if (msg) showMsg(msg, 'error', 'Passwords do not match.'); return; }
+  if (!requireSupabase()) return;
   if (btn) { btn.disabled = true; btn.textContent = 'Updating…'; }
   const { error } = await sb.auth.updateUser({ password: pw });
   if (btn) { btn.disabled = false; btn.textContent = 'Update password →'; }
@@ -546,6 +667,7 @@ async function doLogin() {
   const msg = document.getElementById('login-msg');
   if (msg) { msg.className = 'auth-msg'; msg.textContent = ''; }
   if (!email || !password) { if (msg) showMsg(msg, 'error', 'Please fill in all fields.'); return; }
+  if (!requireSupabase()) return;
   if (btn) { btn.disabled = true; btn.textContent = 'Logging in…'; }
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   if (btn) { btn.disabled = false; btn.textContent = 'Log in →'; }
@@ -570,6 +692,7 @@ async function doSignup() {
   if (msg) { msg.className = 'auth-msg'; msg.textContent = ''; }
   if (!name || !email || !password) { if (msg) showMsg(msg, 'error', 'Please fill in all fields.'); return; }
   if (password.length < 8) { if (msg) showMsg(msg, 'error', 'Password must be at least 8 characters.'); return; }
+  if (!requireSupabase()) return;
   if (btn) { btn.disabled = true; btn.textContent = 'Creating account…'; }
   const { data, error } = await sb.auth.signUp({
     email, password,
@@ -634,6 +757,7 @@ async function doInlineLogin() {
   const msg = document.getElementById('inline-login-msg');
   if (msg) { msg.className = 'auth-msg'; msg.textContent = ''; }
   if (!email || !password) { if (msg) showMsg(msg, 'error', 'Please fill in all fields.'); return; }
+  if (!requireSupabase()) return;
   if (btn) { btn.disabled = true; btn.textContent = 'Logging in…'; }
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   if (btn) { btn.disabled = false; btn.textContent = 'Log in →'; }
@@ -655,6 +779,7 @@ async function doInlineSignup() {
   if (msg) { msg.className = 'auth-msg'; msg.textContent = ''; }
   if (!name || !email || !password) { if (msg) showMsg(msg, 'error', 'Please fill in all fields.'); return; }
   if (password.length < 8) { if (msg) showMsg(msg, 'error', 'Password must be at least 8 characters.'); return; }
+  if (!requireSupabase()) return;
   if (btn) { btn.disabled = true; btn.textContent = 'Creating account…'; }
   const { data, error } = await sb.auth.signUp({
     email, password,
@@ -673,6 +798,7 @@ async function doInlineSignup() {
 }
 
 async function doSignOut() {
+  if (!requireSupabase()) return;
   await sb.auth.signOut();
   currentUser = null;
   progress = {
@@ -680,15 +806,14 @@ async function doSignOut() {
     activityLog: [],
     mastery: {},
     diagnosticDone: false,
-    userBand: 'intermediate',
-    diagnosticScores: null,
     onrampComplete: false,
     userProfile: null,
     notes: [],
     questionNotes: {},
     completedTasks: [],
     learnProgress: {},
-    completedCases: []
+    completedCases: [],
+    levels: {}
   };
   // Clear mock-interview state so the next user on a shared device doesn't
   // inherit the previous user's history, session id, or rendered messages.
@@ -714,9 +839,12 @@ async function onSignedIn(user) {
   const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
   const cap = capitalize(fullName.split(' ')[0]);
   const greetingEl = document.getElementById('greeting-name');
+  const greetingWrap = document.getElementById('greeting-name-wrap');
   const sbNameEl = document.getElementById('sb-name');
   const sbAvatarEl = document.getElementById('sb-avatar');
   if (greetingEl) greetingEl.textContent = cap;
+  // Reveal the ", Name" comma-prefix only once we have a real name to show.
+  if (greetingWrap) greetingWrap.style.display = '';
   if (sbNameEl) sbNameEl.textContent = cap;
   if (sbAvatarEl) sbAvatarEl.textContent = cap[0].toUpperCase();
   const emailEl = document.getElementById('sb-email-display');
@@ -805,8 +933,15 @@ async function hasActiveSubscription() {
 }
 
 function routeToPaywall(user) {
+  // PRD §5 Task 12: paywall must never show "signed in as ." with an empty
+  // span. If we don't actually have a user, send them to auth instead — the
+  // paywall has no meaningful action without a signed-in user anyway.
+  if (!user) {
+    showAuthTab('login');
+    return;
+  }
   const emailSpan = document.getElementById('paywall-email');
-  if (emailSpan && user) emailSpan.textContent = user.email || '';
+  if (emailSpan) emailSpan.textContent = user.email || '';
   showScreen('paywall');
 }
 
@@ -818,6 +953,7 @@ async function startCheckout(plan) {
   if (msg) { msg.style.color = ''; msg.textContent = ''; }
   if (btn) { btn.disabled = true; btn.textContent = 'Redirecting…'; }
   try {
+    if (!requireSupabase()) throw new Error('Supabase not configured.');
     const { data: { session } } = await sb.auth.getSession();
     const accessToken = session?.access_token;
     if (!accessToken) throw new Error('Please sign in again.');
@@ -840,6 +976,7 @@ async function startCheckout(plan) {
 }
 
 async function openSubscriptionPortal() {
+  if (!requireSupabase()) return;
   try {
     const { data: { session } } = await sb.auth.getSession();
     const accessToken = session?.access_token;
@@ -878,8 +1015,6 @@ async function loadProgress() {
       progress.activityLog = arr(data.activity_log);
       progress.mastery = obj(data.mastery);
       progress.diagnosticDone = data.diagnostic_done || false;
-      progress.userBand = data.user_band || 'intermediate';
-      progress.diagnosticScores = data.diagnostic_scores || null;
       progress.onrampComplete = data.onramp_complete || false;
       progress.userProfile = data.user_profile || null;
       progress.notes = arr(data.notes);
@@ -887,6 +1022,15 @@ async function loadProgress() {
       progress.completedTasks = arr(data.completed_tasks);
       progress.learnProgress = obj(data.learn_progress);
       progress.completedCases = arr(data.completed_cases);
+      progress.levels = obj(data.levels);
+      // Pass legacy fields explicitly to migrateLevels so they never need to
+      // live on `progress`. PRD §5 Task 14: kill double-write hazards.
+      migrateLevels(progress, {
+        userBand: data.user_band,
+        diagnosticScores: data.diagnostic_scores
+      });
+    } else {
+      migrateLevels(progress);
     }
   } catch(e) { console.error('loadProgress error:', e); }
   updateDashStats();
@@ -913,15 +1057,14 @@ async function saveProgress() {
       activity_log: progress.activityLog,
       mastery: progress.mastery,
       diagnostic_done: progress.diagnosticDone,
-      user_band: progress.userBand,
-      diagnostic_scores: progress.diagnosticScores,
       onramp_complete: progress.onrampComplete,
       user_profile: progress.userProfile,
       notes: progress.notes || [],
       question_notes: progress.questionNotes || {},
       completed_tasks: progress.completedTasks || [],
       learn_progress: progress.learnProgress || {},
-      completed_cases: progress.completedCases || []
+      completed_cases: progress.completedCases || [],
+      levels: progress.levels || {}
     }, { onConflict: 'user_id' });
   } catch(e) { console.error('saveProgress error:', e); }
 }
@@ -977,6 +1120,7 @@ function showView(id) {
   if (id === 'map') renderKnowledgeMap();
   if (id === 'quiz') showQuizSetup();
   if (id === 'learn') renderLearnModules();
+  if (id === 'mock') renderMockModeBanner();
   if (id === 'plan') renderPrepPlan();
   if (id === 'profile') renderProfile();
 }
@@ -994,20 +1138,19 @@ function filterBankNav(cat, sub) {
 // SRS intervals in minutes: [1, 10, 60, 360, 1440, 4320, 10080] (1min to 1 week)
 const SRS_INTERVALS = [1, 10, 60, 360, 1440, 4320, 10080];
 
-let progress = { 
-  answered: new Set(), 
+let progress = {
+  answered: new Set(),
   activityLog: [],
   mastery: {},
   diagnosticDone: false,
-  userBand: 'intermediate',
-  diagnosticScores: null,
   onrampComplete: false,
   userProfile: null,
   notes: [],
   questionNotes: {},
   completedTasks: [],
   learnProgress: {},
-  completedCases: []
+  completedCases: [],
+  levels: {}
 };
 
 let studyMode = 'all'; // 'all', 'due', 'weak', 'quick'
@@ -1063,11 +1206,13 @@ function updateMasteryStats() {
   if (sl) sl.textContent = learningCount;
   if (sm) sm.textContent = masteredCount;
   
-  // Update mode counts
+  // Update mode counts. "All cards" reflects whatever the current deck is —
+  // category filter + sub filter + at-your-level filter — so the toolbar pill
+  // count and the "Card X of Y" footer stay in lockstep.
   const mca = document.getElementById('mode-count-all');
   const mcd = document.getElementById('mode-count-due');
   const mcw = document.getElementById('mode-count-weak');
-  if (mca) mca.textContent = QUESTIONS.length;
+  if (mca) mca.textContent = flashDeck.length || QUESTIONS.length;
   if (mcd) mcd.textContent = getDueCount();
   if (mcw) mcw.textContent = getWeakCount();
 }
@@ -1083,7 +1228,108 @@ function markAnswered(id) {
   saveProgress();
 }
 
+// Map a calibration topic onto the practice surface's cat/sub filter so
+// clicking a Levels-tile row routes the user to the right deck.
+function navForTopic(topic) {
+  switch (topic) {
+    case 'accounting': return { cat: 'tech',  sub: 'accounting' };
+    case 'valuation':  return { cat: 'tech',  sub: 'valuation'  };
+    case 'lbo':        return { cat: 'tech',  sub: 'lbo'        };
+    case 'ma':         return { cat: 'tech',  sub: 'ma'         };
+    case 'markets':    return { cat: 'deal',  sub: null         };
+    case 'behavioral': return { cat: 'beh',   sub: null         };
+    case 'brain':      return { cat: 'brain', sub: null         };
+    default:           return { cat: 'all',   sub: null         };
+  }
+}
+
+function relativeTime(ms) {
+  if (!ms || !Number.isFinite(ms)) return 'just now';
+  const diff = Date.now() - ms;
+  if (diff < 60_000) return 'just now';
+  const min = Math.floor(diff / 60_000);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const days = Math.floor(hr / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(ms).toLocaleDateString();
+}
+
+// Walk back through recent history; return 'up'/'down' if the band changed
+// within the most recent N samples, otherwise null. Self-clearing — the
+// arrow fades naturally as the user accumulates more practice.
+function recentBandDelta(lvl) {
+  if (!lvl || !Array.isArray(lvl.history) || lvl.history.length === 0) return null;
+  const N = 5;
+  const slice = lvl.history.slice(-N);
+  const earliest = slice[0];
+  if (!earliest || earliest.band === lvl.band) return null;
+  return toBandIndex(lvl.band) > toBandIndex(earliest.band) ? 'up' : 'down';
+}
+
+function renderLevelsTile() {
+  const tableEl = document.getElementById('levels-table');
+  if (!tableEl) return;
+  const updatedEl = document.getElementById('levels-updated');
+  const levels = getAllLevelsFromProgress(progress);
+
+  tableEl.replaceChildren();
+  let mostRecent = 0;
+  for (const t of LEVEL_TOPICS) {
+    const lvl = levels[t];
+    if (lvl.lastUpdated > mostRecent) mostRecent = lvl.lastUpdated;
+
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'cal-row cal-row-clickable';
+    row.addEventListener('click', () => goToTopicPractice(t));
+
+    const topic = document.createElement('div');
+    topic.className = 'cal-row-topic';
+    topic.textContent = TOPIC_LABELS[t] || t;
+
+    const pillWrap = document.createElement('span');
+    pillWrap.className = 'cal-row-pill-wrap';
+    const pill = document.createElement('span');
+    pill.className = 'band-pill ' + lvl.band;
+    pill.textContent = lvl.band;
+    pillWrap.appendChild(pill);
+    const delta = recentBandDelta(lvl);
+    if (delta) {
+      const arrow = document.createElement('span');
+      arrow.className = 'cal-row-arrow ' + delta;
+      arrow.textContent = delta === 'up' ? '↑' : '↓';
+      arrow.setAttribute('aria-label', delta === 'up' ? 'Calibrated up recently' : 'Recalibrated down recently');
+      pillWrap.appendChild(arrow);
+    }
+
+    const conf = document.createElement('div');
+    conf.className = 'cal-row-confidence';
+    conf.textContent = lvl.confidence + ' confidence';
+
+    row.append(topic, pillWrap, conf);
+    tableEl.appendChild(row);
+  }
+
+  if (updatedEl) {
+    updatedEl.textContent = mostRecent ? `Updated ${relativeTime(mostRecent)}` : 'Updated just now';
+  }
+}
+
+function goToTopicPractice(topic) {
+  const nav = navForTopic(topic);
+  showView('flash');
+  // Defer until after the view transition so renderCard runs against the
+  // freshly-visible flash pane.
+  setTimeout(() => {
+    flashSub = nav.sub;
+    setFlashCat(nav.cat, { keepSub: true });
+  }, 50);
+}
+
 function updateDashStats() {
+  renderLevelsTile();
   const total = QUESTIONS.length;
   const ans = progress.answered.size;
   const ka = document.getElementById('kpi-answered');
@@ -1110,8 +1356,10 @@ function updateDashStats() {
   // Mastered count
   const masteredCount = QUESTIONS.filter(q => getMasteryClass(q.id) === 'mastered').length;
   const km = document.getElementById('kpi-mastered');
+  const kmt = document.getElementById('kpi-mastered-total');
   const kmf = document.getElementById('kpi-mastered-fill');
   if (km) km.textContent = masteredCount;
+  if (kmt) kmt.textContent = total;
   if (kmf) kmf.style.width = (masteredCount/total*100) + '%';
 
   // Today's recommended task drives the primary CTA.
@@ -1123,15 +1371,37 @@ function updateDashStats() {
     if (reasonEl) reasonEl.textContent = task.reason || '';
   }
 
+  // Streak = consecutive calendar days ending today with at least one
+  // answered card (using mastery.lastSeen as the per-question timestamp).
+  // PRD §5 Task 12: one source of truth, no fabricated counters.
+  const seenDays = new Set();
+  for (const m of Object.values(progress.mastery || {})) {
+    if (m && m.lastSeen) seenDays.add(new Date(m.lastSeen).toDateString());
+  }
+  const today = new Date();
+  let streak = 0;
+  const cursor = new Date(today);
+  while (seenDays.has(cursor.toDateString())) {
+    streak++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
   const days = ['M','T','W','T','F','S','S'];
-  const idx = (new Date().getDay()+6)%7;
+  const todayIdx = (today.getDay() + 6) % 7;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - todayIdx);
   const sd = document.getElementById('streak-dots');
-  if (sd) sd.innerHTML = days.map((d,i) => {
-    const cls = i < idx ? 'done' : i === idx ? 'today' : 'empty';
+  if (sd) sd.innerHTML = days.map((d, i) => {
+    const dayDate = new Date(monday);
+    dayDate.setDate(monday.getDate() + i);
+    const isToday = i === todayIdx;
+    const isFuture = dayDate > today && !isToday;
+    const wasActive = seenDays.has(dayDate.toDateString());
+    const cls = isFuture ? 'empty' : (wasActive ? 'done' : (isToday ? 'today' : 'empty'));
     return '<div class="s-dot ' + cls + '">' + d + '</div>';
   }).join('');
   const ks = document.getElementById('kpi-streak');
-  if (ks) ks.textContent = idx + 1;
+  if (ks) ks.textContent = streak;
 
   cats.forEach(c => {
     const pool = QUESTIONS.filter(q=>q.cat===c);
@@ -1189,23 +1459,50 @@ function topicStrengthLive(topicKey) {
   return Math.round(((sum / seen.length) - 1) / 2 * 100); // 1→0%, 3→100%
 }
 
-// Diagnostic-derived strength as a fallback when there's no live data.
-function topicStrengthDiagnostic(topicKey) {
-  const d = progress.diagnosticScores;
-  if (!d) return null;
-  if (topicKey === 'beh')  return d.beh ?? null;
-  if (topicKey === 'deal') return d.deal ?? null;
-  return d.subs?.[topicKey] ?? null;
+// Map a band → a strength percentage so the legacy syllabus / focus-area
+// helpers (which talked in pcts) keep working off the per-topic level model.
+const BAND_STRENGTH_PCT = { foundations: 20, beginner: 40, intermediate: 60, advanced: 80, expert: 95 };
+
+// Translate the dashboard's TOPIC_DEFS keys into the calibration-topic vocab.
+const LEGACY_TOPIC_TO_LEVEL = { beh: 'behavioral', deal: 'markets' };
+
+// Per-topic strength derived from the calibration level, keyed by TOPIC_DEFS
+// key for compatibility with existing callers (getWeakTopics etc.). Replaces
+// the old diagnosticScores fallback — bands ARE the source of truth now.
+function topicStrengthFromLevels(topicKey) {
+  const t = LEGACY_TOPIC_TO_LEVEL[topicKey] || topicKey;
+  if (!LEVEL_TOPICS.includes(t)) return null;
+  return BAND_STRENGTH_PCT[getTopicLevel(progress, t).band] ?? null;
 }
 
-// Returns up to `max` weak topics: live data wins when present, diagnostic
-// fills in the gaps. "Weak" = strength < 60.
+// Roll per-topic levels into the {tech, beh, deal, subs} shape that
+// generateSyllabus's drill multipliers expect. Keeps the syllabus signature
+// unchanged while removing the diagnosticScores dependency.
+function levelsToScores() {
+  const lvl = t => getTopicLevel(progress, t).band;
+  const techBands = ['accounting', 'valuation', 'lbo', 'ma'].map(lvl);
+  const techAvg = techBands.reduce((s, b) => s + (BAND_STRENGTH_PCT[b] || 50), 0) / techBands.length;
+  return {
+    tech: Math.round(techAvg),
+    beh:  BAND_STRENGTH_PCT[lvl('behavioral')] || 50,
+    deal: BAND_STRENGTH_PCT[lvl('markets')]    || 50,
+    subs: {
+      accounting: BAND_STRENGTH_PCT[lvl('accounting')] || 50,
+      valuation:  BAND_STRENGTH_PCT[lvl('valuation')]  || 50,
+      lbo:        BAND_STRENGTH_PCT[lvl('lbo')]        || 50,
+      ma:         BAND_STRENGTH_PCT[lvl('ma')]         || 50
+    }
+  };
+}
+
+// Returns up to `max` weak topics: live mastery wins when present, the
+// per-topic calibration level fills in the gaps. "Weak" = strength < 60.
 function getWeakTopics(max = 2) {
   const ranked = Object.keys(TOPIC_DEFS).map(k => {
     const live = topicStrengthLive(k);
-    const diag = topicStrengthDiagnostic(k);
-    const strength = live != null ? live : diag;
-    const source = live != null ? 'live' : (diag != null ? 'diagnostic' : null);
+    const fromLevels = topicStrengthFromLevels(k);
+    const strength = live != null ? live : fromLevels;
+    const source = live != null ? 'live' : (fromLevels != null ? 'level' : null);
     return { key: k, label: TOPIC_DEFS[k].label, strength, source };
   }).filter(t => t.source && t.strength != null && t.strength < 60);
   ranked.sort((a, b) => a.strength - b.strength);
@@ -1225,7 +1522,7 @@ function getTodaysTask() {
   }
   // 2. Current week of plan has an unfinished task: do that.
   if (progress.userProfile?.timeline) {
-    const syllabus = generateSyllabus(progress.userProfile, progress.diagnosticScores);
+    const syllabus = generateSyllabus(progress.userProfile, levelsToScores());
     const cw = syllabusCurrentWeek(syllabus);
     const week = syllabus.weeks.find(w => w.week === cw);
     const next = week?.tasks.find(t => !isTaskComplete(t));
@@ -1261,11 +1558,11 @@ function renderActivity() {
   const el = document.getElementById('activity-list');
   if (!el) return;
   if (!progress.activityLog.length) {
-    el.innerHTML = '<div style="padding:32px 16px;text-align:center;font-size:12.5px;color:var(--t-3)">No activity yet — start practicing.</div>';
+    el.innerHTML = '<div style="padding:32px 16px;text-align:center;font-size:12.5px;color:var(--t-3)">Answer your first question to start your activity log.</div>';
     return;
   }
-  const icons = { tech:'📊', beh:'💬', brain:'🧠', deal:'📈' };
-  const colors = { tech:'var(--accent-dim)', beh:'var(--green-dim)', brain:'var(--amber-dim)', deal:'var(--blue-dim)' };
+  const icons = { tech:'📊', beh:'💬', brain:'🧠', deal:'📈', levels:'↑' };
+  const colors = { tech:'var(--accent-dim)', beh:'var(--green-dim)', brain:'var(--amber-dim)', deal:'var(--blue-dim)', levels:'var(--green-dim)' };
   el.innerHTML = progress.activityLog.map(a =>
     '<div class="act-item">' +
     '<div class="act-icon" style="background:' + (colors[a.cat]||'var(--bg-3)') + '">' + (icons[a.cat]||'📋') + '</div>' +
@@ -1368,6 +1665,14 @@ function toggleQ(id) {
 /* ─── FLASHCARDS ─────────────────────── */
 let flashDeck = [], flashIdx = 0, flashFlipped = false;
 let flashCat = 'all';
+// Optional sub-topic filter applied on top of flashCat. Set by goToTopicPractice
+// when the user clicks into a specific tech topic from the Levels tile;
+// cleared whenever the cat pill changes.
+let flashSub = null;
+// "At your level" filter — on by default per PRD §5 Task 9. Keeps cards within
+// distance 1 of the user's per-topic band, so an advanced-accounting +
+// beginner-LBO user sees a deck mixed correctly per topic.
+let flashAtLevel = true;
 
 function setStudyMode(mode) {
   studyMode = mode;
@@ -1390,7 +1695,23 @@ function setStudyMode(mode) {
 
 function buildFlashDeck() {
   let pool = flashCat === 'all' ? [...QUESTIONS] : QUESTIONS.filter(q => q.cat === flashCat);
-  
+  if (flashSub) pool = pool.filter(q => q.sub === flashSub);
+
+  // "At your level" — keep cards within one band of the user's per-topic
+  // band. Per-topic, so a single deck can mix advanced accounting cards with
+  // beginner LBO cards in the same session. Cards we can't classify (no
+  // recognised topic) stay in the deck so the toggle never turns up empty.
+  if (flashAtLevel) {
+    pool = pool.filter(q => {
+      const t = topicForQuestion(q.cat, q.sub);
+      if (!t) return true;
+      const userBand = getTopicLevel(progress, t).band;
+      const cardBand = (q.level && LEVEL_BANDS.includes(q.level)) ? q.level : 'intermediate';
+      return bandDistance(cardBand, userBand) <= 1;
+    });
+  }
+
+
   switch(studyMode) {
     case 'due':
       pool = pool.filter(q => isDue(q.id));
@@ -1430,12 +1751,43 @@ function buildFlashDeck() {
   flashDeck = pool;
 }
 
-function setFlashCat(cat) {
+function setFlashCat(cat, opts) {
   flashCat = cat;
+  // Clicking a category pill clears any sub filter set by the Levels tile.
+  if (!opts || !opts.keepSub) flashSub = null;
   document.querySelectorAll('.bank-pill[data-fcat]').forEach(b =>
     b.classList.toggle('active', b.dataset.fcat === cat));
   buildFlashDeck();
   flashIdx = 0;
+  flashFlipped = false;
+  renderCard();
+}
+
+function toggleFlashAtLevel() {
+  flashAtLevel = !flashAtLevel;
+  const pill = document.getElementById('flash-at-level-pill');
+  if (pill) pill.classList.toggle('active', flashAtLevel);
+  refreshFlashDeck();
+  // Mode-count-all reads from the same buildFlashDeck output so the "X of Y"
+  // and the All Cards mode count stay in lockstep.
+  updateMasteryStats();
+}
+
+// Silent deck rebuild used when the underlying filter shifts (band crossings,
+// "At your level" toggle). Preserves the user's current card if it's still
+// in the deck after the rebuild; otherwise lands them on the nearest valid
+// position.
+function refreshFlashDeck() {
+  const currentId = flashDeck[flashIdx]?.id;
+  buildFlashDeck();
+  if (currentId != null) {
+    const newIdx = flashDeck.findIndex(q => q.id === currentId);
+    flashIdx = newIdx >= 0
+      ? newIdx
+      : Math.min(flashIdx, Math.max(0, flashDeck.length - 1));
+  } else {
+    flashIdx = 0;
+  }
   flashFlipped = false;
   renderCard();
 }
@@ -1581,14 +1933,14 @@ function flipCard() {
 
 function rateCard(rating) {
   if (!flashDeck.length || !flashFlipped) return;
-  
+
   const q = flashDeck[flashIdx];
   const m = getMastery(q.id);
-  
+
   // Update mastery based on rating
   m.level = rating;
   m.lastSeen = Date.now();
-  
+
   if (rating === 3) {
     // Got it - increase streak, schedule further out
     m.streak = Math.min(m.streak + 1, SRS_INTERVALS.length - 1);
@@ -1599,11 +1951,24 @@ function rateCard(rating) {
     // Unsure - decrease streak slightly
     m.streak = Math.max(0, m.streak - 1);
   }
-  
+
   // Calculate next due time
   const intervalMinutes = SRS_INTERVALS[m.streak];
   m.nextDue = Date.now() + (intervalMinutes * 60 * 1000);
-  
+
+  // Per-topic calibration signal (PRD §4.4). "Unsure" is treated as a soft
+  // miss with half weight; a hard miss and a clean hit both carry full weight.
+  const topic = topicForQuestion(q.cat, q.sub);
+  if (topic) {
+    recordSignalWithFeedback({
+      topic,
+      cardLevel: q.level,
+      correct: rating === 3,
+      weight: rating === 2 ? 0.5 : 1,
+      source: 'flash'
+    });
+  }
+
   // Save and move to next card
   saveProgress();
   updateMasteryStats();
@@ -1677,6 +2042,77 @@ function stopSessionTimer() {
 /* ─── MOCK INTERVIEW ─────────────────── */
 let mockHistory = [], mockActive = false, mockSessionId = null, mockQuestionsAsked = 0;
 const MOCK_MAX_QUESTIONS = 6;
+const MOCK_MODES = ['warmup', 'vp', 'vp_curveball'];
+const MOCK_MODE_LABEL = { warmup: 'Warm-up', vp: 'VP', vp_curveball: 'VP + Curveball' };
+
+// Default mock mode keys off the user's per-topic levels across the topics
+// most relevant to a real interview block: valuation, M&A, behavioral. Below
+// intermediate average → Warm-up; above intermediate → VP; expert → curveball.
+function defaultMockMode() {
+  const levels = getAllLevelsFromProgress(progress);
+  const topics = ['valuation', 'ma', 'behavioral'];
+  const avg = topics.reduce((s, t) => s + toBandIndex(levels[t].band), 0) / topics.length;
+  if (avg >= toBandIndex('expert')) return 'vp_curveball';
+  if (avg >= toBandIndex('intermediate')) return 'vp';
+  return 'warmup';
+}
+
+// Render the mode banner above the firm picker. Idempotent — safe to call on
+// every view render (showView('mock') triggers it).
+function renderMockModeBanner() {
+  const select = document.getElementById('mock-mode');
+  const banner = document.getElementById('mock-mode-banner');
+  const text = document.getElementById('mock-mode-banner-text');
+  const stepDown = document.getElementById('mock-mode-step-down');
+  const stepUp = document.getElementById('mock-mode-step-up');
+  if (!select || !banner || !text) return;
+  // Only auto-set if the user hasn't already started a mock or hand-changed.
+  if (!select.dataset.userTouched) {
+    select.value = defaultMockMode();
+  }
+  // One-time listener so direct dropdown changes also refresh the banner.
+  if (!select.dataset.listenerAttached) {
+    select.addEventListener('change', () => {
+      select.dataset.userTouched = '1';
+      renderMockModeBanner();
+    });
+    select.dataset.listenerAttached = '1';
+  }
+  banner.style.display = '';
+  text.textContent = `We've started you in ${MOCK_MODE_LABEL[select.value] || 'VP'}. Step up or step down manually if you'd like.`;
+  const idx = MOCK_MODES.indexOf(select.value);
+  if (stepDown) stepDown.disabled = idx <= 0;
+  if (stepUp) stepUp.disabled = idx >= MOCK_MODES.length - 1;
+  // Hint button shows only in warm-up.
+  const hintBtn = document.getElementById('chat-hint');
+  if (hintBtn) hintBtn.style.display = select.value === 'warmup' ? '' : 'none';
+}
+
+function stepMockMode(dir) {
+  const select = document.getElementById('mock-mode');
+  if (!select) return;
+  const idx = MOCK_MODES.indexOf(select.value);
+  const next = Math.max(0, Math.min(MOCK_MODES.length - 1, idx + dir));
+  select.value = MOCK_MODES[next];
+  select.dataset.userTouched = '1';
+  renderMockModeBanner();
+}
+
+// Warm-up only: ask the interviewer for a hint on the current question.
+async function askForHint() {
+  if (!mockActive) return;
+  const sendBtn = document.getElementById('chat-send');
+  const hintBtn = document.getElementById('chat-hint');
+  if (sendBtn) sendBtn.disabled = true;
+  if (hintBtn) hintBtn.disabled = true;
+  appendMsg('user', 'Could I get a small hint on this question?');
+  mockHistory.push({ role: 'user', content: "Could I get a small hint on this question? Just enough to point me toward the right framework — don't give me the answer." });
+  showTyping();
+  const cat = document.getElementById('mock-cat')?.value || 'tech';
+  const firm = document.getElementById('mock-firm')?.value || 'Goldman Sachs';
+  await runMockTurn(cat, firm);
+  if (hintBtn) hintBtn.disabled = false;
+}
 
 async function startMock() {
   mockActive = true;
@@ -1855,6 +2291,12 @@ async function sendMsg() {
 async function runMockTurn(cat, firm) {
   const sendBtn = document.getElementById('chat-send');
   try {
+    if (!requireSupabase()) {
+      removeTyping();
+      appendMsg('ai', 'Supabase is not configured — please contact support.');
+      if (sendBtn) sendBtn.disabled = false;
+      return;
+    }
     const { data: { session } } = await sb.auth.getSession();
     const accessToken = session?.access_token;
     if (!accessToken) {
@@ -1863,6 +2305,12 @@ async function runMockTurn(cat, firm) {
       if (sendBtn) sendBtn.disabled = false;
       return;
     }
+    // Reduce per-topic levels to a flat shape the server can drop straight
+    // into the system prompt — keeps the API contract small and explicit.
+    const levels = getAllLevelsFromProgress(progress);
+    const levelSummary = {};
+    for (const t of LEVEL_TOPICS) levelSummary[t] = levels[t].band;
+    const mockMode = document.getElementById('mock-mode')?.value || 'vp';
     const res = await fetch("/api/claude", {
       method: "POST",
       headers: {
@@ -1873,6 +2321,8 @@ async function runMockTurn(cat, firm) {
         mode: "mock_interview",
         firm,
         category: cat,
+        difficulty: mockMode,
+        levels: levelSummary,
         messages: mockHistory.map(m => ({ role: m.role, content: m.content }))
       })
     });
@@ -1899,6 +2349,25 @@ async function runMockTurn(cat, firm) {
     if (!isWrapUp) setMockProgress(mockQuestionsAsked + 1);
 
     const scoreMatch = reply.match(/Technical:\s*(\d+)\/10.*?Structure:\s*(\d+)\/10.*?Confidence:\s*(\d+)\/10/i);
+
+    // Per-topic calibration signal — one signal per scored turn, keyed off the
+    // mock category. Treat technical ≥ 6 as correct; structure/confidence are
+    // delivery dimensions and don't gate the topic-knowledge signal.
+    if (scoreMatch) {
+      const mockTopic = topicForQuestion(cat, null);
+      if (mockTopic) {
+        const tech = parseInt(scoreMatch[1], 10);
+        recordSignalWithFeedback({
+          topic: mockTopic,
+          cardLevel: undefined,
+          correct: tech >= 6,
+          weight: 1,
+          source: 'mock'
+        });
+        saveProgress();
+      }
+    }
+
     const replyText = scoreMatch
       ? reply.replace(/Technical:\s*\d+\/10\s*\|\s*Structure:\s*\d+\/10\s*\|\s*Confidence:\s*\d+\/10/i, '').trim()
       : reply;
@@ -2099,7 +2568,20 @@ function selectQuizAnswer(el) {
     quizMistakes.push(q);
     rateCardById(q.id, 1); // Missed
   }
-  
+
+  // Per-topic calibration signal — quiz is binary correct/incorrect, full weight.
+  const quizTopic = topicForQuestion(q.cat, q.sub);
+  if (quizTopic) {
+    recordSignalWithFeedback({
+      topic: quizTopic,
+      cardLevel: q.level,
+      correct: isCorrect,
+      weight: 1,
+      source: 'quiz'
+    });
+    saveProgress();
+  }
+
   // Show feedback
   const feedback = document.getElementById('quiz-feedback');
   if (feedback) {
@@ -2182,6 +2664,11 @@ function reviewQuizMistakes() {
 /* ─── DIAGNOSTIC ASSESSMENT ─────────── */
 let diagQuestions = [];
 let diagIndex = 0;
+// Per-topic band snapshot taken when the diagnostic starts so showDiagResults
+// can render the [old → new] deltas after recordSignal accumulates.
+let diagBefore = {};
+// Legacy aggregates — preserved during migration so any path still touching
+// them doesn't crash. Bands are now per-topic.
 let diagScores = { tech: 0, beh: 0, deal: 0 };
 let diagCounts = { tech: 0, beh: 0, deal: 0 };
 let diagSubScores = { accounting: 0, valuation: 0, lbo: 0, ma: 0 };
@@ -2196,20 +2683,83 @@ function checkFirstVisit() {
   }
 }
 
+// Pick up to `count` MCQ questions for a topic, biased toward the target band.
+// Bucketed by |distance from target| so the closest-fit band is exhausted
+// before falling back to neighbours.
+function pickDiagQuestionsForTopic(topic, targetBand, count) {
+  const pool = QUESTIONS.filter(q =>
+    q.wrong && q.wrong.length > 0 && topicForQuestion(q.cat, q.sub) === topic
+  );
+  if (!pool.length) return [];
+  const targetIdx = toBandIndex(targetBand);
+  const buckets = new Map();
+  for (const q of pool) {
+    const d = Math.abs(toBandIndex(questionLevel(q)) - targetIdx);
+    if (!buckets.has(d)) buckets.set(d, []);
+    buckets.get(d).push(q);
+  }
+  const distances = [...buckets.keys()].sort((a, b) => a - b);
+  const out = [];
+  for (const d of distances) {
+    const bucket = buckets.get(d);
+    for (let i = bucket.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [bucket[i], bucket[j]] = [bucket[j], bucket[i]];
+    }
+    for (const q of bucket) {
+      out.push(q);
+      if (out.length >= count) return out;
+    }
+  }
+  return out;
+}
+
 function startDiagnostic() {
-  // Select 12 questions: 2 accounting, 2 valuation, 1 M&A, 1 LBO, 2 beh, 2 deal, 2 brain
-  const techAcc = QUESTIONS.filter(q => q.cat === 'tech' && q.sub === 'accounting' && q.wrong).slice(0, 2);
-  const techVal = QUESTIONS.filter(q => q.cat === 'tech' && q.sub === 'valuation' && q.wrong).slice(0, 2);
-  const techMA = QUESTIONS.filter(q => q.cat === 'tech' && q.sub === 'ma' && q.wrong).slice(0, 1);
-  const techLBO = QUESTIONS.filter(q => q.cat === 'tech' && q.sub === 'lbo' && q.wrong).slice(0, 1);
-  const beh = QUESTIONS.filter(q => q.cat === 'beh' && q.wrong).slice(0, 2);
-  const deal = QUESTIONS.filter(q => q.cat === 'deal' && q.wrong).slice(0, 2);
-  const brain = QUESTIONS.filter(q => q.cat === 'brain' && q.wrong).slice(0, 2);
-  
-  diagQuestions = [...techAcc, ...techVal, ...techMA, ...techLBO, ...beh, ...deal, ...brain];
+  const levels = getAllLevelsFromProgress(progress);
+
+  // Snapshot pre-bands so showDiagResults can render [old → new] deltas after
+  // signals accumulate. Mid-diagnostic abandonment leaves this set, but it's
+  // overwritten at the start of every run.
+  diagBefore = {};
+  for (const t of LEVEL_TOPICS) diagBefore[t] = levels[t].band;
+
+  // Topic priority: low confidence first, then medium, then high. Within a
+  // tier we shuffle so repeat attempts pick a different topic order.
+  const confidenceRank = c => (c === 'low' ? 0 : c === 'medium' ? 1 : 2);
+  const order = [...LEVEL_TOPICS];
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  order.sort((a, b) => confidenceRank(levels[a].confidence) - confidenceRank(levels[b].confidence));
+
+  // For each topic pick up to 2 questions: one band above current band
+  // (testing for promotion) or expert when already at expert (testing for
+  // stability). Cap of 2 per topic enforced by pickDiagQuestionsForTopic.
+  const buckets = [];
+  for (const topic of order) {
+    const lvl = levels[topic];
+    const targetBand = lvl.band === 'expert'
+      ? 'expert'
+      : fromBandIndex(toBandIndex(lvl.band) + 1);
+    const picks = pickDiagQuestionsForTopic(topic, targetBand, 2);
+    if (picks.length) buckets.push(picks);
+  }
+
+  // Round-robin interleave so consecutive questions are from different topics.
+  diagQuestions = [];
+  outer: while (diagQuestions.length < 10) {
+    let added = false;
+    for (const bucket of buckets) {
+      if (bucket.length === 0) continue;
+      diagQuestions.push(bucket.shift());
+      added = true;
+      if (diagQuestions.length >= 10) break outer;
+    }
+    if (!added) break;
+  }
 
   if (!diagQuestions.length) {
-    // Fall back to any MCQ questions if the categorised pools are all empty.
     diagQuestions = QUESTIONS.filter(q => q.wrong && q.wrong.length > 0).slice(0, 10);
   }
   if (!diagQuestions.length) {
@@ -2217,22 +2767,16 @@ function startDiagnostic() {
     return;
   }
 
-  // Shuffle
-  for (let i = diagQuestions.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [diagQuestions[i], diagQuestions[j]] = [diagQuestions[j], diagQuestions[i]];
-  }
-  
   diagIndex = 0;
   diagScores = { tech: 0, beh: 0, deal: 0, brain: 0 };
   diagCounts = { tech: 0, beh: 0, deal: 0, brain: 0 };
   diagSubScores = { accounting: 0, valuation: 0, lbo: 0, ma: 0 };
   diagSubCounts = { accounting: 0, valuation: 0, lbo: 0, ma: 0 };
-  
+
   document.getElementById('diagnostic-welcome').style.display = 'none';
   document.getElementById('diagnostic-active').style.display = 'block';
   document.getElementById('diagnostic-results').style.display = 'none';
-  
+
   renderDiagQuestion();
 }
 
@@ -2281,11 +2825,27 @@ function selectDiagAnswer(el, cat, sub) {
     diagSubCounts[sub]++;
     if (isCorrect) diagSubScores[sub]++;
   }
-  
+
+  // Diagnostic answers carry weight 3 — concentrated signal designed to
+  // confirm/promote the seeded band quickly. cardLevel is taken from the
+  // question if tagged; recordSignal defaults to intermediate otherwise.
+  const diagTopic = topicForQuestion(cat, sub);
+  if (diagTopic) {
+    const q = diagQuestions[diagIndex];
+    recordSignalWithFeedback({
+      topic: diagTopic,
+      cardLevel: q && q.level,
+      correct: isCorrect,
+      weight: 3,
+      source: 'diagnostic'
+    });
+    saveProgress();
+  }
+
   // Brief visual feedback
   el.classList.add(isCorrect ? 'correct' : 'incorrect');
   document.querySelectorAll('#diag-answers .quiz-answer').forEach(a => a.style.pointerEvents = 'none');
-  
+
   setTimeout(() => {
     diagIndex++;
     renderDiagQuestion();
@@ -2295,70 +2855,70 @@ function selectDiagAnswer(el, cat, sub) {
 function showDiagResults() {
   document.getElementById('diagnostic-active').style.display = 'none';
   document.getElementById('diagnostic-results').style.display = 'block';
-  
-  const total = diagScores.tech + diagScores.beh + diagScores.deal;
-  const maxTotal = diagCounts.tech + diagCounts.beh + diagCounts.deal;
-  const pct = Math.round(total / maxTotal * 100);
-  
-  // Determine band.
-  let band, bandClass;
-  if (pct >= 90) { band = 'EXPERT'; bandClass = 'expert'; }
-  else if (pct >= 70) { band = 'ADVANCED'; bandClass = 'advanced'; }
-  else if (pct >= 40) { band = 'INTERMEDIATE'; bandClass = 'intermediate'; }
-  else { band = 'BEGINNER'; bandClass = 'beginner'; }
 
-  const techPct = diagCounts.tech ? Math.round(diagScores.tech / diagCounts.tech * 100) : 0;
-  const behPct = diagCounts.beh ? Math.round(diagScores.beh / diagCounts.beh * 100) : 0;
-  const dealPct = diagCounts.deal ? Math.round(diagScores.deal / diagCounts.deal * 100) : 0;
+  // Per-topic deltas: compare the snapshot taken at startDiagnostic against
+  // the bands updated by recordSignal (Task 3) over the course of the run.
+  // PRD §5 Task 5: title is "We've adjusted your levels", no global %.
+  const tableEl = document.getElementById('diag-deltas');
+  if (tableEl) {
+    tableEl.replaceChildren();
+    const after = getAllLevelsFromProgress(progress);
+    for (const t of LEVEL_TOPICS) {
+      const oldBand = diagBefore[t] || after[t].band;
+      const newBand = after[t].band;
+      const row = document.createElement('div');
+      row.className = 'cal-row';
 
-  // Recommendation names the user's actual weak areas.
-  const subLabels = { accounting: 'accounting', valuation: 'valuation', lbo: 'LBO', ma: 'M&A' };
-  const subEntries = Object.keys(diagSubCounts)
-    .filter(k => diagSubCounts[k] > 0)
-    .map(k => ({ key: k, pct: Math.round(diagSubScores[k] / diagSubCounts[k] * 100) }));
-  const weakSubs = subEntries.filter(e => e.pct < 60).sort((a,b) => a.pct - b.pct).slice(0, 2);
-  const catWeakest = [{label:'behavioral', pct:behPct},{label:'markets', pct:dealPct}]
-    .filter(e => e.pct < 60).sort((a,b) => a.pct - b.pct);
-  const weakList = [...weakSubs.map(s => subLabels[s.key]), ...catWeakest.map(c => c.label)].slice(0, 2);
+      const label = document.createElement('div');
+      label.className = 'cal-row-topic';
+      label.textContent = TOPIC_LABELS[t] || t;
+      row.appendChild(label);
 
-  let recommendation;
-  if (pct >= 90) {
-    recommendation = 'Strong fundamentals across the board. Focus on edge cases and timed mock interviews to sharpen delivery.';
-  } else if (weakList.length === 0) {
-    recommendation = pct >= 70
-      ? 'Solid foundation. Drill weaker spots as they emerge in practice and add timed quizzes for pacing.'
-      : 'Good start. Work through accounting and valuation fundamentals, then layer in deals and behavioral reps.';
-  } else {
-    const list = weakList.length === 2 ? `${weakList[0]} and ${weakList[1]}` : weakList[0];
-    recommendation = `Your weakest area${weakList.length>1?'s are':' is'} ${list}. Your plan drills ${weakList.length>1?'them':'it'} harder — start there.`;
+      if (oldBand === newBand) {
+        const pill = document.createElement('span');
+        pill.className = 'band-pill ' + newBand;
+        pill.textContent = newBand;
+        row.appendChild(pill);
+        const note = document.createElement('div');
+        note.className = 'cal-row-confidence';
+        note.textContent = 'no change';
+        row.appendChild(note);
+      } else {
+        const deltas = document.createElement('div');
+        deltas.className = 'cal-row-deltas';
+        const oldPill = document.createElement('span');
+        oldPill.className = 'band-pill ' + oldBand;
+        oldPill.textContent = oldBand;
+        const arrow = document.createElement('span');
+        arrow.className = 'cal-row-arrow';
+        arrow.textContent = '→';
+        const newPill = document.createElement('span');
+        newPill.className = 'band-pill ' + newBand;
+        newPill.textContent = newBand;
+        deltas.append(oldPill, arrow, newPill);
+        row.appendChild(deltas);
+
+        const note = document.createElement('div');
+        note.className = 'cal-row-confidence';
+        note.textContent = toBandIndex(newBand) > toBandIndex(oldBand) ? 'up' : 'down';
+        row.appendChild(note);
+      }
+      tableEl.appendChild(row);
+    }
   }
-
-  document.getElementById('diag-band').textContent = band;
-  document.getElementById('diag-band').className = 'diagnostic-band ' + bandClass;
-  document.getElementById('diag-score').textContent = pct + '%';
-  document.getElementById('diag-tech-score').textContent = techPct + '%';
-  document.getElementById('diag-beh-score').textContent = behPct + '%';
-  document.getElementById('diag-deal-score').textContent = dealPct + '%';
-  document.getElementById('diag-recommendation').textContent = recommendation;
 
   // Hide the "View my plan" button if the user is in the unauthenticated landing flow.
   const planBtn = document.getElementById('diag-view-plan');
   if (planBtn) planBtn.style.display = window._directDiagnostic ? 'none' : '';
 
-  // Save diagnostic results
+  // Bands are per-topic now — no progress.userBand or aggregate-pct write.
+  // Task 14 will remove the legacy fields entirely once all callers are migrated.
   progress.diagnosticDone = true;
-  progress.userBand = bandClass;
-  const subs = {};
-  for (const k of Object.keys(diagSubCounts)) {
-    if (diagSubCounts[k] > 0) subs[k] = Math.round(diagSubScores[k] / diagSubCounts[k] * 100);
-  }
-  progress.diagnosticScores = { tech: techPct, beh: behPct, deal: dealPct, overall: pct, subs };
   saveProgress();
 }
 
 function skipDiagnostic() {
   progress.diagnosticDone = true;
-  progress.userBand = 'intermediate';
   saveProgress();
   closeDiagnostic();
 }
@@ -2529,7 +3089,7 @@ function viewStoryNote(index) {
 
 /* ─── BEGINNER ON-RAMP ──────────────── */
 let onrampStep = 1;
-let onrampData = { background: null, timeline: null, banks: [] };
+let onrampData = { prep: null, timeline: null, banks: [] };
 
 function selectOnramp(el, field, value) {
   // Single select - deselect others
@@ -2553,7 +3113,8 @@ function toggleOnrampMulti(el, field, value) {
 // Diagnostic is a side-trip between visible step 1 and visible step 2;
 // the dot at index 2 represents it.
 function nextOnrampStep() {
-  // After background, run the diagnostic (unless already done).
+  // After prep level, run the diagnostic (unless already done). Task 5
+  // reframes this gate as opt-in; for now the legacy gate stays in place.
   if (onrampStep === 1 && !progress.diagnosticDone) {
     saveOnrampProfileSoFar();
     document.getElementById('onramp-step-1').classList.remove('active');
@@ -2617,32 +3178,62 @@ function saveOnrampProfileSoFar() {
 }
 
 function generateOnrampSummary() {
-  const summaryEl = document.getElementById('onramp-summary');
-  let summary = '';
-  
-  const timelineLabels = {
-    '2weeks': '2-week intensive plan',
-    '1month': '4-week structured plan',
-    '3months': 'comprehensive 12-week plan',
-    'exploring': 'exploratory learning path'
-  };
-  
-  const backgroundLabels = {
-    'finance': 'finance background',
-    'econ': 'economics background',
-    'stem': 'STEM background',
-    'other': 'non-finance background'
-  };
-  
-  summary = `Based on your ${backgroundLabels[onrampData.background] || 'profile'}, we've created a ${timelineLabels[onrampData.timeline] || 'personalized plan'}`;
-  
-  if (onrampData.banks?.length) {
-    summary += ` focused on your target banks.`;
-  } else {
-    summary += ` covering all major bank interview styles.`;
+  // Render the per-topic calibration card. Same component for every user —
+  // the band pill colors do the work, so an all-foundations user and an
+  // all-advanced user see the identical layout.
+  const tableEl = document.getElementById('onramp-calibration');
+  if (!tableEl) return;
+
+  // Seed from the user's declared prep + timeline. If the user has already
+  // accumulated signal (re-entering onramp via "Edit plan"), prefer their
+  // current per-topic levels over the seed so we don't overwrite progress.
+  const haveSignal = LEVEL_TOPICS.some(t => progress.levels?.[t]?.samples > 0);
+  const levels = haveSignal
+    ? getAllLevelsFromProgress(progress)
+    : getLevelSeed({ prep: onrampData.prep, timeline: onrampData.timeline });
+
+  tableEl.replaceChildren();
+  for (const t of LEVEL_TOPICS) {
+    const lvl = levels[t];
+    const row = document.createElement('div');
+    row.className = 'cal-row';
+
+    const topic = document.createElement('div');
+    topic.className = 'cal-row-topic';
+    topic.textContent = TOPIC_LABELS[t] || t;
+
+    const pill = document.createElement('span');
+    pill.className = 'band-pill ' + lvl.band;
+    pill.textContent = lvl.band;
+
+    const conf = document.createElement('div');
+    conf.className = 'cal-row-confidence';
+    conf.textContent = lvl.confidence + ' confidence';
+
+    row.append(topic, pill, conf);
+    tableEl.appendChild(row);
   }
-  
-  summaryEl.textContent = summary;
+}
+
+// Launch the diagnostic from Step 4's optional check CTA. Task 5 will rebuild
+// the diagnostic content; here we just hand off to the existing entry point so
+// the user can confirm or fine-tune their seed before completing onramp.
+function startOnrampCalibrationCheck() {
+  const overlay = document.getElementById('onramp-overlay');
+  if (overlay) overlay.classList.remove('show');
+  setTimeout(() => {
+    const diagOverlay = document.getElementById('diagnostic-overlay');
+    if (diagOverlay) diagOverlay.classList.add('show');
+    const welcome = document.getElementById('diagnostic-welcome');
+    const active = document.getElementById('diagnostic-active');
+    const results = document.getElementById('diagnostic-results');
+    if (welcome) welcome.style.display = '';
+    if (active) active.style.display = 'none';
+    if (results) results.style.display = 'none';
+    // Mark this as a mid-onramp resume so closeDiagnostic returns the user
+    // to the onramp summary instead of dumping them on the dashboard.
+    window._onrampPendingResume = true;
+  }, 200);
 }
 
 function completeOnramp() {
@@ -2675,54 +3266,85 @@ const TIMELINE_LABEL = {
   'exploring': 'FLEXIBLE'
 };
 
-function _learnTask(week, moduleIds) {
+// Task helpers also tag each task with the calibration `topic` it serves
+// and the `taskLevel` band the content targets. PRD §5 Task 10 uses these
+// to compute the user's gap (userBand − taskLevel) and render accordingly.
+
+// Each Learn module → its dominant calibration topic. Used to derive
+// taskLevel context when the syllabus declares a learn task.
+const LEARN_MODULE_TOPIC = {
+  'three-statements':  'accounting',
+  'working-capital':   'accounting',
+  'dcf-basics':        'valuation',
+  'ev-equity':         'valuation',
+  'lbo-mechanics':     'lbo',
+  'accretion-dilution':'ma'
+};
+
+function _learnTask(week, moduleIds, taskLevel, topic) {
   const mods = moduleIds.map(id => LEARN_MODULES.find(m => m.id === id)).filter(Boolean);
+  // PRD §5 Task 13: drop the row when no module resolves rather than
+  // rendering "Learn: " with an empty title. Syllabus generators filter
+  // null tasks below.
+  if (mods.length === 0) return null;
   const titles = mods.map(m => m.title);
   const totalMin = mods.reduce((s, m) => s + (parseInt(m.time, 10) || 15), 0);
+  const inferredTopic = topic || LEARN_MODULE_TOPIC[moduleIds[0]] || null;
   return {
     id: `w${week}-learn-${moduleIds.join('-')}`,
     type: 'learn',
     moduleIds,
     label: titles.length === 1 ? `Learn: ${titles[0]}` : `Learn: ${titles.join(' + ')}`,
     time: `${totalMin} min`,
-    action: 'learn'
+    action: 'learn',
+    topic: inferredTopic,
+    taskLevel: taskLevel || 'foundations'
   };
 }
-function _practiceTask(week, sub, count) {
+function _practiceTask(week, sub, count, taskLevel) {
   const subLabel = { accounting: 'accounting', valuation: 'valuation', lbo: 'LBO', ma: 'M&A' }[sub] || sub;
   return {
     id: `w${week}-practice-${sub}`,
     type: 'practice', sub, count,
     label: `Drill ${count} ${subLabel} questions`,
     time: `~${Math.ceil(count * 1.2)} min`,
-    action: 'practice'
+    action: 'practice',
+    topic: sub,
+    taskLevel: taskLevel || 'beginner'
   };
 }
-function _behavioralTask(week, count) {
+function _behavioralTask(week, count, taskLevel) {
   return {
     id: `w${week}-beh-${count}`,
     type: 'behavioral', count,
     label: `Prep ${count} behavioral ${count === 1 ? 'story' : 'stories'}`,
     time: `${count * 10} min`,
-    action: 'behavioral'
+    action: 'behavioral',
+    topic: 'behavioral',
+    taskLevel: taskLevel || 'beginner'
   };
 }
-function _dealTask(week, count) {
+function _dealTask(week, count, taskLevel) {
   return {
     id: `w${week}-deal-${count}`,
     type: 'deal', count,
     label: `Review ${count} markets / deal questions`,
     time: `~${Math.ceil(count * 1.2)} min`,
-    action: 'deal'
+    action: 'deal',
+    topic: 'markets',
+    taskLevel: taskLevel || 'beginner'
   };
 }
-function _mockTask(week, kind) {
+function _mockTask(week, kind, taskLevel) {
   return {
     id: `w${week}-mock-${kind}`,
     type: 'mock', kind,
     label: kind === 'full' ? 'Full mock interview' : 'Technical mock interview',
     time: '30 min',
-    action: 'mock'
+    action: 'mock',
+    // Mocks span topics; gap computation skips tasks with no topic.
+    topic: null,
+    taskLevel: taskLevel || 'intermediate'
   };
 }
 
@@ -2736,97 +3358,104 @@ function generateSyllabus(profile, scores) {
   const tM = drillMult(techPct), bM = drillMult(behPct), dM = drillMult(dealPct);
   const r = (n) => Math.max(5, Math.round(n / 5) * 5);
 
+  // Per-week target band: the calibration band the task content is built for.
+  // Earlier weeks teach foundations/beginner mechanics; later weeks reach
+  // intermediate/advanced application. The user's gap (userBand − taskLevel)
+  // drives the visual treatment — see renderSyllabusTask.
   let weeks;
   if (totalWeeks === 2) {
     weeks = [
       { week: 1, theme: 'Technical Crunch', focus: 'tech', tasks: [
-        _learnTask(1, ['three-statements', 'dcf-basics']),
-        _practiceTask(1, 'accounting', r(20 * tM)),
-        _practiceTask(1, 'valuation', r(20 * tM)),
-        _behavioralTask(1, 3 * (bM > 1 ? 2 : 1) > 4 ? 4 : 3),
+        _learnTask(1, ['three-statements', 'dcf-basics'], 'beginner'),
+        _practiceTask(1, 'accounting', r(20 * tM), 'intermediate'),
+        _practiceTask(1, 'valuation', r(20 * tM), 'intermediate'),
+        _behavioralTask(1, 3 * (bM > 1 ? 2 : 1) > 4 ? 4 : 3, 'beginner'),
       ]},
       { week: 2, theme: 'Polish & Mock', focus: 'mixed', tasks: [
-        _practiceTask(2, 'lbo', r(15 * tM)),
-        _practiceTask(2, 'ma', r(10 * tM)),
-        _dealTask(2, r(10 * dM)),
-        _behavioralTask(2, 3),
-        _mockTask(2, 'full'),
+        _practiceTask(2, 'lbo', r(15 * tM), 'intermediate'),
+        _practiceTask(2, 'ma', r(10 * tM), 'intermediate'),
+        _dealTask(2, r(10 * dM), 'intermediate'),
+        _behavioralTask(2, 3, 'intermediate'),
+        _mockTask(2, 'full', 'intermediate'),
       ]}
     ];
   } else if (totalWeeks === 4) {
     weeks = [
       { week: 1, theme: 'Accounting Foundations', focus: 'accounting', tasks: [
-        _learnTask(1, ['three-statements', 'working-capital']),
-        _practiceTask(1, 'accounting', r(25 * tM)),
-        _behavioralTask(1, 2),
+        _learnTask(1, ['three-statements', 'working-capital'], 'foundations'),
+        _practiceTask(1, 'accounting', r(25 * tM), 'beginner'),
+        _behavioralTask(1, 2, 'foundations'),
       ]},
       { week: 2, theme: 'Valuation Core', focus: 'valuation', tasks: [
-        _learnTask(2, ['dcf-basics', 'ev-equity']),
-        _practiceTask(2, 'valuation', r(25 * tM)),
-        _behavioralTask(2, 2),
+        _learnTask(2, ['dcf-basics', 'ev-equity'], 'beginner'),
+        _practiceTask(2, 'valuation', r(25 * tM), 'beginner'),
+        _behavioralTask(2, 2, 'beginner'),
       ]},
       { week: 3, theme: 'LBO & M&A', focus: 'deals', tasks: [
-        _learnTask(3, ['lbo-mechanics', 'accretion-dilution']),
-        _practiceTask(3, 'lbo', r(15 * tM)),
-        _practiceTask(3, 'ma', r(15 * tM)),
-        _dealTask(3, r(10 * dM)),
+        _learnTask(3, ['lbo-mechanics', 'accretion-dilution'], 'intermediate'),
+        _practiceTask(3, 'lbo', r(15 * tM), 'intermediate'),
+        _practiceTask(3, 'ma', r(15 * tM), 'intermediate'),
+        _dealTask(3, r(10 * dM), 'intermediate'),
       ]},
       { week: 4, theme: 'Polish & Mocks', focus: 'mixed', tasks: [
-        _behavioralTask(4, 3),
-        _dealTask(4, r(10 * dM)),
-        _practiceTask(4, 'accounting', r(10 * tM)),
-        _mockTask(4, 'full'),
+        _behavioralTask(4, 3, 'intermediate'),
+        _dealTask(4, r(10 * dM), 'intermediate'),
+        _practiceTask(4, 'accounting', r(10 * tM), 'intermediate'),
+        _mockTask(4, 'full', 'intermediate'),
       ]}
     ];
   } else if (totalWeeks === 8) {
     weeks = [
       { week: 1, theme: 'Accounting I', focus: 'accounting', tasks: [
-        _learnTask(1, ['three-statements']), _practiceTask(1, 'accounting', r(15 * tM)), _behavioralTask(1, 1) ]},
+        _learnTask(1, ['three-statements'], 'foundations'), _practiceTask(1, 'accounting', r(15 * tM), 'beginner'), _behavioralTask(1, 1, 'foundations') ]},
       { week: 2, theme: 'Accounting II', focus: 'accounting', tasks: [
-        _learnTask(2, ['working-capital']), _practiceTask(2, 'accounting', r(20 * tM)), _behavioralTask(2, 1) ]},
+        _learnTask(2, ['working-capital'], 'beginner'), _practiceTask(2, 'accounting', r(20 * tM), 'intermediate'), _behavioralTask(2, 1, 'beginner') ]},
       { week: 3, theme: 'Valuation I', focus: 'valuation', tasks: [
-        _learnTask(3, ['dcf-basics']), _practiceTask(3, 'valuation', r(15 * tM)), _behavioralTask(3, 1) ]},
+        _learnTask(3, ['dcf-basics'], 'beginner'), _practiceTask(3, 'valuation', r(15 * tM), 'beginner'), _behavioralTask(3, 1, 'beginner') ]},
       { week: 4, theme: 'Valuation II', focus: 'valuation', tasks: [
-        _learnTask(4, ['ev-equity']), _practiceTask(4, 'valuation', r(15 * tM)), _behavioralTask(4, 1) ]},
+        _learnTask(4, ['ev-equity'], 'beginner'), _practiceTask(4, 'valuation', r(15 * tM), 'intermediate'), _behavioralTask(4, 1, 'beginner') ]},
       { week: 5, theme: 'LBO Mechanics', focus: 'lbo', tasks: [
-        _learnTask(5, ['lbo-mechanics']), _practiceTask(5, 'lbo', r(20 * tM)) ]},
+        _learnTask(5, ['lbo-mechanics'], 'intermediate'), _practiceTask(5, 'lbo', r(20 * tM), 'intermediate') ]},
       { week: 6, theme: 'M&A', focus: 'ma', tasks: [
-        _learnTask(6, ['accretion-dilution']), _practiceTask(6, 'ma', r(20 * tM)) ]},
+        _learnTask(6, ['accretion-dilution'], 'intermediate'), _practiceTask(6, 'ma', r(20 * tM), 'intermediate') ]},
       { week: 7, theme: 'Markets & Behavioral', focus: 'mixed', tasks: [
-        _dealTask(7, r(15 * dM)), _behavioralTask(7, 3) ]},
+        _dealTask(7, r(15 * dM), 'beginner'), _behavioralTask(7, 3, 'beginner') ]},
       { week: 8, theme: 'Mocks & Polish', focus: 'mixed', tasks: [
-        _mockTask(8, 'full'), _practiceTask(8, 'accounting', r(10 * tM)), _practiceTask(8, 'valuation', r(10 * tM)) ]}
+        _mockTask(8, 'full', 'intermediate'), _practiceTask(8, 'accounting', r(10 * tM), 'advanced'), _practiceTask(8, 'valuation', r(10 * tM), 'advanced') ]}
     ];
   } else { // 12 weeks
     weeks = [
       { week: 1, theme: 'Accounting I', focus: 'accounting', tasks: [
-        _learnTask(1, ['three-statements']), _practiceTask(1, 'accounting', r(15 * tM)), _behavioralTask(1, 1) ]},
+        _learnTask(1, ['three-statements'], 'foundations'), _practiceTask(1, 'accounting', r(15 * tM), 'beginner'), _behavioralTask(1, 1, 'foundations') ]},
       { week: 2, theme: 'Accounting II', focus: 'accounting', tasks: [
-        _learnTask(2, ['working-capital']), _practiceTask(2, 'accounting', r(15 * tM)) ]},
+        _learnTask(2, ['working-capital'], 'beginner'), _practiceTask(2, 'accounting', r(15 * tM), 'beginner') ]},
       { week: 3, theme: 'Accounting Drill', focus: 'accounting', tasks: [
-        _practiceTask(3, 'accounting', r(20 * tM)), _behavioralTask(3, 1) ]},
+        _practiceTask(3, 'accounting', r(20 * tM), 'intermediate'), _behavioralTask(3, 1, 'beginner') ]},
       { week: 4, theme: 'Valuation I', focus: 'valuation', tasks: [
-        _learnTask(4, ['dcf-basics']), _practiceTask(4, 'valuation', r(15 * tM)) ]},
+        _learnTask(4, ['dcf-basics'], 'beginner'), _practiceTask(4, 'valuation', r(15 * tM), 'beginner') ]},
       { week: 5, theme: 'Valuation II', focus: 'valuation', tasks: [
-        _learnTask(5, ['ev-equity']), _practiceTask(5, 'valuation', r(15 * tM)) ]},
+        _learnTask(5, ['ev-equity'], 'beginner'), _practiceTask(5, 'valuation', r(15 * tM), 'beginner') ]},
       { week: 6, theme: 'Valuation Drill', focus: 'valuation', tasks: [
-        _practiceTask(6, 'valuation', r(20 * tM)), _behavioralTask(6, 2) ]},
+        _practiceTask(6, 'valuation', r(20 * tM), 'intermediate'), _behavioralTask(6, 2, 'beginner') ]},
       { week: 7, theme: 'LBO Mechanics', focus: 'lbo', tasks: [
-        _learnTask(7, ['lbo-mechanics']), _practiceTask(7, 'lbo', r(15 * tM)) ]},
+        _learnTask(7, ['lbo-mechanics'], 'intermediate'), _practiceTask(7, 'lbo', r(15 * tM), 'intermediate') ]},
       { week: 8, theme: 'LBO Drill', focus: 'lbo', tasks: [
-        _practiceTask(8, 'lbo', r(20 * tM)), _dealTask(8, r(10 * dM)) ]},
+        _practiceTask(8, 'lbo', r(20 * tM), 'intermediate'), _dealTask(8, r(10 * dM), 'intermediate') ]},
       { week: 9, theme: 'M&A', focus: 'ma', tasks: [
-        _learnTask(9, ['accretion-dilution']), _practiceTask(9, 'ma', r(20 * tM)) ]},
+        _learnTask(9, ['accretion-dilution'], 'intermediate'), _practiceTask(9, 'ma', r(20 * tM), 'intermediate') ]},
       { week: 10, theme: 'Markets & Deals', focus: 'markets', tasks: [
-        _dealTask(10, r(20 * dM)), _behavioralTask(10, 2) ]},
+        _dealTask(10, r(20 * dM), 'intermediate'), _behavioralTask(10, 2, 'intermediate') ]},
       { week: 11, theme: 'Behavioral & Polish', focus: 'behavioral', tasks: [
-        _behavioralTask(11, 4), _practiceTask(11, 'accounting', r(10 * tM)), _practiceTask(11, 'valuation', r(10 * tM)) ]},
+        _behavioralTask(11, 4, 'intermediate'), _practiceTask(11, 'accounting', r(10 * tM), 'advanced'), _practiceTask(11, 'valuation', r(10 * tM), 'advanced') ]},
       { week: 12, theme: 'Mock Marathon', focus: 'mixed', tasks: [
-        _mockTask(12, 'full'), _mockTask(12, 'tech'), _practiceTask(12, 'lbo', r(10 * tM)) ]}
+        _mockTask(12, 'full', 'advanced'), _mockTask(12, 'tech', 'advanced'), _practiceTask(12, 'lbo', r(10 * tM), 'advanced') ]}
     ];
   }
 
-  return { totalWeeks, weeks };
+  // Drop any null tasks (e.g. _learnTask returned null because the referenced
+  // learn module hasn't been authored yet — PRD §5 Task 13). Cleaner than
+  // sprinkling .filter(Boolean) at every call site.
+  return { totalWeeks, weeks: weeks.map(w => ({ ...w, tasks: w.tasks.filter(Boolean) })) };
 }
 
 function isTaskComplete(task) {
@@ -2859,6 +3488,41 @@ function syllabusCurrentWeek(syllabus) {
   return syllabus.weeks.length;
 }
 
+// Gap = userTopicBand − taskLevel. >0 means user is past the content;
+// <0 means the content is above the user. Tasks without a topic (mocks)
+// return null and render normally without dimming or stretch hints.
+function gapForTask(task) {
+  if (!task || !task.topic) return null;
+  const userBand = getTopicLevel(progress, task.topic).band;
+  return toBandIndex(userBand) - toBandIndex(task.taskLevel || 'intermediate');
+}
+
+// Reorder uncompleted weeks so the user's biggest negative-gap week (the
+// content most above their current level) floats to the top, and weeks
+// they're past sink to the bottom. Completed weeks keep their original
+// chronological position. PRD §5 Task 10.
+function reorderWeeksByGap(weeks) {
+  const completed = [];
+  const uncompleted = [];
+  for (const w of weeks) {
+    const allDone = w.tasks.every(isTaskComplete);
+    if (allDone) completed.push(w);
+    else uncompleted.push(w);
+  }
+  const weekGap = w => {
+    const gaps = w.tasks.map(gapForTask).filter(g => g !== null);
+    if (!gaps.length) return 0;
+    return gaps.reduce((s, g) => s + g, 0) / gaps.length;
+  };
+  // Sort by avg gap ascending (most negative first); break ties by week.
+  uncompleted.sort((a, b) => {
+    const ga = weekGap(a), gb = weekGap(b);
+    if (ga !== gb) return ga - gb;
+    return a.week - b.week;
+  });
+  return [...completed, ...uncompleted];
+}
+
 function renderPrepPlan() {
   const container = document.getElementById('prep-plan-container');
   if (!container) return;
@@ -2878,11 +3542,15 @@ function renderPrepPlan() {
     `;
     return;
   }
-  const syllabus = generateSyllabus(progress.userProfile, progress.diagnosticScores);
+  const syllabus = generateSyllabus(progress.userProfile, levelsToScores());
   const currentWeek = syllabusCurrentWeek(syllabus);
+  // Reorder uncompleted weeks by gap before computing renderable list. The
+  // overall progress count is order-agnostic so we compute it from the
+  // original weeks array.
   const overallTasks = syllabus.weeks.reduce((s, w) => s + w.tasks.length, 0);
   const overallDone = syllabus.weeks.reduce((s, w) => s + w.tasks.filter(isTaskComplete).length, 0);
   const pct = Math.round(overallDone / overallTasks * 100) || 0;
+  const orderedWeeks = reorderWeeksByGap(syllabus.weeks);
 
   const weak = getWeakTopics(2);
   const focusHtml = weak.length ? `
@@ -2892,9 +3560,9 @@ function renderPrepPlan() {
         <div class="focus-areas-sub">${
           weak.every(w => w.source === 'live')
             ? 'Based on your practice so far'
-            : weak.every(w => w.source === 'diagnostic')
-              ? 'Based on your diagnostic'
-              : 'Based on your diagnostic and recent practice'
+            : weak.every(w => w.source === 'level')
+              ? 'Based on your current per-topic levels'
+              : 'Based on your levels and recent practice'
         }</div>
       </div>
       <div class="focus-areas-list">
@@ -2903,7 +3571,7 @@ function renderPrepPlan() {
             <div class="focus-area-info">
               <div class="focus-area-label">${w.label}</div>
               <div class="focus-area-bar"><div class="focus-area-fill" style="width:${Math.max(8, w.strength)}%"></div></div>
-              <div class="focus-area-meta">${w.strength}% strength · ${w.source === 'live' ? 'live' : 'diagnostic'}</div>
+              <div class="focus-area-meta">${w.strength}% strength · ${w.source === 'live' ? 'live' : 'level'}</div>
             </div>
             <button class="focus-area-btn" onclick="filterBankNav('${TOPIC_DEFS[w.key].cat}'${TOPIC_DEFS[w.key].sub ? `, '${TOPIC_DEFS[w.key].sub}'` : ''})">Drill →</button>
           </div>
@@ -2927,7 +3595,7 @@ function renderPrepPlan() {
         <div class="syl-overall-text">${overallDone} / ${overallTasks} tasks complete</div>
       </div>
       <div class="syllabus-weeks">
-        ${syllabus.weeks.map(w => renderSyllabusWeek(w, currentWeek)).join('')}
+        ${orderedWeeks.map(w => renderSyllabusWeek(w, currentWeek)).join('')}
       </div>
     </div>
   `;
@@ -2939,15 +3607,19 @@ function renderSyllabusWeek(week, currentWeek) {
   const tasksDone = week.tasks.filter(isTaskComplete).length;
   const total = week.tasks.length;
   const allDone = tasksDone === total;
-  const stateClass = isCurrent ? 'current' : (isPast ? 'past' : 'future');
-  const collapsed = !isCurrent;
+  // A week where every task's gap > 1 means the user is past every piece of
+  // its content — collapse it by default with a "you're past this" treatment.
+  const allTaskGaps = week.tasks.map(gapForTask).filter(g => g !== null);
+  const userPastWeek = allTaskGaps.length > 0 && allTaskGaps.every(g => g > 1);
+  const stateClass = isCurrent ? 'current' : (isPast ? 'past' : (userPastWeek ? 'past-by-level' : 'future'));
+  const collapsed = !isCurrent || userPastWeek;
 
   return `
     <div class="syl-week ${stateClass} ${collapsed ? 'collapsed' : ''}" data-week="${week.week}">
       <div class="syl-week-head" onclick="toggleSylWeek(${week.week})">
         <div class="syl-week-num">W${week.week}</div>
         <div class="syl-week-titlewrap">
-          <div class="syl-week-theme">${week.theme}</div>
+          <div class="syl-week-theme">${week.theme}${userPastWeek ? ' <span class="syl-week-past-tag">you\'re past this</span>' : ''}</div>
           <div class="syl-week-progress">${tasksDone}/${total}${allDone ? ' ✓' : ''}</div>
         </div>
         <div class="syl-week-toggle">${collapsed ? '+' : '−'}</div>
@@ -2961,12 +3633,44 @@ function renderSyllabusWeek(week, currentWeek) {
 
 function renderSyllabusTask(task) {
   const done = isTaskComplete(task);
+  const gap = gapForTask(task);
+  // Gap >1: user is past content; render skippable with a Drill anyway link.
+  // Gap == 1: dimmed but accessible. Gap == 0 or -1: sweet spot. Gap < -1:
+  // stretch hint to set expectations.
+  let gapClass = '';
+  let stretchHint = '';
+  let pastNote = '';
+  if (gap !== null) {
+    if (gap > 1) gapClass = 'gap-past';
+    else if (gap === 1) gapClass = 'gap-easy';
+    else if (gap < -1) gapClass = 'gap-stretch';
+  }
+  if (gapClass === 'gap-stretch') {
+    stretchHint = `<div class="syl-task-hint">This will stretch you</div>`;
+  }
+  if (gapClass === 'gap-past') {
+    pastNote = `<div class="syl-task-hint">You're past this — we'll send you to harder cards instead. <button type="button" class="syl-task-drill-anyway" onclick="event.stopPropagation();syllabusAction('${task.id}','${task.action}')">Drill anyway →</button></div>`;
+  }
+  const badge = task.taskLevel
+    ? `<span class="syl-task-level band-pill ${task.taskLevel}">${task.taskLevel}</span>`
+    : '';
+  // Hide the action button on past tasks — Drill-anyway link inside the hint
+  // is the only way through, signalling the user has alternatives.
+  const actionBtn = gapClass === 'gap-past'
+    ? ''
+    : `<button class="syl-task-action" onclick="event.stopPropagation();syllabusAction('${task.id}','${task.action}')">→</button>`;
   return `
-    <div class="syl-task ${done ? 'done' : ''}">
+    <div class="syl-task ${done ? 'done' : ''} ${gapClass}">
       <div class="syl-task-check ${done ? 'done' : ''}" onclick="event.stopPropagation();toggleSyllabusTask('${task.id}')">${done ? '✓' : ''}</div>
-      <div class="syl-task-label">${task.label}</div>
-      <div class="syl-task-time">${task.time}</div>
-      <button class="syl-task-action" onclick="event.stopPropagation();syllabusAction('${task.id}','${task.action}')">→</button>
+      <div class="syl-task-main">
+        <div class="syl-task-row">
+          ${badge}
+          <span class="syl-task-label">${task.label}</span>
+          <span class="syl-task-time">${task.time}</span>
+        </div>
+        ${stretchHint || pastNote}
+      </div>
+      ${actionBtn}
     </div>
   `;
 }
@@ -3000,20 +3704,16 @@ function renderPlanPreview() {
   const container = document.getElementById('onramp-plan-preview');
   if (!container) return;
   const profile = { ...onrampData };
-  const syllabus = generateSyllabus(profile, progress.diagnosticScores);
-  const techPct = progress.diagnosticScores?.tech;
-  const behPct = progress.diagnosticScores?.beh;
-  const dealPct = progress.diagnosticScores?.deal;
-  const weakestLabel = (() => {
-    if (techPct == null) return null;
-    const arr = [
-      { label: 'technicals', pct: techPct },
-      { label: 'behavioral', pct: behPct ?? 100 },
-      { label: 'markets', pct: dealPct ?? 100 },
-    ];
-    arr.sort((a, b) => a.pct - b.pct);
-    return arr[0].pct < 70 ? arr[0].label : null;
-  })();
+  const scores = levelsToScores();
+  const syllabus = generateSyllabus(profile, scores);
+  // Pick the weakest of {tech avg, behavioral, markets} for the headline tag.
+  const arr = [
+    { label: 'technicals', pct: scores.tech },
+    { label: 'behavioral', pct: scores.beh },
+    { label: 'markets',    pct: scores.deal }
+  ];
+  arr.sort((a, b) => a.pct - b.pct);
+  const weakestLabel = arr[0].pct < 70 ? arr[0].label : null;
 
   container.innerHTML = `
     <div class="syl-pre-meta">
@@ -3037,7 +3737,7 @@ function showOnramp() {
   // Hydrate onrampData from any previously saved profile so "Edit plan" doesn't blank fields.
   if (progress.userProfile) {
     onrampData = {
-      background: progress.userProfile.background || null,
+      prep: progress.userProfile.prep || null,
       timeline: progress.userProfile.timeline || null,
       banks: Array.isArray(progress.userProfile.banks) ? [...progress.userProfile.banks] : []
     };
@@ -3045,7 +3745,7 @@ function showOnramp() {
     requestAnimationFrame(() => {
       document.querySelectorAll('.onramp-option').forEach(opt => opt.classList.remove('selected'));
       document.querySelectorAll('#onramp-step-1 .onramp-option').forEach(opt => {
-        if (opt.getAttribute('onclick')?.includes(`'${onrampData.background}'`)) opt.classList.add('selected');
+        if (opt.getAttribute('onclick')?.includes(`'${onrampData.prep}'`)) opt.classList.add('selected');
       });
       document.querySelectorAll('#onramp-step-2 .onramp-option').forEach(opt => {
         if (opt.getAttribute('onclick')?.includes(`'${onrampData.timeline}'`)) opt.classList.add('selected');
@@ -3276,6 +3976,11 @@ window.addEventListener('DOMContentLoaded', async function() {
     console.error('Init error:', e);
   }
 
+  // Show config banner immediately if Supabase failed to initialize. The
+  // landing renders normally; auth actions short-circuit with a toast.
+  renderConfigBanner();
+  if (!sb) return;
+
   const hashParams = new URLSearchParams(window.location.hash.slice(1));
   const searchParams = new URLSearchParams(window.location.search);
 
@@ -3463,6 +4168,7 @@ async function saveProfileInfo() {
   if (!nameVal) { showProfileMsg('info', 'error', 'Name cannot be empty.'); return; }
   if (!emailVal || !emailVal.includes('@')) { showProfileMsg('info', 'error', 'Please enter a valid email.'); return; }
 
+  if (!requireSupabase()) return;
   try {
     const updates = { data: { full_name: nameVal } };
     if (emailVal !== currentUser?.email) updates.email = emailVal;
@@ -3495,6 +4201,7 @@ async function saveProfilePassword() {
 
   if (!pw || pw.length < 8) { showProfileMsg('pw', 'error', 'Password must be at least 8 characters.'); return; }
   if (pw !== confirm) { showProfileMsg('pw', 'error', 'Passwords do not match.'); return; }
+  if (!requireSupabase()) return;
 
   try {
     const { data, error } = await sb.auth.updateUser({ password: pw });
@@ -3535,28 +4242,3 @@ document.addEventListener('DOMContentLoaded', function() {
 
 /* ─── WIRE MODULE DEPENDENCIES ──────── */
 setMapDeps({ getMasteryClass, showView });
-
-/* ─── EXPOSE GLOBALS FOR INLINE HANDLERS ─── */
-// Temporary: needed because index.html uses onclick="fn()" attributes.
-// These will be removed when we migrate to addEventListener.
-Object.assign(window, {
-  addNewStory, calcROI, closeDiagnostic,
-  closeDiagnosticToLanding, closeDiagnosticToPlan, closeLearnModule, completeOnramp, demoChatSend,
-  demoFilterBank, demoFlipCard, demoFCNav, demoFCShuffle, demoToggleQ,
-  doForgotPassword, doLogin, doSetNewPassword, doSignOut, doSignup, filterBank, filterBankNav, filterSub,
-  flipCard, goToDueReview, mapFitAll, mapResetView, mapZoom,
-  navScrollTo, nextCard, nextLearnSection, nextOnrampStep, nextQuizQuestion,
-  openLearnModule, prevCard, prevLearnSection, prevOnrampStep, prevNav,
-  pvBankFilter, pvFlipCard, pvFCNav, pvMockSend, pvToggleQ, rateCard,
-  renderBank, reviewQuizMistakes, saveProfileInfo,
-  saveProfilePassword, selectDiagAnswer, selectOnramp, selectQuizAnswer,
-  sendMsg, setFlashCat, setNavActive,
-  setStudyMode, showAuthTab, showForgotPassword, showOnramp, showQuizSetup, startCheckout, openSubscriptionPortal,
-  openInlineAuth, closeInlineAuth, switchInlineAuthTab, doInlineLogin, doInlineSignup,
-  showScreen, showView, shuffleFlash, skipDiagnostic, smartPractice,
-  startDiagnostic, startDirectDiagnostic, startMock,
-  startQuiz, switchAuthTab, toggleFaq, toggleOnrampMulti,
-  toggleProfileEdit, toggleQ, toggleStoryPanel, toggleTheme,
-  toggleCardWhy, toggleSylWeek, toggleSyllabusTask, syllabusAction,
-  viewStoryNote
-});

@@ -28,6 +28,33 @@ const ALLOWED_CATEGORIES = {
   deal: 'deals, markets, and current events'
 };
 
+// Per-topic calibration vocab — keep in lockstep with src/levels.js. The
+// server doesn't import the client module to stay self-contained, but it
+// validates against the same enum.
+const ALLOWED_TOPICS = new Set([
+  'accounting', 'valuation', 'lbo', 'ma', 'markets', 'behavioral', 'brain'
+]);
+const ALLOWED_BANDS = new Set([
+  'foundations', 'beginner', 'intermediate', 'advanced', 'expert'
+]);
+const ALLOWED_DIFFICULTIES = new Set(['warmup', 'vp', 'vp_curveball']);
+
+const DIFFICULTY_DESCRIPTIONS = {
+  warmup:       'Warm-up: this candidate is early in their prep. Be encouraging and patient. If they look stuck, it\'s OK to nudge with a small hint or restate the question more concretely. Score generously and emphasise progress.',
+  vp:           'VP: standard VP-level interview. Direct, rigorous, no hand-holding. Score per the rubric.',
+  vp_curveball: 'VP + Curveball: this candidate is operating at expert level. Push them. Use unusual fact patterns, multi-step setups, and probing follow-ups. Score per the rubric, with the bar set for expert.'
+};
+
+const TOPIC_LABELS_SERVER = {
+  accounting: 'accounting',
+  valuation:  'valuation',
+  lbo:        'LBO',
+  ma:         'M&A',
+  markets:    'markets / deals',
+  behavioral: 'behavioral / fit',
+  brain:      'brain teasers'
+};
+
 const MODEL = 'claude-sonnet-4-6';
 const MAX_TOKENS = 900;
 const MAX_HISTORY_MESSAGES = 30;
@@ -66,15 +93,41 @@ function currentYyyymm() {
   return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
 }
 
-function buildSystemPrompt(mode, firm, category) {
+function buildSystemPrompt(mode, firm, category, difficulty, levels) {
   if (mode === 'mock_interview') {
     const categoryDescription = ALLOWED_CATEGORIES[category] || ALLOWED_CATEGORIES.tech;
+    const difficultyLine = DIFFICULTY_DESCRIPTIONS[difficulty] || DIFFICULTY_DESCRIPTIONS.vp;
+
+    // Inline the per-topic levels so the model can pick a topic per question
+    // and sample at that topic's band ± 0–1. PRD §5 Task 11 step 3.
+    const levelLines = levels
+      ? Object.entries(levels).map(([t, b]) => `- ${TOPIC_LABELS_SERVER[t] || t}: ${b}`).join('\n')
+      : null;
+
     return [
       'You are a Vice President in M&A at ' + firm + '.',
       'You are interviewing a candidate for a junior banker (analyst) role.',
       'The interview focuses on: ' + categoryDescription + '.',
       '',
-      'Run a rigorous, realistic 6-question interview. Adapt difficulty to the candidate.',
+      'INTERVIEW MODE:',
+      difficultyLine,
+      '',
+      ...(levelLines ? [
+        "CANDIDATE'S CURRENT PER-TOPIC LEVELS (from their accumulated practice):",
+        levelLines,
+        '',
+        "QUESTION SELECTION RULES:",
+        "- Each question must target a single topic from the list above.",
+        "- Pick the topic for the next question, then choose its difficulty at that topic's band ± 0–1 (e.g., a candidate at advanced LBO gets intermediate, advanced, or expert LBO questions; a candidate at foundations valuation gets foundations or beginner valuation questions).",
+        "- Vary topics across the 6 questions so the candidate is tested across the relevant area, not drilled on one thing.",
+        "- For technical interviews, weight questions toward whichever topics are at intermediate or below — those are where the candidate has the most room to grow.",
+        '',
+        "SCORING RULES:",
+        "- Score relative to the candidate's level for THAT topic, not against an absolute VP standard. A beginner-level LBO question for a beginner-LBO candidate at 7/10 is genuinely solid for their level — don't punish them for not delivering an advanced answer to a beginner question.",
+        '- In Part 2, briefly acknowledge the topic and the band you sampled at (e.g., "This was an intermediate-level valuation question — solid framing on WACC, missing the unlevered-beta step a 9/10 would include.").',
+        ''
+      ] : []),
+      'Run a rigorous, realistic 6-question interview.',
       '',
       'BEFORE THE FIRST QUESTION:',
       'Briefly introduce yourself in one sentence (no name — just "I\'m a VP in M&A at ' + firm + '"), then ask question 1.',
@@ -84,12 +137,12 @@ function buildSystemPrompt(mode, firm, category) {
       'PART 1 — Score line, no markdown, exactly this format:',
       'Technical: X/10 | Structure: X/10 | Confidence: X/10',
       '',
-      'PART 2 — One short paragraph (2-4 sentences) starting with "What would make this stronger:". Be specific. Name the concept the candidate omitted, the framework they should have used, or the precise word/number that was wrong. Reference what a 9/10 answer would have included. Confident but kind: direct, not snarky, not coddling.',
+      'PART 2 — One short paragraph (2-4 sentences) starting with "What would make this stronger:". Be specific. Name the concept the candidate omitted, the framework they should have used, or the precise word/number that was wrong. Reference what a 9/10 answer would have included for THAT topic at THAT band. Confident but kind: direct, not snarky, not coddling.',
       '',
       'PART 3 — Decide the next move based on the answer:',
       "- If the candidate showed surface knowledge but missed nuance, DRILL DEEPER: ask a follow-up that probes the specific gap you named in part 2.",
       "- If the candidate's answer was weak or incorrect, PUSHBACK: challenge them to reconsider with a pointed question (e.g., \"Are you sure? What happens if X — does your answer still hold?\").",
-      "- If the candidate scored 8+ across the board, MOVE ON: ask a harder, related question.",
+      "- If the candidate scored 8+ across the board, MOVE ON: pick a different topic and sample one band higher than the previous question's topic, within their band ± 1.",
       '',
       'PART 4 — The next question on its own line, beginning with the candidate\'s next ordinal ("Question 2:", "Question 3:", etc.). Do not number questions 1 or include "Question 1:" before the very first question.',
       '',
@@ -99,8 +152,8 @@ function buildSystemPrompt(mode, firm, category) {
       '- Areas to focus on: <one sentence>',
       '- Overall band: <Beginner | Developing | Strong | Excellent>',
       '',
-      'SCORING RUBRIC:',
-      '- 9-10: Crisp, complete, right framework, sharp edge.',
+      'SCORING RUBRIC (calibrated to the topic\'s band):',
+      "- 9-10: Crisp, complete, right framework, sharp edge for the band you sampled at.",
       '- 7-8: Solid; minor gaps or hedging.',
       '- 5-6: Surface-level; missed the key insight.',
       '- 3-4: Incorrect or confused on a core concept.',
@@ -148,11 +201,21 @@ export default async function handler(req, res) {
   }
 
   // 3. Validate request shape.
-  const { mode, firm, category, messages } = req.body || {};
+  const { mode, firm, category, messages, difficulty, levels } = req.body || {};
   if (!ALLOWED_MODES.has(mode)) return bad(res, 400, 'Unknown mode');
   if (mode === 'mock_interview') {
     if (!ALLOWED_FIRMS.has(firm)) return bad(res, 400, 'Unknown firm');
     if (category && !ALLOWED_CATEGORIES[category]) return bad(res, 400, 'Unknown category');
+    if (difficulty && !ALLOWED_DIFFICULTIES.has(difficulty)) return bad(res, 400, 'Unknown difficulty');
+    if (levels !== undefined) {
+      if (typeof levels !== 'object' || levels === null || Array.isArray(levels)) {
+        return bad(res, 400, 'Bad levels payload');
+      }
+      for (const [t, b] of Object.entries(levels)) {
+        if (!ALLOWED_TOPICS.has(t)) return bad(res, 400, 'Unknown level topic');
+        if (typeof b !== 'string' || !ALLOWED_BANDS.has(b)) return bad(res, 400, 'Unknown level band');
+      }
+    }
   }
   if (!Array.isArray(messages) || !messages.length) {
     return bad(res, 400, 'No messages');
@@ -212,7 +275,7 @@ export default async function handler(req, res) {
 
   // 6. Make the Anthropic call with a hard timeout so a slow upstream can't
   //    hold the function hostage.
-  const system = buildSystemPrompt(mode, firm, category);
+  const system = buildSystemPrompt(mode, firm, category, difficulty, levels);
   const ctrl = new AbortController();
   const timeoutId = setTimeout(() => ctrl.abort(), ANTHROPIC_TIMEOUT_MS);
   let upstream;
