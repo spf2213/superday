@@ -966,49 +966,37 @@
         </div>
       </div>
 
-      <!-- Three rows: Learn → Practice → Test. Each shows what's been done
-           and a single button into the right surface. No syllabus, no levels. -->
-      <div class="dash-rows">
-
-        <div class="dash-row" onclick="showView('learn')">
-          <div class="dash-row-num">1</div>
-          <div class="dash-row-main">
-            <div class="dash-row-head">
-              <span class="dash-row-title">Learn — Concepts</span>
-              <span class="dash-row-val" id="row-concepts-val">0 of 0</span>
-            </div>
-            <div class="dash-row-bar"><div class="dash-row-fill" id="row-concepts-fill" style="width:0%"></div></div>
-            <div class="dash-row-sub">Read the playbook before drilling questions.</div>
-          </div>
-          <div class="dash-row-cta">→</div>
+      <!-- Hero: a single "next step" call-to-action computed from current
+           state. Updates whenever updateDashStats runs. -->
+      <button type="button" class="dash-hero-card" id="dash-hero-card" onclick="dashHeroAction()">
+        <div class="dash-hero-meta">
+          <span class="dash-hero-label" id="dash-hero-label">NEXT STEP</span>
+          <span class="dash-hero-cta-mini" id="dash-hero-cta">Start →</span>
         </div>
+        <div class="dash-hero-action" id="dash-hero-action">Loading…</div>
+        <div class="dash-hero-sub" id="dash-hero-sub"></div>
+      </button>
 
-        <div class="dash-row" onclick="smartPractice()">
-          <div class="dash-row-num">2</div>
-          <div class="dash-row-main">
-            <div class="dash-row-head">
-              <span class="dash-row-title">Practice — Flashcards</span>
-              <span class="dash-row-val" id="row-practice-val">0 of 0</span>
-            </div>
-            <div class="dash-row-bar"><div class="dash-row-fill" id="row-practice-fill" style="width:0%"></div></div>
-            <div class="dash-row-sub" id="row-practice-due">nothing due</div>
-          </div>
-          <div class="dash-row-cta">→</div>
-        </div>
-
-        <div class="dash-row" onclick="showView('mock')">
-          <div class="dash-row-num">3</div>
-          <div class="dash-row-main">
-            <div class="dash-row-head">
-              <span class="dash-row-title">Test — Mock Interview</span>
-              <span class="dash-row-val" id="row-mock-best">—</span>
-            </div>
-            <div class="dash-row-sub" id="row-mock-last">No mocks yet</div>
-            <div class="dash-row-sub" style="opacity:0.7;margin-top:2px">Closed-book, scored. The only thing that measures readiness.</div>
-          </div>
-          <div class="dash-row-cta">→</div>
-        </div>
-
+      <!-- Three status tiles, always visible at-a-glance. -->
+      <div class="dash-tile-grid">
+        <button type="button" class="dash-tile" onclick="showView('learn')">
+          <div class="dash-tile-label">Concepts</div>
+          <div class="dash-tile-val" id="tile-concepts-val">0 / 0</div>
+          <div class="dash-tile-bar"><div class="dash-tile-fill" id="tile-concepts-fill" style="width:0%"></div></div>
+          <div class="dash-tile-sub">modules read</div>
+        </button>
+        <button type="button" class="dash-tile" onclick="showView('flash')">
+          <div class="dash-tile-label">Flashcards</div>
+          <div class="dash-tile-val" id="tile-practice-val">0 / 0</div>
+          <div class="dash-tile-bar"><div class="dash-tile-fill" id="tile-practice-fill" style="width:0%"></div></div>
+          <div class="dash-tile-sub" id="tile-practice-sub">cards mastered</div>
+        </button>
+        <button type="button" class="dash-tile" onclick="showView('mock')">
+          <div class="dash-tile-label">Mock</div>
+          <div class="dash-tile-val" id="tile-mock-val">—</div>
+          <div class="dash-tile-bar"><div class="dash-tile-fill" id="tile-mock-fill" style="width:0%"></div></div>
+          <div class="dash-tile-sub" id="tile-mock-sub">no mocks yet</div>
+        </button>
       </div>
 
       <!-- Activity + Market Pulse, side by side. Stacks on narrow screens. -->

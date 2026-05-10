@@ -469,6 +469,7 @@ function showInfoModal(title, body) {
 // strand inline onclick="fn()" handlers as silent no-ops.
 Object.assign(window, {
   addNewStory, calcROI, closeLearnModule,
+  dashHeroAction,
   demoChatSend, demoFilterBank, demoFlipCard, demoFCNav, demoFCShuffle, demoToggleQ,
   doForgotPassword, doLogin, doSetNewPassword, doSignOut, doSignup,
   flipCard,
@@ -1117,30 +1118,36 @@ function relativeTime(ms) {
   return new Date(ms).toLocaleDateString();
 }
 
-// Three-row dashboard: Concepts (learn) / Practice (flashcards) / Mock (test).
-// Each row reads its own metric. No synthesis, no level inference. The user
-// sees what they've done in each modality and picks where to spend time.
+// Hero "next step" + three status tiles. The hero answers "what should I do
+// right now" with a small state machine over current progress; the tiles
+// show at-a-glance status across all three modalities.
 function updateDashStats() {
-  // Row 1: Concepts read
   const totalModules = LEARN_MODULES.length;
   const modulesRead = LEARN_MODULES.filter(m => (progress.learnProgress?.[m.id] || 0) >= m.sections).length;
-  setText('row-concepts-val', `${modulesRead} of ${totalModules}`);
-  setBar('row-concepts-fill', totalModules ? modulesRead / totalModules : 0);
-
-  // Row 2: Cards mastered + due today
   const totalCards = QUESTIONS.length;
   const masteredCount = QUESTIONS.filter(q => getMasteryClass(q.id) === 'mastered').length;
   const dueCount = getDueCount();
-  setText('row-practice-val', `${masteredCount} of ${totalCards}`);
-  setText('row-practice-due', dueCount > 0 ? `${dueCount} due today` : 'nothing due');
-  setBar('row-practice-fill', totalCards ? masteredCount / totalCards : 0);
-
-  // Row 3: Mock — last + best technical score (the knowledge dimension)
   const mocks = Array.isArray(progress.mockHistory) ? progress.mockHistory : [];
   const last = mocks[mocks.length - 1];
   const best = mocks.reduce((m, r) => r.tech > (m?.tech ?? -1) ? r : m, null);
-  setText('row-mock-last', last ? `Last ${last.tech}/10` : 'No mocks yet');
-  setText('row-mock-best', best ? `Best ${best.tech}/10` : '—');
+
+  // Status tiles
+  setText('tile-concepts-val', `${modulesRead} / ${totalModules}`);
+  setBar('tile-concepts-fill', totalModules ? modulesRead / totalModules : 0);
+  setText('tile-practice-val', `${masteredCount} / ${totalCards}`);
+  setText('tile-practice-sub', dueCount > 0 ? `${dueCount} due now` : 'cards mastered');
+  setBar('tile-practice-fill', totalCards ? masteredCount / totalCards : 0);
+  setText('tile-mock-val', best ? `${best.tech} / 10` : '—');
+  setText('tile-mock-sub', last ? `last ${last.tech}/10 · ${mocks.length} done` : 'no mocks yet');
+  setBar('tile-mock-fill', best ? best.tech / 10 : 0);
+
+  // Hero next step
+  const hero = pickHeroAction({ modulesRead, totalModules, masteredCount, dueCount, mocks });
+  window._heroAction = hero.go;
+  setText('dash-hero-label', hero.label);
+  setText('dash-hero-action', hero.action);
+  setText('dash-hero-sub', hero.sub);
+  setText('dash-hero-cta', hero.cta);
 
   // Streak = consecutive calendar days ending today with at least one
   // answered card. One source of truth, no fabricated counters.
@@ -1170,18 +1177,74 @@ function setBar(id, frac) {
   if (el) el.style.width = Math.max(0, Math.min(1, frac)) * 100 + '%';
 }
 
-// Dashboard primary CTA: due cards if any, else read concepts if untouched,
-// else drill flashcards. Simple decision tree, no scoring engine.
-function smartPractice() {
-  if (getDueCount() > 0) {
-    showView('flash');
-    setTimeout(() => setStudyMode('due'), 100);
-    return;
+// Pick the next-step recommendation rendered in the hero card. Walks state
+// in priority order: due cards → first concept → grow card base → first mock
+// → keep practicing. Each branch returns label/action/sub/cta + the action
+// to fire when the hero is clicked.
+function pickHeroAction({ modulesRead, totalModules, masteredCount, dueCount, mocks }) {
+  if (dueCount > 0) {
+    return {
+      label: 'REVIEW',
+      action: dueCount === 1 ? '1 card due now' : `${dueCount} cards due now`,
+      sub: 'Spaced repetition is the engine. These are about to slip — clear them in a few minutes.',
+      cta: 'Review now →',
+      go: () => { showView('flash'); setTimeout(() => setStudyMode('due'), 100); }
+    };
   }
-  const totalModules = LEARN_MODULES.length;
-  const modulesRead = LEARN_MODULES.filter(m => (progress.learnProgress?.[m.id] || 0) >= m.sections).length;
-  if (modulesRead === 0) { showView('learn'); return; }
-  showView('flash');
+  if (modulesRead === 0) {
+    return {
+      label: 'START HERE',
+      action: 'Read your first concept',
+      sub: 'The playbook before the drills. Most modules run 10–15 minutes; pick any to begin.',
+      cta: 'Open concepts →',
+      go: () => showView('learn')
+    };
+  }
+  if (masteredCount < 20) {
+    return {
+      label: 'BUILD YOUR BASE',
+      action: 'Drill flashcards',
+      sub: 'You\'ve started reading. Lock in recall before stress-testing in a mock.',
+      cta: 'Start drilling →',
+      go: () => showView('flash')
+    };
+  }
+  if (!mocks.length) {
+    return {
+      label: 'READY',
+      action: 'Take your first mock interview',
+      sub: 'Closed-book, scored. The only thing that measures interview readiness.',
+      cta: 'Start mock →',
+      go: () => showView('mock')
+    };
+  }
+  if (modulesRead < totalModules) {
+    return {
+      label: 'KEEP GOING',
+      action: `Read another concept (${totalModules - modulesRead} left)`,
+      sub: 'Mocks expose gaps. Reading the right concept fills them faster than drilling will.',
+      cta: 'Open concepts →',
+      go: () => showView('learn')
+    };
+  }
+  return {
+    label: 'PUSH HARDER',
+    action: 'Run another mock',
+    sub: 'You\'ve covered the curriculum. Mocks are how delivery gets sharp.',
+    cta: 'Start mock →',
+    go: () => showView('mock')
+  };
+}
+
+// Hero CTA — wired to whatever pickHeroAction set on _heroAction last render.
+function dashHeroAction() {
+  if (typeof window._heroAction === 'function') window._heroAction();
+}
+
+// Dashboard primary CTA from elsewhere (kept for compatibility — unused now
+// that the hero handles all routing). Falls through to the same logic.
+function smartPractice() {
+  dashHeroAction();
 }
 
 function renderActivity() {
