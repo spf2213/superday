@@ -1239,41 +1239,64 @@
         <div class="view-title">Mock Interview</div>
         <div class="view-sub">Practice with a VP-level interviewer. Get scored on every answer.</div>
       </div>
-      <div class="mock-wrap">
-        <div class="mock-mode-banner" id="mock-mode-banner" style="display:none">
-          <span id="mock-mode-banner-text">We've started you in Warm-up.</span>
+      <div class="mock-wrap mock-grid">
+        <select id="mock-cat" class="visually-hidden" aria-hidden="true">
+          <option value="tech">Technical</option>
+          <option value="beh">Behavioral</option>
+          <option value="brain">Brain Teasers</option>
+          <option value="deal">Deals &amp; Markets</option>
+        </select>
+        <select id="mock-mode" class="visually-hidden" aria-hidden="true">
+          <option value="warmup">Warm-up</option>
+          <option value="vp" selected>VP</option>
+          <option value="vp_curveball">VP + Curveball</option>
+        </select>
+        <div class="mock-mode-banner" id="mock-mode-banner" style="display:none" aria-hidden="true">
+          <span id="mock-mode-banner-text"></span>
           <button type="button" class="mock-mode-step" id="mock-mode-step-down" onclick="stepMockMode(-1)">Step down</button>
           <button type="button" class="mock-mode-step" id="mock-mode-step-up" onclick="stepMockMode(1)">Step up</button>
         </div>
-        <div class="mock-config">
-          <select class="app-select" id="mock-cat">
-            <option value="tech">Technical</option>
-            <option value="beh">Behavioral</option>
-            <option value="brain">Brain Teasers</option>
-            <option value="deal">Deals &amp; Markets</option>
-          </select>
-          <select class="app-select" id="mock-firm">
-            <optgroup label="Bulge bracket">
-              <option>Goldman Sachs</option>
-              <option>J.P. Morgan</option>
-              <option>Morgan Stanley</option>
-            </optgroup>
-            <optgroup label="Elite boutiques">
-              <option>Evercore</option>
-              <option>Lazard</option>
-            </optgroup>
-            <optgroup label="Private equity">
-              <option>Blackstone</option>
-            </optgroup>
-          </select>
-          <select class="app-select" id="mock-mode">
-            <option value="warmup">Warm-up</option>
-            <option value="vp" selected>VP</option>
-            <option value="vp_curveball">VP + Curveball</option>
-          </select>
-          <button class="btn-start-mock" onclick="startMock()">Start Interview</button>
-        </div>
-        <div class="iv-card">
+
+        <aside class="mock-rail">
+          <div class="mr-field">
+            <label class="mr-label">Category</label>
+            <div class="mr-opt">
+              <button type="button" class="on" data-v="tech" onclick="syncRailOpt(this,'mock-cat')"><span class="mr-dot"></span>Technical</button>
+              <button type="button" data-v="beh" onclick="syncRailOpt(this,'mock-cat')"><span class="mr-dot"></span>Behavioral</button>
+              <button type="button" data-v="brain" onclick="syncRailOpt(this,'mock-cat')"><span class="mr-dot"></span>Brain Teasers</button>
+              <button type="button" data-v="deal" onclick="syncRailOpt(this,'mock-cat')"><span class="mr-dot"></span>Deals &amp; Markets</button>
+            </div>
+          </div>
+          <div class="mr-field">
+            <label class="mr-label">Firm</label>
+            <select class="mr-firm-select" id="mock-firm">
+              <optgroup label="Bulge bracket">
+                <option>Goldman Sachs</option>
+                <option>J.P. Morgan</option>
+                <option>Morgan Stanley</option>
+              </optgroup>
+              <optgroup label="Elite boutiques">
+                <option>Evercore</option>
+                <option>Lazard</option>
+              </optgroup>
+              <optgroup label="Private equity">
+                <option>Blackstone</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="mr-field">
+            <label class="mr-label">Difficulty</label>
+            <div class="mr-opt">
+              <button type="button" data-v="warmup" onclick="syncRailOpt(this,'mock-mode')"><span class="mr-dot"></span>Warm-up</button>
+              <button type="button" class="on" data-v="vp" onclick="syncRailOpt(this,'mock-mode')"><span class="mr-dot"></span>VP</button>
+              <button type="button" data-v="vp_curveball" onclick="syncRailOpt(this,'mock-mode')"><span class="mr-dot"></span>VP + Curveball</button>
+            </div>
+          </div>
+          <div class="mr-meta">~ 6 questions · 12–15 min</div>
+          <button class="btn-start-mock mr-start" onclick="startMock()">Start interview →</button>
+        </aside>
+
+        <div class="iv-card mock-canvas">
           <div class="iv-topbar">
             <div class="iv-persona">
               <div class="iv-av" id="mock-iv-av">GS</div>
@@ -1291,8 +1314,7 @@
           <div class="chat-body" id="chat-body">
             <div class="chat-start">
               <h3>Ready when you are.</h3>
-              <p>Select a category and firm above, then start the interview. Your interviewer will ask questions and score your answers in real time.</p>
-              <button class="btn-primary" onclick="startMock()">Begin Interview →</button>
+              <p>Pick category, firm and difficulty on the left, then hit start. Your interviewer opens with a question matched to your level.</p>
             </div>
           </div>
           <div class="chat-input-bar">

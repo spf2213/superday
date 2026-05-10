@@ -481,7 +481,7 @@ Object.assign(window, {
   showAuthTab, showForgotPassword, startCheckout, openSubscriptionPortal,
   openInlineAuth, closeInlineAuth, switchInlineAuthTab, doInlineLogin, doInlineSignup,
   showScreen, showView, shuffleFlash, smartPractice,
-  askForHint, startMock, stepMockMode,
+  askForHint, startMock, stepMockMode, syncRailOpt, endInterview,
   switchAuthTab, toggleFaq,
   toggleProfileEdit, toggleStoryPanel, toggleTheme, toggleCardWhy,
   viewStoryNote
@@ -1640,6 +1640,7 @@ function renderMockModeBanner() {
   // Only auto-set if the user hasn't already started a mock or hand-changed.
   if (!select.dataset.userTouched) {
     select.value = defaultMockMode();
+    syncRailFromSelect('mock-mode');
   }
   // One-time listener so direct dropdown changes also refresh the banner.
   if (!select.dataset.listenerAttached) {
@@ -1649,7 +1650,10 @@ function renderMockModeBanner() {
     });
     select.dataset.listenerAttached = '1';
   }
-  banner.style.display = '';
+  // The banner is hidden in the rail UI; we keep the element in the DOM so
+  // this function can still attach the change listener and toggle the hint
+  // button, but the visible mode selection now lives in the left rail.
+  banner.style.display = 'none';
   text.textContent = `We've started you in ${MOCK_MODE_LABEL[select.value] || 'VP'}. Step up or step down manually if you'd like.`;
   const idx = MOCK_MODES.indexOf(select.value);
   if (stepDown) stepDown.disabled = idx <= 0;
@@ -1667,6 +1671,28 @@ function stepMockMode(dir) {
   select.value = MOCK_MODES[next];
   select.dataset.userTouched = '1';
   renderMockModeBanner();
+  syncRailFromSelect('mock-mode');
+}
+
+// Mirror the visible rail buttons into the hidden <select> they drive, then
+// notify any listeners (renderMockModeBanner attaches one to mock-mode).
+function syncRailOpt(btn, targetId) {
+  const group = btn.parentElement;
+  if (group) group.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === btn));
+  const sel = document.getElementById(targetId);
+  if (!sel) return;
+  sel.value = btn.dataset.v;
+  sel.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+// Update the rail's .on state to match the current value of a hidden <select>
+// (used after auto-defaulting mock-mode in renderMockModeBanner).
+function syncRailFromSelect(selectId) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  document.querySelectorAll(`.mr-opt button[onclick*="${selectId}"]`).forEach(b => {
+    b.classList.toggle('on', b.dataset.v === sel.value);
+  });
 }
 
 // Warm-up only: ask the interviewer for a hint on the current question.
