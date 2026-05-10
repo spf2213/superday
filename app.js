@@ -841,9 +841,12 @@ async function onSignedIn(user) {
   const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
   const cap = capitalize(fullName.split(' ')[0]);
   const greetingEl = document.getElementById('greeting-name');
+  const greetingWrap = document.getElementById('greeting-name-wrap');
   const sbNameEl = document.getElementById('sb-name');
   const sbAvatarEl = document.getElementById('sb-avatar');
   if (greetingEl) greetingEl.textContent = cap;
+  // Reveal the ", Name" comma-prefix only once we have a real name to show.
+  if (greetingWrap) greetingWrap.style.display = '';
   if (sbNameEl) sbNameEl.textContent = cap;
   if (sbAvatarEl) sbAvatarEl.textContent = cap[0].toUpperCase();
   const emailEl = document.getElementById('sb-email-display');
@@ -932,8 +935,15 @@ async function hasActiveSubscription() {
 }
 
 function routeToPaywall(user) {
+  // PRD §5 Task 12: paywall must never show "signed in as ." with an empty
+  // span. If we don't actually have a user, send them to auth instead — the
+  // paywall has no meaningful action without a signed-in user anyway.
+  if (!user) {
+    showAuthTab('login');
+    return;
+  }
   const emailSpan = document.getElementById('paywall-email');
-  if (emailSpan && user) emailSpan.textContent = user.email || '';
+  if (emailSpan) emailSpan.textContent = user.email || '';
   showScreen('paywall');
 }
 
@@ -1362,15 +1372,37 @@ function updateDashStats() {
     if (reasonEl) reasonEl.textContent = task.reason || '';
   }
 
+  // Streak = consecutive calendar days ending today with at least one
+  // answered card (using mastery.lastSeen as the per-question timestamp).
+  // PRD §5 Task 12: one source of truth, no fabricated counters.
+  const seenDays = new Set();
+  for (const m of Object.values(progress.mastery || {})) {
+    if (m && m.lastSeen) seenDays.add(new Date(m.lastSeen).toDateString());
+  }
+  const today = new Date();
+  let streak = 0;
+  const cursor = new Date(today);
+  while (seenDays.has(cursor.toDateString())) {
+    streak++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
   const days = ['M','T','W','T','F','S','S'];
-  const idx = (new Date().getDay()+6)%7;
+  const todayIdx = (today.getDay() + 6) % 7;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - todayIdx);
   const sd = document.getElementById('streak-dots');
-  if (sd) sd.innerHTML = days.map((d,i) => {
-    const cls = i < idx ? 'done' : i === idx ? 'today' : 'empty';
+  if (sd) sd.innerHTML = days.map((d, i) => {
+    const dayDate = new Date(monday);
+    dayDate.setDate(monday.getDate() + i);
+    const isToday = i === todayIdx;
+    const isFuture = dayDate > today && !isToday;
+    const wasActive = seenDays.has(dayDate.toDateString());
+    const cls = isFuture ? 'empty' : (wasActive ? 'done' : (isToday ? 'today' : 'empty'));
     return '<div class="s-dot ' + cls + '">' + d + '</div>';
   }).join('');
   const ks = document.getElementById('kpi-streak');
-  if (ks) ks.textContent = idx + 1;
+  if (ks) ks.textContent = streak;
 
   cats.forEach(c => {
     const pool = QUESTIONS.filter(q=>q.cat===c);
@@ -1500,7 +1532,7 @@ function renderActivity() {
   const el = document.getElementById('activity-list');
   if (!el) return;
   if (!progress.activityLog.length) {
-    el.innerHTML = '<div style="padding:32px 16px;text-align:center;font-size:12.5px;color:var(--t-3)">No activity yet — start practicing.</div>';
+    el.innerHTML = '<div style="padding:32px 16px;text-align:center;font-size:12.5px;color:var(--t-3)">Answer your first question to start your activity log.</div>';
     return;
   }
   const icons = { tech:'📊', beh:'💬', brain:'🧠', deal:'📈', levels:'↑' };
