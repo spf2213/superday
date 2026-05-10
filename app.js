@@ -3128,54 +3128,81 @@ const TIMELINE_LABEL = {
   'exploring': 'FLEXIBLE'
 };
 
-function _learnTask(week, moduleIds) {
+// Task helpers also tag each task with the calibration `topic` it serves
+// and the `taskLevel` band the content targets. PRD §5 Task 10 uses these
+// to compute the user's gap (userBand − taskLevel) and render accordingly.
+
+// Each Learn module → its dominant calibration topic. Used to derive
+// taskLevel context when the syllabus declares a learn task.
+const LEARN_MODULE_TOPIC = {
+  'three-statements':  'accounting',
+  'working-capital':   'accounting',
+  'dcf-basics':        'valuation',
+  'ev-equity':         'valuation',
+  'lbo-mechanics':     'lbo',
+  'accretion-dilution':'ma'
+};
+
+function _learnTask(week, moduleIds, taskLevel, topic) {
   const mods = moduleIds.map(id => LEARN_MODULES.find(m => m.id === id)).filter(Boolean);
   const titles = mods.map(m => m.title);
   const totalMin = mods.reduce((s, m) => s + (parseInt(m.time, 10) || 15), 0);
+  const inferredTopic = topic || LEARN_MODULE_TOPIC[moduleIds[0]] || null;
   return {
     id: `w${week}-learn-${moduleIds.join('-')}`,
     type: 'learn',
     moduleIds,
     label: titles.length === 1 ? `Learn: ${titles[0]}` : `Learn: ${titles.join(' + ')}`,
     time: `${totalMin} min`,
-    action: 'learn'
+    action: 'learn',
+    topic: inferredTopic,
+    taskLevel: taskLevel || 'foundations'
   };
 }
-function _practiceTask(week, sub, count) {
+function _practiceTask(week, sub, count, taskLevel) {
   const subLabel = { accounting: 'accounting', valuation: 'valuation', lbo: 'LBO', ma: 'M&A' }[sub] || sub;
   return {
     id: `w${week}-practice-${sub}`,
     type: 'practice', sub, count,
     label: `Drill ${count} ${subLabel} questions`,
     time: `~${Math.ceil(count * 1.2)} min`,
-    action: 'practice'
+    action: 'practice',
+    topic: sub,
+    taskLevel: taskLevel || 'beginner'
   };
 }
-function _behavioralTask(week, count) {
+function _behavioralTask(week, count, taskLevel) {
   return {
     id: `w${week}-beh-${count}`,
     type: 'behavioral', count,
     label: `Prep ${count} behavioral ${count === 1 ? 'story' : 'stories'}`,
     time: `${count * 10} min`,
-    action: 'behavioral'
+    action: 'behavioral',
+    topic: 'behavioral',
+    taskLevel: taskLevel || 'beginner'
   };
 }
-function _dealTask(week, count) {
+function _dealTask(week, count, taskLevel) {
   return {
     id: `w${week}-deal-${count}`,
     type: 'deal', count,
     label: `Review ${count} markets / deal questions`,
     time: `~${Math.ceil(count * 1.2)} min`,
-    action: 'deal'
+    action: 'deal',
+    topic: 'markets',
+    taskLevel: taskLevel || 'beginner'
   };
 }
-function _mockTask(week, kind) {
+function _mockTask(week, kind, taskLevel) {
   return {
     id: `w${week}-mock-${kind}`,
     type: 'mock', kind,
     label: kind === 'full' ? 'Full mock interview' : 'Technical mock interview',
     time: '30 min',
-    action: 'mock'
+    action: 'mock',
+    // Mocks span topics; gap computation skips tasks with no topic.
+    topic: null,
+    taskLevel: taskLevel || 'intermediate'
   };
 }
 
@@ -3189,93 +3216,97 @@ function generateSyllabus(profile, scores) {
   const tM = drillMult(techPct), bM = drillMult(behPct), dM = drillMult(dealPct);
   const r = (n) => Math.max(5, Math.round(n / 5) * 5);
 
+  // Per-week target band: the calibration band the task content is built for.
+  // Earlier weeks teach foundations/beginner mechanics; later weeks reach
+  // intermediate/advanced application. The user's gap (userBand − taskLevel)
+  // drives the visual treatment — see renderSyllabusTask.
   let weeks;
   if (totalWeeks === 2) {
     weeks = [
       { week: 1, theme: 'Technical Crunch', focus: 'tech', tasks: [
-        _learnTask(1, ['three-statements', 'dcf-basics']),
-        _practiceTask(1, 'accounting', r(20 * tM)),
-        _practiceTask(1, 'valuation', r(20 * tM)),
-        _behavioralTask(1, 3 * (bM > 1 ? 2 : 1) > 4 ? 4 : 3),
+        _learnTask(1, ['three-statements', 'dcf-basics'], 'beginner'),
+        _practiceTask(1, 'accounting', r(20 * tM), 'intermediate'),
+        _practiceTask(1, 'valuation', r(20 * tM), 'intermediate'),
+        _behavioralTask(1, 3 * (bM > 1 ? 2 : 1) > 4 ? 4 : 3, 'beginner'),
       ]},
       { week: 2, theme: 'Polish & Mock', focus: 'mixed', tasks: [
-        _practiceTask(2, 'lbo', r(15 * tM)),
-        _practiceTask(2, 'ma', r(10 * tM)),
-        _dealTask(2, r(10 * dM)),
-        _behavioralTask(2, 3),
-        _mockTask(2, 'full'),
+        _practiceTask(2, 'lbo', r(15 * tM), 'intermediate'),
+        _practiceTask(2, 'ma', r(10 * tM), 'intermediate'),
+        _dealTask(2, r(10 * dM), 'intermediate'),
+        _behavioralTask(2, 3, 'intermediate'),
+        _mockTask(2, 'full', 'intermediate'),
       ]}
     ];
   } else if (totalWeeks === 4) {
     weeks = [
       { week: 1, theme: 'Accounting Foundations', focus: 'accounting', tasks: [
-        _learnTask(1, ['three-statements', 'working-capital']),
-        _practiceTask(1, 'accounting', r(25 * tM)),
-        _behavioralTask(1, 2),
+        _learnTask(1, ['three-statements', 'working-capital'], 'foundations'),
+        _practiceTask(1, 'accounting', r(25 * tM), 'beginner'),
+        _behavioralTask(1, 2, 'foundations'),
       ]},
       { week: 2, theme: 'Valuation Core', focus: 'valuation', tasks: [
-        _learnTask(2, ['dcf-basics', 'ev-equity']),
-        _practiceTask(2, 'valuation', r(25 * tM)),
-        _behavioralTask(2, 2),
+        _learnTask(2, ['dcf-basics', 'ev-equity'], 'beginner'),
+        _practiceTask(2, 'valuation', r(25 * tM), 'beginner'),
+        _behavioralTask(2, 2, 'beginner'),
       ]},
       { week: 3, theme: 'LBO & M&A', focus: 'deals', tasks: [
-        _learnTask(3, ['lbo-mechanics', 'accretion-dilution']),
-        _practiceTask(3, 'lbo', r(15 * tM)),
-        _practiceTask(3, 'ma', r(15 * tM)),
-        _dealTask(3, r(10 * dM)),
+        _learnTask(3, ['lbo-mechanics', 'accretion-dilution'], 'intermediate'),
+        _practiceTask(3, 'lbo', r(15 * tM), 'intermediate'),
+        _practiceTask(3, 'ma', r(15 * tM), 'intermediate'),
+        _dealTask(3, r(10 * dM), 'intermediate'),
       ]},
       { week: 4, theme: 'Polish & Mocks', focus: 'mixed', tasks: [
-        _behavioralTask(4, 3),
-        _dealTask(4, r(10 * dM)),
-        _practiceTask(4, 'accounting', r(10 * tM)),
-        _mockTask(4, 'full'),
+        _behavioralTask(4, 3, 'intermediate'),
+        _dealTask(4, r(10 * dM), 'intermediate'),
+        _practiceTask(4, 'accounting', r(10 * tM), 'intermediate'),
+        _mockTask(4, 'full', 'intermediate'),
       ]}
     ];
   } else if (totalWeeks === 8) {
     weeks = [
       { week: 1, theme: 'Accounting I', focus: 'accounting', tasks: [
-        _learnTask(1, ['three-statements']), _practiceTask(1, 'accounting', r(15 * tM)), _behavioralTask(1, 1) ]},
+        _learnTask(1, ['three-statements'], 'foundations'), _practiceTask(1, 'accounting', r(15 * tM), 'beginner'), _behavioralTask(1, 1, 'foundations') ]},
       { week: 2, theme: 'Accounting II', focus: 'accounting', tasks: [
-        _learnTask(2, ['working-capital']), _practiceTask(2, 'accounting', r(20 * tM)), _behavioralTask(2, 1) ]},
+        _learnTask(2, ['working-capital'], 'beginner'), _practiceTask(2, 'accounting', r(20 * tM), 'intermediate'), _behavioralTask(2, 1, 'beginner') ]},
       { week: 3, theme: 'Valuation I', focus: 'valuation', tasks: [
-        _learnTask(3, ['dcf-basics']), _practiceTask(3, 'valuation', r(15 * tM)), _behavioralTask(3, 1) ]},
+        _learnTask(3, ['dcf-basics'], 'beginner'), _practiceTask(3, 'valuation', r(15 * tM), 'beginner'), _behavioralTask(3, 1, 'beginner') ]},
       { week: 4, theme: 'Valuation II', focus: 'valuation', tasks: [
-        _learnTask(4, ['ev-equity']), _practiceTask(4, 'valuation', r(15 * tM)), _behavioralTask(4, 1) ]},
+        _learnTask(4, ['ev-equity'], 'beginner'), _practiceTask(4, 'valuation', r(15 * tM), 'intermediate'), _behavioralTask(4, 1, 'beginner') ]},
       { week: 5, theme: 'LBO Mechanics', focus: 'lbo', tasks: [
-        _learnTask(5, ['lbo-mechanics']), _practiceTask(5, 'lbo', r(20 * tM)) ]},
+        _learnTask(5, ['lbo-mechanics'], 'intermediate'), _practiceTask(5, 'lbo', r(20 * tM), 'intermediate') ]},
       { week: 6, theme: 'M&A', focus: 'ma', tasks: [
-        _learnTask(6, ['accretion-dilution']), _practiceTask(6, 'ma', r(20 * tM)) ]},
+        _learnTask(6, ['accretion-dilution'], 'intermediate'), _practiceTask(6, 'ma', r(20 * tM), 'intermediate') ]},
       { week: 7, theme: 'Markets & Behavioral', focus: 'mixed', tasks: [
-        _dealTask(7, r(15 * dM)), _behavioralTask(7, 3) ]},
+        _dealTask(7, r(15 * dM), 'beginner'), _behavioralTask(7, 3, 'beginner') ]},
       { week: 8, theme: 'Mocks & Polish', focus: 'mixed', tasks: [
-        _mockTask(8, 'full'), _practiceTask(8, 'accounting', r(10 * tM)), _practiceTask(8, 'valuation', r(10 * tM)) ]}
+        _mockTask(8, 'full', 'intermediate'), _practiceTask(8, 'accounting', r(10 * tM), 'advanced'), _practiceTask(8, 'valuation', r(10 * tM), 'advanced') ]}
     ];
   } else { // 12 weeks
     weeks = [
       { week: 1, theme: 'Accounting I', focus: 'accounting', tasks: [
-        _learnTask(1, ['three-statements']), _practiceTask(1, 'accounting', r(15 * tM)), _behavioralTask(1, 1) ]},
+        _learnTask(1, ['three-statements'], 'foundations'), _practiceTask(1, 'accounting', r(15 * tM), 'beginner'), _behavioralTask(1, 1, 'foundations') ]},
       { week: 2, theme: 'Accounting II', focus: 'accounting', tasks: [
-        _learnTask(2, ['working-capital']), _practiceTask(2, 'accounting', r(15 * tM)) ]},
+        _learnTask(2, ['working-capital'], 'beginner'), _practiceTask(2, 'accounting', r(15 * tM), 'beginner') ]},
       { week: 3, theme: 'Accounting Drill', focus: 'accounting', tasks: [
-        _practiceTask(3, 'accounting', r(20 * tM)), _behavioralTask(3, 1) ]},
+        _practiceTask(3, 'accounting', r(20 * tM), 'intermediate'), _behavioralTask(3, 1, 'beginner') ]},
       { week: 4, theme: 'Valuation I', focus: 'valuation', tasks: [
-        _learnTask(4, ['dcf-basics']), _practiceTask(4, 'valuation', r(15 * tM)) ]},
+        _learnTask(4, ['dcf-basics'], 'beginner'), _practiceTask(4, 'valuation', r(15 * tM), 'beginner') ]},
       { week: 5, theme: 'Valuation II', focus: 'valuation', tasks: [
-        _learnTask(5, ['ev-equity']), _practiceTask(5, 'valuation', r(15 * tM)) ]},
+        _learnTask(5, ['ev-equity'], 'beginner'), _practiceTask(5, 'valuation', r(15 * tM), 'beginner') ]},
       { week: 6, theme: 'Valuation Drill', focus: 'valuation', tasks: [
-        _practiceTask(6, 'valuation', r(20 * tM)), _behavioralTask(6, 2) ]},
+        _practiceTask(6, 'valuation', r(20 * tM), 'intermediate'), _behavioralTask(6, 2, 'beginner') ]},
       { week: 7, theme: 'LBO Mechanics', focus: 'lbo', tasks: [
-        _learnTask(7, ['lbo-mechanics']), _practiceTask(7, 'lbo', r(15 * tM)) ]},
+        _learnTask(7, ['lbo-mechanics'], 'intermediate'), _practiceTask(7, 'lbo', r(15 * tM), 'intermediate') ]},
       { week: 8, theme: 'LBO Drill', focus: 'lbo', tasks: [
-        _practiceTask(8, 'lbo', r(20 * tM)), _dealTask(8, r(10 * dM)) ]},
+        _practiceTask(8, 'lbo', r(20 * tM), 'intermediate'), _dealTask(8, r(10 * dM), 'intermediate') ]},
       { week: 9, theme: 'M&A', focus: 'ma', tasks: [
-        _learnTask(9, ['accretion-dilution']), _practiceTask(9, 'ma', r(20 * tM)) ]},
+        _learnTask(9, ['accretion-dilution'], 'intermediate'), _practiceTask(9, 'ma', r(20 * tM), 'intermediate') ]},
       { week: 10, theme: 'Markets & Deals', focus: 'markets', tasks: [
-        _dealTask(10, r(20 * dM)), _behavioralTask(10, 2) ]},
+        _dealTask(10, r(20 * dM), 'intermediate'), _behavioralTask(10, 2, 'intermediate') ]},
       { week: 11, theme: 'Behavioral & Polish', focus: 'behavioral', tasks: [
-        _behavioralTask(11, 4), _practiceTask(11, 'accounting', r(10 * tM)), _practiceTask(11, 'valuation', r(10 * tM)) ]},
+        _behavioralTask(11, 4, 'intermediate'), _practiceTask(11, 'accounting', r(10 * tM), 'advanced'), _practiceTask(11, 'valuation', r(10 * tM), 'advanced') ]},
       { week: 12, theme: 'Mock Marathon', focus: 'mixed', tasks: [
-        _mockTask(12, 'full'), _mockTask(12, 'tech'), _practiceTask(12, 'lbo', r(10 * tM)) ]}
+        _mockTask(12, 'full', 'advanced'), _mockTask(12, 'tech', 'advanced'), _practiceTask(12, 'lbo', r(10 * tM), 'advanced') ]}
     ];
   }
 
@@ -3312,6 +3343,41 @@ function syllabusCurrentWeek(syllabus) {
   return syllabus.weeks.length;
 }
 
+// Gap = userTopicBand − taskLevel. >0 means user is past the content;
+// <0 means the content is above the user. Tasks without a topic (mocks)
+// return null and render normally without dimming or stretch hints.
+function gapForTask(task) {
+  if (!task || !task.topic) return null;
+  const userBand = getTopicLevel(progress, task.topic).band;
+  return toBandIndex(userBand) - toBandIndex(task.taskLevel || 'intermediate');
+}
+
+// Reorder uncompleted weeks so the user's biggest negative-gap week (the
+// content most above their current level) floats to the top, and weeks
+// they're past sink to the bottom. Completed weeks keep their original
+// chronological position. PRD §5 Task 10.
+function reorderWeeksByGap(weeks) {
+  const completed = [];
+  const uncompleted = [];
+  for (const w of weeks) {
+    const allDone = w.tasks.every(isTaskComplete);
+    if (allDone) completed.push(w);
+    else uncompleted.push(w);
+  }
+  const weekGap = w => {
+    const gaps = w.tasks.map(gapForTask).filter(g => g !== null);
+    if (!gaps.length) return 0;
+    return gaps.reduce((s, g) => s + g, 0) / gaps.length;
+  };
+  // Sort by avg gap ascending (most negative first); break ties by week.
+  uncompleted.sort((a, b) => {
+    const ga = weekGap(a), gb = weekGap(b);
+    if (ga !== gb) return ga - gb;
+    return a.week - b.week;
+  });
+  return [...completed, ...uncompleted];
+}
+
 function renderPrepPlan() {
   const container = document.getElementById('prep-plan-container');
   if (!container) return;
@@ -3333,9 +3399,13 @@ function renderPrepPlan() {
   }
   const syllabus = generateSyllabus(progress.userProfile, progress.diagnosticScores);
   const currentWeek = syllabusCurrentWeek(syllabus);
+  // Reorder uncompleted weeks by gap before computing renderable list. The
+  // overall progress count is order-agnostic so we compute it from the
+  // original weeks array.
   const overallTasks = syllabus.weeks.reduce((s, w) => s + w.tasks.length, 0);
   const overallDone = syllabus.weeks.reduce((s, w) => s + w.tasks.filter(isTaskComplete).length, 0);
   const pct = Math.round(overallDone / overallTasks * 100) || 0;
+  const orderedWeeks = reorderWeeksByGap(syllabus.weeks);
 
   const weak = getWeakTopics(2);
   const focusHtml = weak.length ? `
@@ -3380,7 +3450,7 @@ function renderPrepPlan() {
         <div class="syl-overall-text">${overallDone} / ${overallTasks} tasks complete</div>
       </div>
       <div class="syllabus-weeks">
-        ${syllabus.weeks.map(w => renderSyllabusWeek(w, currentWeek)).join('')}
+        ${orderedWeeks.map(w => renderSyllabusWeek(w, currentWeek)).join('')}
       </div>
     </div>
   `;
@@ -3392,15 +3462,19 @@ function renderSyllabusWeek(week, currentWeek) {
   const tasksDone = week.tasks.filter(isTaskComplete).length;
   const total = week.tasks.length;
   const allDone = tasksDone === total;
-  const stateClass = isCurrent ? 'current' : (isPast ? 'past' : 'future');
-  const collapsed = !isCurrent;
+  // A week where every task's gap > 1 means the user is past every piece of
+  // its content — collapse it by default with a "you're past this" treatment.
+  const allTaskGaps = week.tasks.map(gapForTask).filter(g => g !== null);
+  const userPastWeek = allTaskGaps.length > 0 && allTaskGaps.every(g => g > 1);
+  const stateClass = isCurrent ? 'current' : (isPast ? 'past' : (userPastWeek ? 'past-by-level' : 'future'));
+  const collapsed = !isCurrent || userPastWeek;
 
   return `
     <div class="syl-week ${stateClass} ${collapsed ? 'collapsed' : ''}" data-week="${week.week}">
       <div class="syl-week-head" onclick="toggleSylWeek(${week.week})">
         <div class="syl-week-num">W${week.week}</div>
         <div class="syl-week-titlewrap">
-          <div class="syl-week-theme">${week.theme}</div>
+          <div class="syl-week-theme">${week.theme}${userPastWeek ? ' <span class="syl-week-past-tag">you\'re past this</span>' : ''}</div>
           <div class="syl-week-progress">${tasksDone}/${total}${allDone ? ' ✓' : ''}</div>
         </div>
         <div class="syl-week-toggle">${collapsed ? '+' : '−'}</div>
@@ -3414,12 +3488,44 @@ function renderSyllabusWeek(week, currentWeek) {
 
 function renderSyllabusTask(task) {
   const done = isTaskComplete(task);
+  const gap = gapForTask(task);
+  // Gap >1: user is past content; render skippable with a Drill anyway link.
+  // Gap == 1: dimmed but accessible. Gap == 0 or -1: sweet spot. Gap < -1:
+  // stretch hint to set expectations.
+  let gapClass = '';
+  let stretchHint = '';
+  let pastNote = '';
+  if (gap !== null) {
+    if (gap > 1) gapClass = 'gap-past';
+    else if (gap === 1) gapClass = 'gap-easy';
+    else if (gap < -1) gapClass = 'gap-stretch';
+  }
+  if (gapClass === 'gap-stretch') {
+    stretchHint = `<div class="syl-task-hint">This will stretch you</div>`;
+  }
+  if (gapClass === 'gap-past') {
+    pastNote = `<div class="syl-task-hint">You're past this — we'll send you to harder cards instead. <button type="button" class="syl-task-drill-anyway" onclick="event.stopPropagation();syllabusAction('${task.id}','${task.action}')">Drill anyway →</button></div>`;
+  }
+  const badge = task.taskLevel
+    ? `<span class="syl-task-level band-pill ${task.taskLevel}">${task.taskLevel}</span>`
+    : '';
+  // Hide the action button on past tasks — Drill-anyway link inside the hint
+  // is the only way through, signalling the user has alternatives.
+  const actionBtn = gapClass === 'gap-past'
+    ? ''
+    : `<button class="syl-task-action" onclick="event.stopPropagation();syllabusAction('${task.id}','${task.action}')">→</button>`;
   return `
-    <div class="syl-task ${done ? 'done' : ''}">
+    <div class="syl-task ${done ? 'done' : ''} ${gapClass}">
       <div class="syl-task-check ${done ? 'done' : ''}" onclick="event.stopPropagation();toggleSyllabusTask('${task.id}')">${done ? '✓' : ''}</div>
-      <div class="syl-task-label">${task.label}</div>
-      <div class="syl-task-time">${task.time}</div>
-      <button class="syl-task-action" onclick="event.stopPropagation();syllabusAction('${task.id}','${task.action}')">→</button>
+      <div class="syl-task-main">
+        <div class="syl-task-row">
+          ${badge}
+          <span class="syl-task-label">${task.label}</span>
+          <span class="syl-task-time">${task.time}</span>
+        </div>
+        ${stretchHint || pastNote}
+      </div>
+      ${actionBtn}
     </div>
   `;
 }
