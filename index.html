@@ -967,15 +967,16 @@
       </div>
 
       <!-- Hero: a single "next step" call-to-action computed from current
-           state. Updates whenever updateDashStats runs. -->
-      <button type="button" class="dash-hero-card" id="dash-hero-card" onclick="dashHeroAction()">
-        <div class="dash-hero-meta">
+           state. The card frames the recommendation; the button on the
+           right is the actual click target. -->
+      <div class="dash-hero-card" id="dash-hero-card">
+        <div class="dash-hero-content">
           <span class="dash-hero-label" id="dash-hero-label">NEXT STEP</span>
-          <span class="dash-hero-cta-mini" id="dash-hero-cta">Start →</span>
+          <div class="dash-hero-action" id="dash-hero-action">Loading…</div>
+          <div class="dash-hero-sub" id="dash-hero-sub"></div>
         </div>
-        <div class="dash-hero-action" id="dash-hero-action">Loading…</div>
-        <div class="dash-hero-sub" id="dash-hero-sub"></div>
-      </button>
+        <button type="button" class="dash-hero-btn" id="dash-hero-cta" onclick="dashHeroAction()">Start →</button>
+      </div>
 
       <!-- Three status tiles, always visible at-a-glance. -->
       <div class="dash-tile-grid">
