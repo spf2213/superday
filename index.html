@@ -1524,6 +1524,13 @@
         <div class="view-sub">Practice with a VP-level interviewer. Get scored on every answer.</div>
       </div>
       <div class="mock-wrap">
+        <!-- Per-topic calibration banner — auto-set based on the user's
+             per-topic levels; user can override either way. -->
+        <div class="mock-mode-banner" id="mock-mode-banner" style="display:none">
+          <span id="mock-mode-banner-text">We've started you in VP.</span>
+          <button type="button" class="mock-mode-step" id="mock-mode-step-down" onclick="stepMockMode(-1)">Step down</button>
+          <button type="button" class="mock-mode-step" id="mock-mode-step-up" onclick="stepMockMode(1)">Step up</button>
+        </div>
         <div class="mock-config">
           <select class="app-select" id="mock-cat">
             <option value="tech">Technical</option>
@@ -1538,6 +1545,11 @@
             <option>Evercore</option>
             <option>Lazard</option>
             <option>Blackstone</option>
+          </select>
+          <select class="app-select" id="mock-mode">
+            <option value="warmup">Warm-up</option>
+            <option value="vp" selected>VP</option>
+            <option value="vp_curveball">VP + Curveball</option>
           </select>
           <button class="btn-start-mock" onclick="startMock()">Start Interview</button>
         </div>
@@ -1564,6 +1576,7 @@
             </div>
           </div>
           <div class="chat-input-bar">
+            <button type="button" class="chat-hint" id="chat-hint" onclick="askForHint()" style="display:none" title="Ask the interviewer for a hint">Hint</button>
             <textarea class="chat-ta" id="chat-input" placeholder="Type your answer…" rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
             <button class="chat-send" id="chat-send" onclick="sendMsg()">↑</button>
           </div>

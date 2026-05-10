@@ -550,7 +550,7 @@ Object.assign(window, {
   setStudyMode, showAuthTab, showForgotPassword, showOnramp, showQuizSetup, startCheckout, startOnrampCalibrationCheck, openSubscriptionPortal,
   openInlineAuth, closeInlineAuth, switchInlineAuthTab, doInlineLogin, doInlineSignup,
   showScreen, showView, shuffleFlash, skipDiagnostic, smartPractice,
-  startDiagnostic, startDirectDiagnostic, startMock,
+  askForHint, startDiagnostic, startDirectDiagnostic, startMock, stepMockMode,
   startQuiz, switchAuthTab, toggleFaq, toggleOnrampMulti,
   toggleFlashAtLevel, toggleProfileEdit, toggleQ, toggleStoryPanel, toggleTheme,
   toggleCardWhy, toggleSylWeek, toggleSyllabusTask, syllabusAction,
@@ -1111,6 +1111,7 @@ function showView(id) {
   if (id === 'map') renderKnowledgeMap();
   if (id === 'quiz') showQuizSetup();
   if (id === 'learn') renderLearnModules();
+  if (id === 'mock') renderMockModeBanner();
   if (id === 'plan') renderPrepPlan();
   if (id === 'profile') renderProfile();
 }
@@ -1983,6 +1984,77 @@ function stopSessionTimer() {
 /* ─── MOCK INTERVIEW ─────────────────── */
 let mockHistory = [], mockActive = false, mockSessionId = null, mockQuestionsAsked = 0;
 const MOCK_MAX_QUESTIONS = 6;
+const MOCK_MODES = ['warmup', 'vp', 'vp_curveball'];
+const MOCK_MODE_LABEL = { warmup: 'Warm-up', vp: 'VP', vp_curveball: 'VP + Curveball' };
+
+// Default mock mode keys off the user's per-topic levels across the topics
+// most relevant to a real interview block: valuation, M&A, behavioral. Below
+// intermediate average → Warm-up; above intermediate → VP; expert → curveball.
+function defaultMockMode() {
+  const levels = getAllLevelsFromProgress(progress);
+  const topics = ['valuation', 'ma', 'behavioral'];
+  const avg = topics.reduce((s, t) => s + toBandIndex(levels[t].band), 0) / topics.length;
+  if (avg >= toBandIndex('expert')) return 'vp_curveball';
+  if (avg >= toBandIndex('intermediate')) return 'vp';
+  return 'warmup';
+}
+
+// Render the mode banner above the firm picker. Idempotent — safe to call on
+// every view render (showView('mock') triggers it).
+function renderMockModeBanner() {
+  const select = document.getElementById('mock-mode');
+  const banner = document.getElementById('mock-mode-banner');
+  const text = document.getElementById('mock-mode-banner-text');
+  const stepDown = document.getElementById('mock-mode-step-down');
+  const stepUp = document.getElementById('mock-mode-step-up');
+  if (!select || !banner || !text) return;
+  // Only auto-set if the user hasn't already started a mock or hand-changed.
+  if (!select.dataset.userTouched) {
+    select.value = defaultMockMode();
+  }
+  // One-time listener so direct dropdown changes also refresh the banner.
+  if (!select.dataset.listenerAttached) {
+    select.addEventListener('change', () => {
+      select.dataset.userTouched = '1';
+      renderMockModeBanner();
+    });
+    select.dataset.listenerAttached = '1';
+  }
+  banner.style.display = '';
+  text.textContent = `We've started you in ${MOCK_MODE_LABEL[select.value] || 'VP'}. Step up or step down manually if you'd like.`;
+  const idx = MOCK_MODES.indexOf(select.value);
+  if (stepDown) stepDown.disabled = idx <= 0;
+  if (stepUp) stepUp.disabled = idx >= MOCK_MODES.length - 1;
+  // Hint button shows only in warm-up.
+  const hintBtn = document.getElementById('chat-hint');
+  if (hintBtn) hintBtn.style.display = select.value === 'warmup' ? '' : 'none';
+}
+
+function stepMockMode(dir) {
+  const select = document.getElementById('mock-mode');
+  if (!select) return;
+  const idx = MOCK_MODES.indexOf(select.value);
+  const next = Math.max(0, Math.min(MOCK_MODES.length - 1, idx + dir));
+  select.value = MOCK_MODES[next];
+  select.dataset.userTouched = '1';
+  renderMockModeBanner();
+}
+
+// Warm-up only: ask the interviewer for a hint on the current question.
+async function askForHint() {
+  if (!mockActive) return;
+  const sendBtn = document.getElementById('chat-send');
+  const hintBtn = document.getElementById('chat-hint');
+  if (sendBtn) sendBtn.disabled = true;
+  if (hintBtn) hintBtn.disabled = true;
+  appendMsg('user', 'Could I get a small hint on this question?');
+  mockHistory.push({ role: 'user', content: "Could I get a small hint on this question? Just enough to point me toward the right framework — don't give me the answer." });
+  showTyping();
+  const cat = document.getElementById('mock-cat')?.value || 'tech';
+  const firm = document.getElementById('mock-firm')?.value || 'Goldman Sachs';
+  await runMockTurn(cat, firm);
+  if (hintBtn) hintBtn.disabled = false;
+}
 
 async function startMock() {
   mockActive = true;
@@ -2175,6 +2247,12 @@ async function runMockTurn(cat, firm) {
       if (sendBtn) sendBtn.disabled = false;
       return;
     }
+    // Reduce per-topic levels to a flat shape the server can drop straight
+    // into the system prompt — keeps the API contract small and explicit.
+    const levels = getAllLevelsFromProgress(progress);
+    const levelSummary = {};
+    for (const t of LEVEL_TOPICS) levelSummary[t] = levels[t].band;
+    const mockMode = document.getElementById('mock-mode')?.value || 'vp';
     const res = await fetch("/api/claude", {
       method: "POST",
       headers: {
@@ -2185,6 +2263,8 @@ async function runMockTurn(cat, firm) {
         mode: "mock_interview",
         firm,
         category: cat,
+        difficulty: mockMode,
+        levels: levelSummary,
         messages: mockHistory.map(m => ({ role: m.role, content: m.content }))
       })
     });
