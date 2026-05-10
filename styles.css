@@ -2160,18 +2160,24 @@ body:has(.dss-mode.active) { overflow:hidden }
 
 /* LEARN MODULES (Conceptual Teaching) */
 .learn-wrap{max-width:800px;margin:0 auto}
-.learn-modules{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-bottom:24px}
+.learn-modules{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin-bottom:24px;align-items:stretch}
+/* Card is a flex column. The desc grows to absorb extra space so the meta
+   and progress bar always sit at the bottom — every card lines up across
+   columns regardless of title or desc length. */
 .learn-module{
+  display:flex;flex-direction:column;
   background:var(--bg-1);border:1px solid var(--line);border-radius:var(--r-lg);
   padding:20px;cursor:pointer;transition:var(--trans);position:relative;overflow:hidden;
+  min-height:280px;
 }
 .learn-module:hover{background:var(--bg-2);border-color:var(--line-2);transform:translateY(-2px)}
 .learn-module.locked{opacity:0.6;cursor:not-allowed}
 .learn-module.locked:hover{transform:none}
 .learn-module-badge{
-  position:absolute;top:12px;right:12px;
+  position:absolute;top:14px;right:14px;
   font-size:9px;padding:3px 8px;border-radius:10px;
   font-family:'Geist Mono',monospace;font-weight:500;
+  line-height:1.4;
 }
 .learn-module-badge.new{background:var(--accent-dim);color:var(--accent)}
 .learn-module-badge.progress{background:var(--amber-dim);color:var(--amber)}
@@ -2179,12 +2185,30 @@ body:has(.dss-mode.active) { overflow:hidden }
 .learn-module-cat{
   display:inline-block;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;
   color:var(--t-3);font-family:'Geist Mono',monospace;
-  margin-bottom:10px;padding:2px 8px;
+  margin-bottom:14px;padding:3px 8px;
   border:1px solid var(--line);border-radius:4px;background:var(--bg-3);
+  align-self:flex-start;
 }
-.learn-module-title{font-size:15px;font-weight:600;margin-bottom:6px}
-.learn-module-desc{font-size:12px;color:var(--t-2);line-height:1.5;margin-bottom:12px}
-.learn-module-meta{display:flex;align-items:center;gap:12px;font-size:10px;color:var(--t-3);font-family:'Geist Mono',monospace}
+/* Reserve room for two lines of title so single-line titles don't collapse
+   the row. line-clamp pins long titles to two lines and truncates. */
+.learn-module-title{
+  font-size:15px;font-weight:600;line-height:1.35;
+  margin-bottom:8px;
+  min-height:calc(15px * 1.35 * 2);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+/* Desc clamps to 4 lines and grows to fill remaining space, pushing the
+   meta + progress to the bottom of every card. */
+.learn-module-desc{
+  font-size:12px;color:var(--t-2);line-height:1.5;
+  margin-bottom:12px;flex:1;
+  display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;
+}
+.learn-module-meta{
+  display:flex;align-items:center;gap:12px;font-size:10px;color:var(--t-3);
+  font-family:'Geist Mono',monospace;
+  margin-top:auto;
+}
 .learn-module-progress{height:3px;background:var(--bg-4);border-radius:2px;margin-top:12px;overflow:hidden}
 .learn-module-progress-fill{height:100%;background:var(--accent);border-radius:2px;transition:width 0.3s}
 
