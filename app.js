@@ -3,7 +3,7 @@ import { QUESTIONS } from './src/data/questions.js';
 import { LEARN_MODULES } from './src/data/learnModules.js';
 import { setNavActive, toggleTheme } from './src/theme.js';
 import { renderKnowledgeMap, mapZoom, mapFitAll, mapResetView, setMapDeps } from './src/map.js';
-import { migrateLegacy as migrateLevels, recordSignal as recordLevelSignal, getSeed as getLevelSeed, getAllLevels as getAllLevelsFromProgress, bandIndex as toBandIndex, bandFromIndex as fromBandIndex, BANDS as LEVEL_BANDS, TOPICS as LEVEL_TOPICS } from './src/levels.js';
+import { migrateLegacy as migrateLevels, recordSignal as recordLevelSignal, getSeed as getLevelSeed, getLevel as getTopicLevel, getAllLevels as getAllLevelsFromProgress, bandIndex as toBandIndex, bandFromIndex as fromBandIndex, distance as bandDistance, BANDS as LEVEL_BANDS, TOPICS as LEVEL_TOPICS } from './src/levels.js';
 
 // Wrap recordSignal with a UI feedback pass: any band transition fires a toast
 // and appends an activity-log entry. Pure model logic stays in levels.js;
@@ -28,6 +28,18 @@ function recordSignalWithFeedback(opts) {
   });
   // Match the existing 6-entry cap used by the bank-answer activity push.
   if (progress.activityLog.length > 6) progress.activityLog.length = 6;
+
+  // Silently widen/narrow the active flash deck so the user keeps practicing
+  // band-appropriate cards across the transition. PRD §5 Task 9: "no refresh
+  // needed". refreshFlashDeck preserves the current card if still in the
+  // pool, so the transition doesn't yank them mid-flip.
+  if (flashAtLevel) {
+    const flashView = document.getElementById('view-flash');
+    if (flashView && flashView.classList.contains('active')) {
+      refreshFlashDeck();
+      updateMasteryStats();
+    }
+  }
   return result;
 }
 
@@ -540,7 +552,7 @@ Object.assign(window, {
   showScreen, showView, shuffleFlash, skipDiagnostic, smartPractice,
   startDiagnostic, startDirectDiagnostic, startMock,
   startQuiz, switchAuthTab, toggleFaq, toggleOnrampMulti,
-  toggleProfileEdit, toggleQ, toggleStoryPanel, toggleTheme,
+  toggleFlashAtLevel, toggleProfileEdit, toggleQ, toggleStoryPanel, toggleTheme,
   toggleCardWhy, toggleSylWeek, toggleSyllabusTask, syllabusAction,
   viewStoryNote
 });
@@ -1186,11 +1198,13 @@ function updateMasteryStats() {
   if (sl) sl.textContent = learningCount;
   if (sm) sm.textContent = masteredCount;
   
-  // Update mode counts
+  // Update mode counts. "All cards" reflects whatever the current deck is —
+  // category filter + sub filter + at-your-level filter — so the toolbar pill
+  // count and the "Card X of Y" footer stay in lockstep.
   const mca = document.getElementById('mode-count-all');
   const mcd = document.getElementById('mode-count-due');
   const mcw = document.getElementById('mode-count-weak');
-  if (mca) mca.textContent = QUESTIONS.length;
+  if (mca) mca.textContent = flashDeck.length || QUESTIONS.length;
   if (mcd) mcd.textContent = getDueCount();
   if (mcw) mcw.textContent = getWeakCount();
 }
@@ -1596,6 +1610,10 @@ let flashCat = 'all';
 // when the user clicks into a specific tech topic from the Levels tile;
 // cleared whenever the cat pill changes.
 let flashSub = null;
+// "At your level" filter — on by default per PRD §5 Task 9. Keeps cards within
+// distance 1 of the user's per-topic band, so an advanced-accounting +
+// beginner-LBO user sees a deck mixed correctly per topic.
+let flashAtLevel = true;
 
 function setStudyMode(mode) {
   studyMode = mode;
@@ -1619,7 +1637,22 @@ function setStudyMode(mode) {
 function buildFlashDeck() {
   let pool = flashCat === 'all' ? [...QUESTIONS] : QUESTIONS.filter(q => q.cat === flashCat);
   if (flashSub) pool = pool.filter(q => q.sub === flashSub);
-  
+
+  // "At your level" — keep cards within one band of the user's per-topic
+  // band. Per-topic, so a single deck can mix advanced accounting cards with
+  // beginner LBO cards in the same session. Cards we can't classify (no
+  // recognised topic) stay in the deck so the toggle never turns up empty.
+  if (flashAtLevel) {
+    pool = pool.filter(q => {
+      const t = topicForQuestion(q.cat, q.sub);
+      if (!t) return true;
+      const userBand = getTopicLevel(progress, t).band;
+      const cardBand = (q.level && LEVEL_BANDS.includes(q.level)) ? q.level : 'intermediate';
+      return bandDistance(cardBand, userBand) <= 1;
+    });
+  }
+
+
   switch(studyMode) {
     case 'due':
       pool = pool.filter(q => isDue(q.id));
@@ -1667,6 +1700,35 @@ function setFlashCat(cat, opts) {
     b.classList.toggle('active', b.dataset.fcat === cat));
   buildFlashDeck();
   flashIdx = 0;
+  flashFlipped = false;
+  renderCard();
+}
+
+function toggleFlashAtLevel() {
+  flashAtLevel = !flashAtLevel;
+  const pill = document.getElementById('flash-at-level-pill');
+  if (pill) pill.classList.toggle('active', flashAtLevel);
+  refreshFlashDeck();
+  // Mode-count-all reads from the same buildFlashDeck output so the "X of Y"
+  // and the All Cards mode count stay in lockstep.
+  updateMasteryStats();
+}
+
+// Silent deck rebuild used when the underlying filter shifts (band crossings,
+// "At your level" toggle). Preserves the user's current card if it's still
+// in the deck after the rebuild; otherwise lands them on the nearest valid
+// position.
+function refreshFlashDeck() {
+  const currentId = flashDeck[flashIdx]?.id;
+  buildFlashDeck();
+  if (currentId != null) {
+    const newIdx = flashDeck.findIndex(q => q.id === currentId);
+    flashIdx = newIdx >= 0
+      ? newIdx
+      : Math.min(flashIdx, Math.max(0, flashDeck.length - 1));
+  } else {
+    flashIdx = 0;
+  }
   flashFlipped = false;
   renderCard();
 }

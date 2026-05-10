@@ -1227,9 +1227,10 @@
           <button class="bank-pill" data-fcat="beh" onclick="setFlashCat('beh')">Behavioral</button>
           <button class="bank-pill" data-fcat="brain" onclick="setFlashCat('brain')">Brain Teasers</button>
           <button class="bank-pill" data-fcat="deal" onclick="setFlashCat('deal')">Deals &amp; Markets</button>
+          <button class="bank-pill active" id="flash-at-level-pill" onclick="toggleFlashAtLevel()" title="Filter to cards within one band of your current level for each topic">At your level</button>
           <button class="bank-pill" onclick="shuffleFlash()">⟳ Shuffle</button>
         </div>
-        <div class="flash-meta" id="flash-meta">Card 1 of 120</div>
+        <div class="flash-meta" id="flash-meta">Card 1 of 0</div>
         <div class="flash-bar"><div class="flash-bar-fill" id="flash-bar-fill" style="width:0%"></div></div>
         <div class="card-scene" onclick="flipCard()">
           <div class="card-inner" id="card-inner">
