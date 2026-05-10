@@ -1912,13 +1912,42 @@ function parseInterviewerReply(reply, scoreMatch) {
     rest = rest.substring(0, pM.index).trim();
   }
 
-  return { feedback: stripFeedbackLabel(rest), pivot, nextQuestion, wrapUp: null };
+  return { feedback: parseFeedback(rest), pivot, nextQuestion, wrapUp: null };
 }
 
-function stripFeedbackLabel(text) {
+// Extract structured feedback (GAP / FIX bullets / STRONGER) from the
+// rubric. Falls back to plain paragraph if the model emitted prose
+// instead — older sessions and any deviation still render gracefully.
+function parseFeedback(text) {
   if (!text) return null;
-  const cleaned = text.replace(/^.*?What would make this stronger\s*:\s*/is, '').trim();
-  return cleaned || null;
+  let cleaned = text.replace(/^.*?What would make this stronger\s*:\s*/is, '').trim();
+  if (!cleaned) return null;
+
+  const gapM = cleaned.match(/(?:^|\n)\s*GAP\s*:\s*([^\n]+)/i);
+  const strongerM = cleaned.match(/(?:^|\n)\s*STRONGER\s*:\s*([\s\S]+?)$/i);
+  // FIX section: everything between "FIX:" and STRONGER (or end). Bullet
+  // lines start with -, *, or •; non-bullet lines are ignored.
+  const fixSectionM = cleaned.match(/(?:^|\n)\s*FIX\s*:\s*([\s\S]+?)(?=\n\s*STRONGER\s*:|$)/i);
+  const fix = fixSectionM
+    ? fixSectionM[1].split('\n').map(l => l.replace(/^\s*[-*•]\s*/, '').trim()).filter(Boolean)
+    : [];
+
+  if (gapM || fix.length || strongerM) {
+    return {
+      structured: true,
+      gap: gapM ? gapM[1].trim() : null,
+      fix,
+      stronger: strongerM ? strongerM[1].trim() : null
+    };
+  }
+
+  return { structured: false, text: cleaned };
+}
+
+function feedbackHasContent(fb) {
+  if (!fb) return false;
+  if (fb.structured) return !!(fb.gap || fb.fix.length || fb.stronger);
+  return !!fb.text;
 }
 
 // Render a parsed interviewer reply as one or two cards: a muted recap card
@@ -1953,8 +1982,12 @@ function renderInterviewerReply(reply, scoreMatch) {
         tag.className = 'q-tag ' + parsed.pivot.kind.toLowerCase().replace(/_/g, '-');
         tag.textContent = labels[parsed.pivot.kind] || 'Next';
         b.appendChild(tag);
-        appendTextWithBreaks(b, parsed.pivot.body);
-        if (parsed.nextQuestion) b.appendChild(document.createElement('hr')).className = 'q-sep';
+        // Pivot body is the setup or challenge. If there's also a Question
+        // N: ask, treat the pivot as muted context; otherwise it IS the ask.
+        const pivotEl = document.createElement('div');
+        pivotEl.className = parsed.nextQuestion ? 'q-context' : 'q-ask';
+        appendTextWithBreaks(pivotEl, parsed.pivot.body);
+        b.appendChild(pivotEl);
       }
       if (parsed.nextQuestion) {
         if (!parsed.pivot) {
@@ -1963,7 +1996,10 @@ function renderInterviewerReply(reply, scoreMatch) {
           tag.textContent = 'Question';
           b.appendChild(tag);
         }
-        appendTextWithBreaks(b, parsed.nextQuestion);
+        const askEl = document.createElement('div');
+        askEl.className = 'q-ask';
+        appendTextWithBreaks(askEl, parsed.nextQuestion);
+        b.appendChild(askEl);
       }
     }));
   } else {
@@ -2010,20 +2046,53 @@ function buildRecapCard(scoreMatch, feedback) {
     animatedValues.forEach(([el, target]) => tickToValue(el, target, 650));
   });
 
-  if (feedback) {
-    const fb = document.createElement('div');
-    fb.className = 'recap-feedback';
-    const fbLbl = document.createElement('div');
-    fbLbl.className = 'recap-feedback-label';
-    fbLbl.textContent = 'Stronger answer';
-    fb.appendChild(fbLbl);
-    const fbBody = document.createElement('div');
-    appendTextWithBreaks(fbBody, feedback);
-    fb.appendChild(fbBody);
-    card.appendChild(fb);
+  if (feedbackHasContent(feedback)) {
+    if (feedback.structured) {
+      if (feedback.gap) {
+        card.appendChild(buildRecapSection('The gap', feedback.gap, 'recap-gap'));
+      }
+      if (feedback.fix.length) {
+        const fix = document.createElement('div');
+        fix.className = 'recap-fix';
+        fix.appendChild(buildRecapLabel('What to add'));
+        const ul = document.createElement('ul');
+        ul.className = 'recap-fix-list';
+        feedback.fix.forEach(item => {
+          const li = document.createElement('li');
+          li.textContent = item;
+          ul.appendChild(li);
+        });
+        fix.appendChild(ul);
+        card.appendChild(fix);
+      }
+      if (feedback.stronger) {
+        card.appendChild(buildRecapSection('A 9/10 answer', feedback.stronger, 'recap-stronger'));
+      }
+    } else {
+      // Legacy paragraph fallback (model deviated from the structured format).
+      card.appendChild(buildRecapSection('Stronger answer', feedback.text, 'recap-feedback'));
+    }
   }
 
   return card;
+}
+
+function buildRecapLabel(text) {
+  const lbl = document.createElement('div');
+  lbl.className = 'recap-section-label';
+  lbl.textContent = text;
+  return lbl;
+}
+
+function buildRecapSection(label, body, kind) {
+  const wrap = document.createElement('div');
+  wrap.className = kind;
+  wrap.appendChild(buildRecapLabel(label));
+  const b = document.createElement('div');
+  b.className = kind + '-body';
+  appendTextWithBreaks(b, body);
+  wrap.appendChild(b);
+  return wrap;
 }
 
 function buildAIBubble(populate) {
