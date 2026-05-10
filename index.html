@@ -1011,13 +1011,27 @@
 
       </div>
 
-      <!-- Recent activity (compact, hidden until populated) -->
-      <div class="dash-panel" style="margin-top:24px">
-        <div class="dp-header">
-          <span class="dp-title">Recent Activity</span>
+      <!-- Activity + Market Pulse, side by side. Stacks on narrow screens. -->
+      <div class="dash-bottom-row">
+        <div class="dash-panel">
+          <div class="dp-header">
+            <span class="dp-title">Recent Activity</span>
+          </div>
+          <div class="activity-list activity-list-compact" id="activity-list">
+            <div style="padding:32px 16px;text-align:center;font-size:12.5px;color:var(--t-3)">Answer your first question to start your activity log.</div>
+          </div>
         </div>
-        <div class="activity-list activity-list-compact" id="activity-list">
-          <div style="padding:32px 16px;text-align:center;font-size:12.5px;color:var(--t-3)">Answer your first question to start your activity log.</div>
+
+        <div class="news-panel" id="news-panel">
+          <div class="dp-header">
+            <span class="dp-title">Market Pulse</span>
+            <span class="news-live-tag">
+              <span class="news-live-dot"></span>LIVE
+            </span>
+          </div>
+          <div class="news-list-inner" id="news-list">
+            <div style="padding:28px;text-align:center;font-size:12.5px;color:var(--t-3)">Loading market news…</div>
+          </div>
         </div>
       </div>
     </div>
