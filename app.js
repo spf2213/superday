@@ -1135,11 +1135,15 @@ function updateDashStats() {
   setText('tile-concepts-val', `${modulesRead} / ${totalModules}`);
   setBar('tile-concepts-fill', totalModules ? modulesRead / totalModules : 0);
   setText('tile-practice-val', `${masteredCount} / ${totalCards}`);
-  setText('tile-practice-sub', dueCount > 0 ? `${dueCount} due now` : 'cards mastered');
+  setText('tile-practice-sub', dueCount > 0 ? `${dueCount} due now` : 'flashcards mastered');
   setBar('tile-practice-fill', totalCards ? masteredCount / totalCards : 0);
-  setText('tile-mock-val', best ? `${best.tech} / 10` : '—');
-  setText('tile-mock-sub', last ? `last ${last.tech}/10 · ${mocks.length} done` : 'no mocks yet');
-  setBar('tile-mock-fill', best ? best.tech / 10 : 0);
+  // Mock tile shows the average tech score across all recorded mock turns —
+  // a steadier signal than "best ever" (which only goes up) or "last"
+  // (which spikes per session).
+  const avgTech = mocks.length ? mocks.reduce((s, m) => s + (m.tech || 0), 0) / mocks.length : null;
+  setText('tile-mock-val', avgTech !== null ? avgTech.toFixed(1) : '—');
+  setText('tile-mock-sub', avgTech !== null ? 'avg interview score' : 'no mocks yet');
+  setBar('tile-mock-fill', avgTech !== null ? avgTech / 10 : 0);
 
   // Hero next step
   const hero = pickHeroAction({ modulesRead, totalModules, masteredCount, dueCount, mocks });
