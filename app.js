@@ -806,8 +806,6 @@ async function doSignOut() {
     activityLog: [],
     mastery: {},
     diagnosticDone: false,
-    userBand: 'intermediate',
-    diagnosticScores: null,
     onrampComplete: false,
     userProfile: null,
     notes: [],
@@ -1017,8 +1015,6 @@ async function loadProgress() {
       progress.activityLog = arr(data.activity_log);
       progress.mastery = obj(data.mastery);
       progress.diagnosticDone = data.diagnostic_done || false;
-      progress.userBand = data.user_band || 'intermediate';
-      progress.diagnosticScores = data.diagnostic_scores || null;
       progress.onrampComplete = data.onramp_complete || false;
       progress.userProfile = data.user_profile || null;
       progress.notes = arr(data.notes);
@@ -1027,10 +1023,15 @@ async function loadProgress() {
       progress.learnProgress = obj(data.learn_progress);
       progress.completedCases = arr(data.completed_cases);
       progress.levels = obj(data.levels);
+      // Pass legacy fields explicitly to migrateLevels so they never need to
+      // live on `progress`. PRD §5 Task 14: kill double-write hazards.
+      migrateLevels(progress, {
+        userBand: data.user_band,
+        diagnosticScores: data.diagnostic_scores
+      });
+    } else {
+      migrateLevels(progress);
     }
-    // Always run migration: idempotent for new-shape rows, fills in per-topic
-    // levels for legacy rows that only have userBand + diagnosticScores.
-    migrateLevels(progress);
   } catch(e) { console.error('loadProgress error:', e); }
   updateDashStats();
   updateMasteryStats();
@@ -1056,8 +1057,6 @@ async function saveProgress() {
       activity_log: progress.activityLog,
       mastery: progress.mastery,
       diagnostic_done: progress.diagnosticDone,
-      user_band: progress.userBand,
-      diagnostic_scores: progress.diagnosticScores,
       onramp_complete: progress.onrampComplete,
       user_profile: progress.userProfile,
       notes: progress.notes || [],
@@ -1144,8 +1143,6 @@ let progress = {
   activityLog: [],
   mastery: {},
   diagnosticDone: false,
-  userBand: 'intermediate',
-  diagnosticScores: null,
   onrampComplete: false,
   userProfile: null,
   notes: [],
@@ -1462,23 +1459,50 @@ function topicStrengthLive(topicKey) {
   return Math.round(((sum / seen.length) - 1) / 2 * 100); // 1→0%, 3→100%
 }
 
-// Diagnostic-derived strength as a fallback when there's no live data.
-function topicStrengthDiagnostic(topicKey) {
-  const d = progress.diagnosticScores;
-  if (!d) return null;
-  if (topicKey === 'beh')  return d.beh ?? null;
-  if (topicKey === 'deal') return d.deal ?? null;
-  return d.subs?.[topicKey] ?? null;
+// Map a band → a strength percentage so the legacy syllabus / focus-area
+// helpers (which talked in pcts) keep working off the per-topic level model.
+const BAND_STRENGTH_PCT = { foundations: 20, beginner: 40, intermediate: 60, advanced: 80, expert: 95 };
+
+// Translate the dashboard's TOPIC_DEFS keys into the calibration-topic vocab.
+const LEGACY_TOPIC_TO_LEVEL = { beh: 'behavioral', deal: 'markets' };
+
+// Per-topic strength derived from the calibration level, keyed by TOPIC_DEFS
+// key for compatibility with existing callers (getWeakTopics etc.). Replaces
+// the old diagnosticScores fallback — bands ARE the source of truth now.
+function topicStrengthFromLevels(topicKey) {
+  const t = LEGACY_TOPIC_TO_LEVEL[topicKey] || topicKey;
+  if (!LEVEL_TOPICS.includes(t)) return null;
+  return BAND_STRENGTH_PCT[getTopicLevel(progress, t).band] ?? null;
 }
 
-// Returns up to `max` weak topics: live data wins when present, diagnostic
-// fills in the gaps. "Weak" = strength < 60.
+// Roll per-topic levels into the {tech, beh, deal, subs} shape that
+// generateSyllabus's drill multipliers expect. Keeps the syllabus signature
+// unchanged while removing the diagnosticScores dependency.
+function levelsToScores() {
+  const lvl = t => getTopicLevel(progress, t).band;
+  const techBands = ['accounting', 'valuation', 'lbo', 'ma'].map(lvl);
+  const techAvg = techBands.reduce((s, b) => s + (BAND_STRENGTH_PCT[b] || 50), 0) / techBands.length;
+  return {
+    tech: Math.round(techAvg),
+    beh:  BAND_STRENGTH_PCT[lvl('behavioral')] || 50,
+    deal: BAND_STRENGTH_PCT[lvl('markets')]    || 50,
+    subs: {
+      accounting: BAND_STRENGTH_PCT[lvl('accounting')] || 50,
+      valuation:  BAND_STRENGTH_PCT[lvl('valuation')]  || 50,
+      lbo:        BAND_STRENGTH_PCT[lvl('lbo')]        || 50,
+      ma:         BAND_STRENGTH_PCT[lvl('ma')]         || 50
+    }
+  };
+}
+
+// Returns up to `max` weak topics: live mastery wins when present, the
+// per-topic calibration level fills in the gaps. "Weak" = strength < 60.
 function getWeakTopics(max = 2) {
   const ranked = Object.keys(TOPIC_DEFS).map(k => {
     const live = topicStrengthLive(k);
-    const diag = topicStrengthDiagnostic(k);
-    const strength = live != null ? live : diag;
-    const source = live != null ? 'live' : (diag != null ? 'diagnostic' : null);
+    const fromLevels = topicStrengthFromLevels(k);
+    const strength = live != null ? live : fromLevels;
+    const source = live != null ? 'live' : (fromLevels != null ? 'level' : null);
     return { key: k, label: TOPIC_DEFS[k].label, strength, source };
   }).filter(t => t.source && t.strength != null && t.strength < 60);
   ranked.sort((a, b) => a.strength - b.strength);
@@ -1498,7 +1522,7 @@ function getTodaysTask() {
   }
   // 2. Current week of plan has an unfinished task: do that.
   if (progress.userProfile?.timeline) {
-    const syllabus = generateSyllabus(progress.userProfile, progress.diagnosticScores);
+    const syllabus = generateSyllabus(progress.userProfile, levelsToScores());
     const cw = syllabusCurrentWeek(syllabus);
     const week = syllabus.weeks.find(w => w.week === cw);
     const next = week?.tasks.find(t => !isTaskComplete(t));
@@ -3518,7 +3542,7 @@ function renderPrepPlan() {
     `;
     return;
   }
-  const syllabus = generateSyllabus(progress.userProfile, progress.diagnosticScores);
+  const syllabus = generateSyllabus(progress.userProfile, levelsToScores());
   const currentWeek = syllabusCurrentWeek(syllabus);
   // Reorder uncompleted weeks by gap before computing renderable list. The
   // overall progress count is order-agnostic so we compute it from the
@@ -3536,9 +3560,9 @@ function renderPrepPlan() {
         <div class="focus-areas-sub">${
           weak.every(w => w.source === 'live')
             ? 'Based on your practice so far'
-            : weak.every(w => w.source === 'diagnostic')
-              ? 'Based on your diagnostic'
-              : 'Based on your diagnostic and recent practice'
+            : weak.every(w => w.source === 'level')
+              ? 'Based on your current per-topic levels'
+              : 'Based on your levels and recent practice'
         }</div>
       </div>
       <div class="focus-areas-list">
@@ -3547,7 +3571,7 @@ function renderPrepPlan() {
             <div class="focus-area-info">
               <div class="focus-area-label">${w.label}</div>
               <div class="focus-area-bar"><div class="focus-area-fill" style="width:${Math.max(8, w.strength)}%"></div></div>
-              <div class="focus-area-meta">${w.strength}% strength · ${w.source === 'live' ? 'live' : 'diagnostic'}</div>
+              <div class="focus-area-meta">${w.strength}% strength · ${w.source === 'live' ? 'live' : 'level'}</div>
             </div>
             <button class="focus-area-btn" onclick="filterBankNav('${TOPIC_DEFS[w.key].cat}'${TOPIC_DEFS[w.key].sub ? `, '${TOPIC_DEFS[w.key].sub}'` : ''})">Drill →</button>
           </div>
@@ -3680,20 +3704,16 @@ function renderPlanPreview() {
   const container = document.getElementById('onramp-plan-preview');
   if (!container) return;
   const profile = { ...onrampData };
-  const syllabus = generateSyllabus(profile, progress.diagnosticScores);
-  const techPct = progress.diagnosticScores?.tech;
-  const behPct = progress.diagnosticScores?.beh;
-  const dealPct = progress.diagnosticScores?.deal;
-  const weakestLabel = (() => {
-    if (techPct == null) return null;
-    const arr = [
-      { label: 'technicals', pct: techPct },
-      { label: 'behavioral', pct: behPct ?? 100 },
-      { label: 'markets', pct: dealPct ?? 100 },
-    ];
-    arr.sort((a, b) => a.pct - b.pct);
-    return arr[0].pct < 70 ? arr[0].label : null;
-  })();
+  const scores = levelsToScores();
+  const syllabus = generateSyllabus(profile, scores);
+  // Pick the weakest of {tech avg, behavioral, markets} for the headline tag.
+  const arr = [
+    { label: 'technicals', pct: scores.tech },
+    { label: 'behavioral', pct: scores.beh },
+    { label: 'markets',    pct: scores.deal }
+  ];
+  arr.sort((a, b) => a.pct - b.pct);
+  const weakestLabel = arr[0].pct < 70 ? arr[0].label : null;
 
   container.innerHTML = `
     <div class="syl-pre-meta">

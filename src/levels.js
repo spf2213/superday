@@ -178,11 +178,15 @@ function pctToBand(pct) {
   return 'expert';
 }
 
-// One-time read-only converter: legacy progress.userBand + diagnosticScores.subs
+// One-time read-only converter: legacy userBand + diagnosticScores.subs
 // → per-topic levels. Idempotent — safe to call on every loadProgress. If the
 // user has already answered cards under the new model, we skip rather than
 // overwrite their accumulated signal.
-export function migrateLegacy(progress) {
+//
+// Pass the legacy fields explicitly via the second arg so the caller doesn't
+// need to write them onto progress just to feed migration. Falls back to
+// progress.userBand / progress.diagnosticScores for backward compatibility.
+export function migrateLegacy(progress, legacy) {
   if (!progress) return null;
   if (!progress.levels) progress.levels = {};
 
@@ -195,11 +199,12 @@ export function migrateLegacy(progress) {
     return progress.levels;
   }
 
-  const legacyBand = BANDS.includes(progress.userBand) ? progress.userBand : 'beginner';
-  const ds = progress.diagnosticScores || null;
-  const subs = (ds && ds.subs) || {};
-  const behPct = ds ? ds.beh : null;
-  const marketsPct = ds ? ds.deal : null;
+  const userBandSrc = legacy?.userBand ?? progress.userBand;
+  const diagSrc = legacy?.diagnosticScores ?? progress.diagnosticScores ?? null;
+  const legacyBand = BANDS.includes(userBandSrc) ? userBandSrc : 'beginner';
+  const subs = (diagSrc && diagSrc.subs) || {};
+  const behPct = diagSrc ? diagSrc.beh : null;
+  const marketsPct = diagSrc ? diagSrc.deal : null;
 
   for (const t of TOPICS) {
     if (progress.levels[t]) continue;
