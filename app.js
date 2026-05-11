@@ -482,6 +482,7 @@ Object.assign(window, {
   openInlineAuth, closeInlineAuth, switchInlineAuthTab, doInlineLogin, doInlineSignup,
   showScreen, showView, shuffleFlash, smartPractice,
   askForHint, startMock, stepMockMode, syncRailOpt, endInterview,
+  showApplyTab, openAddNetworkingForm, closeAddNetworkingForm, saveNewNetworkingContact,
   switchAuthTab, toggleFaq,
   toggleProfileEdit, toggleStoryPanel, toggleTheme, toggleCardWhy,
   viewStoryNote
@@ -835,6 +836,9 @@ async function onSignedIn(user) {
   } catch (e) {
     console.error('loadProgress failed:', e);
   }
+  // Networking is small (one user's contact list); load eagerly so the
+  // sidebar follow-ups badge is accurate from first paint.
+  loadNetworkingContacts().catch(() => {});
 }
 
 /* ─── PAYMENTS / SUBSCRIPTIONS ───────── */
@@ -1003,7 +1007,7 @@ function showView(id) {
   document.querySelectorAll('.sb-item').forEach(n => n.classList.remove('active'));
   const view = document.getElementById('view-' + id);
   if (view) view.classList.add('active');
-  const labels = { dashboard: 'Dashboard', flash: 'Flashcards', mock: 'Mock Interview', video: 'Video Interview', learn: 'Concepts', profile: 'Profile' };
+  const labels = { dashboard: 'Dashboard', flash: 'Flashcards', mock: 'Mock Interview', video: 'Video Interview', learn: 'Concepts', profile: 'Profile', apply: 'Apply' };
   document.querySelectorAll('.sb-item').forEach(n => {
     if (n.textContent.trim().toLowerCase().includes((labels[id] || id).toLowerCase())) n.classList.add('active');
   });
@@ -1011,6 +1015,7 @@ function showView(id) {
   if (id === 'learn') renderLearnModules();
   if (id === 'mock') renderMockModeBanner();
   if (id === 'profile') renderProfile();
+  if (id === 'apply') initApply();
 }
 
 /* ─── PROGRESS ───────────────────────── */
@@ -2244,6 +2249,476 @@ async function runMockTurn(cat, firm) {
   }
   if (sendBtn) sendBtn.disabled = false;
 }
+
+/* ─── APPLY: NETWORKING CRM ──────────── */
+// Per-user list of networking contacts loaded lazily on first visit to
+// the Apply view. Touches are stored inline as a jsonb array on each
+// contact (see supabase/migrations/2026_05_10_networking_contacts.sql).
+
+const NET_STATUSES = [
+  ['to_reach_out',  'To reach out'],
+  ['outreach_sent', 'Outreach sent'],
+  ['replied',       'Replied'],
+  ['scheduled',     'Scheduled'],
+  ['met',           'Met'],
+  ['followed_up',   'Followed up'],
+  ['dormant',       'Dormant']
+];
+const NET_STATUS_LABEL = Object.fromEntries(NET_STATUSES);
+
+const TOUCH_KINDS = [
+  ['outreach',  'Outreach'],
+  ['email',     'Email'],
+  ['linkedin',  'LinkedIn'],
+  ['call',      'Call'],
+  ['coffee',    'Coffee / meeting'],
+  ['follow_up', 'Follow-up'],
+  ['note',      'Note']
+];
+const TOUCH_KIND_LABEL = Object.fromEntries(TOUCH_KINDS);
+
+let networkingContacts = [];
+let networkingFilter = 'all';
+let networkingExpandedId = null;
+let networkingLoaded = false;
+
+async function initApply() {
+  showApplyTab('networking');
+  if (!networkingLoaded) await loadNetworkingContacts();
+  renderNetworkingList();
+}
+
+function showApplyTab(tab) {
+  document.querySelectorAll('.apply-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.applyTab === tab);
+  });
+  document.querySelectorAll('.apply-pane').forEach(p => {
+    p.style.display = p.id === 'apply-pane-' + tab ? '' : 'none';
+  });
+}
+
+async function loadNetworkingContacts() {
+  if (!sb || !currentUser) return;
+  try {
+    const { data, error } = await sb.from('networking_contacts')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .order('updated_at', { ascending: false });
+    if (error) { console.error('loadNetworkingContacts:', error); return; }
+    networkingContacts = data || [];
+    networkingLoaded = true;
+    updateApplyBadge();
+  } catch (e) { console.error('loadNetworkingContacts:', e); }
+}
+
+function openAddNetworkingForm() {
+  const form = document.getElementById('net-add-form');
+  if (!form) return;
+  form.style.display = '';
+  document.getElementById('net-new-name')?.focus();
+}
+
+function closeAddNetworkingForm() {
+  const form = document.getElementById('net-add-form');
+  if (!form) return;
+  form.style.display = 'none';
+  ['name','firm','role','email','linkedin','how-met'].forEach(k => {
+    const el = document.getElementById('net-new-' + k);
+    if (el) el.value = '';
+  });
+}
+
+async function saveNewNetworkingContact() {
+  if (!sb || !currentUser) return;
+  const name = document.getElementById('net-new-name')?.value.trim();
+  if (!name) {
+    document.getElementById('net-new-name')?.focus();
+    return;
+  }
+  const payload = {
+    user_id: currentUser.id,
+    name,
+    firm: document.getElementById('net-new-firm')?.value.trim() || null,
+    role: document.getElementById('net-new-role')?.value.trim() || null,
+    email: document.getElementById('net-new-email')?.value.trim() || null,
+    linkedin_url: document.getElementById('net-new-linkedin')?.value.trim() || null,
+    how_met: document.getElementById('net-new-how-met')?.value.trim() || null,
+    status: 'to_reach_out',
+    touches: []
+  };
+  try {
+    const { data, error } = await sb.from('networking_contacts').insert(payload).select().single();
+    if (error) { console.error('insert contact:', error); return; }
+    networkingContacts.unshift(data);
+    closeAddNetworkingForm();
+    networkingExpandedId = data.id;
+    renderNetworkingList();
+    updateApplyBadge();
+  } catch (e) { console.error('insert contact:', e); }
+}
+
+async function updateNetworkingContact(id, patch) {
+  if (!sb) return;
+  const idx = networkingContacts.findIndex(c => c.id === id);
+  if (idx === -1) return;
+  Object.assign(networkingContacts[idx], patch);
+  try {
+    const { error } = await sb.from('networking_contacts').update(patch).eq('id', id);
+    if (error) console.error('update contact:', error);
+  } catch (e) { console.error('update contact:', e); }
+  renderNetworkingList();
+  updateApplyBadge();
+}
+
+async function deleteNetworkingContact(id) {
+  if (!sb) return;
+  if (!confirm('Delete this contact and their touch history?')) return;
+  networkingContacts = networkingContacts.filter(c => c.id !== id);
+  if (networkingExpandedId === id) networkingExpandedId = null;
+  try {
+    const { error } = await sb.from('networking_contacts').delete().eq('id', id);
+    if (error) console.error('delete contact:', error);
+  } catch (e) { console.error('delete contact:', e); }
+  renderNetworkingList();
+  updateApplyBadge();
+}
+
+async function addNetworkingTouch(id) {
+  const kindEl = document.getElementById('touch-kind-' + id);
+  const noteEl = document.getElementById('touch-note-' + id);
+  if (!kindEl || !noteEl) return;
+  const note = noteEl.value.trim();
+  if (!note) { noteEl.focus(); return; }
+  const touch = { at: new Date().toISOString(), kind: kindEl.value, note };
+  const contact = networkingContacts.find(c => c.id === id);
+  if (!contact) return;
+  const touches = [...(contact.touches || []), touch];
+  await updateNetworkingContact(id, { touches });
+  noteEl.value = '';
+}
+
+function setNetworkingFilter(filter) {
+  networkingFilter = filter;
+  document.querySelectorAll('.net-chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.filter === filter);
+  });
+  renderNetworkingList();
+}
+
+function toggleContactExpanded(id) {
+  networkingExpandedId = networkingExpandedId === id ? null : id;
+  renderNetworkingList();
+}
+
+// Latest touch timestamp for a contact, or null. Used for the "Last touch"
+// column and for sorting.
+function lastTouchAt(contact) {
+  if (!contact.touches || !contact.touches.length) return null;
+  return contact.touches.reduce((max, t) => !max || t.at > max ? t.at : max, null);
+}
+
+function formatRelativeDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  const days = Math.round((Date.now() - d.getTime()) / 86400000);
+  if (days === 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 7) return days + 'd ago';
+  if (days < 30) return Math.floor(days / 7) + 'w ago';
+  return Math.floor(days / 30) + 'mo ago';
+}
+
+function formatDateInput(iso) {
+  if (!iso) return '';
+  return iso.slice(0, 10);
+}
+
+function isDueThisWeek(contact) {
+  if (!contact.next_action_at) return false;
+  const due = new Date(contact.next_action_at);
+  const now = new Date();
+  const weekFromNow = new Date(now.getTime() + 7 * 86400000);
+  return due <= weekFromNow;
+}
+
+function filteredContacts() {
+  const all = networkingContacts;
+  if (networkingFilter === 'all') return all;
+  if (networkingFilter === 'due') return all.filter(isDueThisWeek);
+  return all.filter(c => c.status === networkingFilter);
+}
+
+function renderNetworkingList() {
+  const list = document.getElementById('net-list');
+  if (!list) return;
+
+  // Update filter counts.
+  document.querySelectorAll('.net-count').forEach(el => {
+    const key = el.dataset.count;
+    let n;
+    if (key === 'all') n = networkingContacts.length;
+    else if (key === 'due') n = networkingContacts.filter(isDueThisWeek).length;
+    else n = networkingContacts.filter(c => c.status === key).length;
+    el.textContent = n;
+  });
+
+  const contacts = filteredContacts();
+  const empty = document.getElementById('net-empty');
+
+  // Clear previously-rendered rows (preserve the empty-state node).
+  Array.from(list.querySelectorAll('.net-row, .net-row-expanded')).forEach(n => n.remove());
+
+  if (!contacts.length) {
+    if (empty) empty.style.display = '';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+
+  contacts.forEach(c => {
+    list.appendChild(buildNetworkingRow(c));
+    if (networkingExpandedId === c.id) {
+      list.appendChild(buildNetworkingExpanded(c));
+    }
+  });
+}
+
+function buildNetworkingRow(c) {
+  const row = document.createElement('div');
+  row.className = 'net-row';
+  row.onclick = () => toggleContactExpanded(c.id);
+
+  const name = document.createElement('div');
+  name.className = 'net-cell net-cell-name';
+  const nm = document.createElement('div');
+  nm.className = 'net-name';
+  nm.textContent = c.name;
+  const sub = document.createElement('div');
+  sub.className = 'net-sub';
+  sub.textContent = [c.role, c.firm].filter(Boolean).join(' · ') || '—';
+  name.appendChild(nm);
+  name.appendChild(sub);
+
+  const status = document.createElement('div');
+  status.className = 'net-cell';
+  const pill = document.createElement('span');
+  pill.className = 'net-status-pill status-' + c.status;
+  pill.textContent = NET_STATUS_LABEL[c.status] || c.status;
+  status.appendChild(pill);
+
+  const last = document.createElement('div');
+  last.className = 'net-cell net-cell-meta';
+  last.textContent = formatRelativeDate(lastTouchAt(c));
+
+  const next = document.createElement('div');
+  next.className = 'net-cell net-cell-meta';
+  if (c.next_action_at) {
+    const due = new Date(c.next_action_at);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const isOverdue = due < today;
+    const isThisWeek = isDueThisWeek(c) && !isOverdue;
+    const dateStr = due.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    next.textContent = dateStr;
+    if (isOverdue) next.classList.add('net-overdue');
+    else if (isThisWeek) next.classList.add('net-due-soon');
+  } else {
+    next.textContent = '—';
+  }
+
+  const caret = document.createElement('div');
+  caret.className = 'net-cell net-cell-caret';
+  caret.textContent = networkingExpandedId === c.id ? '⌃' : '⌄';
+
+  row.appendChild(name);
+  row.appendChild(status);
+  row.appendChild(last);
+  row.appendChild(next);
+  row.appendChild(caret);
+  return row;
+}
+
+function buildNetworkingExpanded(c) {
+  const wrap = document.createElement('div');
+  wrap.className = 'net-row-expanded';
+
+  // Editable fields grid.
+  const grid = document.createElement('div');
+  grid.className = 'net-edit-grid';
+
+  const fields = [
+    { key: 'name',         label: 'Name',         type: 'text' },
+    { key: 'firm',         label: 'Firm',         type: 'text' },
+    { key: 'role',         label: 'Role / team',  type: 'text' },
+    { key: 'email',        label: 'Email',        type: 'email' },
+    { key: 'linkedin_url', label: 'LinkedIn',     type: 'url' },
+    { key: 'how_met',      label: 'How met',      type: 'text' }
+  ];
+  fields.forEach(f => {
+    const field = document.createElement('label');
+    field.className = 'net-field';
+    const lbl = document.createElement('span');
+    lbl.className = 'net-field-label';
+    lbl.textContent = f.label;
+    const inp = document.createElement('input');
+    inp.type = f.type;
+    inp.value = c[f.key] || '';
+    inp.placeholder = f.label;
+    inp.onchange = () => updateNetworkingContact(c.id, { [f.key]: inp.value.trim() || null });
+    field.appendChild(lbl);
+    field.appendChild(inp);
+    grid.appendChild(field);
+  });
+
+  // Status + next action row.
+  const meta = document.createElement('div');
+  meta.className = 'net-meta-row';
+
+  const statusField = document.createElement('label');
+  statusField.className = 'net-field';
+  const sLbl = document.createElement('span');
+  sLbl.className = 'net-field-label';
+  sLbl.textContent = 'Status';
+  const sSel = document.createElement('select');
+  NET_STATUSES.forEach(([v, lbl]) => {
+    const o = document.createElement('option');
+    o.value = v; o.textContent = lbl;
+    if (v === c.status) o.selected = true;
+    sSel.appendChild(o);
+  });
+  sSel.onchange = () => updateNetworkingContact(c.id, { status: sSel.value });
+  statusField.appendChild(sLbl);
+  statusField.appendChild(sSel);
+
+  const dueField = document.createElement('label');
+  dueField.className = 'net-field';
+  const dLbl = document.createElement('span');
+  dLbl.className = 'net-field-label';
+  dLbl.textContent = 'Next action';
+  const dInp = document.createElement('input');
+  dInp.type = 'date';
+  dInp.value = formatDateInput(c.next_action_at);
+  dInp.onchange = () => updateNetworkingContact(c.id, { next_action_at: dInp.value || null });
+  dueField.appendChild(dLbl);
+  dueField.appendChild(dInp);
+
+  meta.appendChild(statusField);
+  meta.appendChild(dueField);
+
+  // Notes textarea.
+  const notesField = document.createElement('label');
+  notesField.className = 'net-field net-notes-field';
+  const nLbl = document.createElement('span');
+  nLbl.className = 'net-field-label';
+  nLbl.textContent = 'Private notes';
+  const nTa = document.createElement('textarea');
+  nTa.rows = 2;
+  nTa.value = c.notes || '';
+  nTa.placeholder = 'What did you talk about? What did they suggest?';
+  nTa.onchange = () => updateNetworkingContact(c.id, { notes: nTa.value.trim() || null });
+  notesField.appendChild(nLbl);
+  notesField.appendChild(nTa);
+
+  // Touches log.
+  const touchesWrap = document.createElement('div');
+  touchesWrap.className = 'net-touches';
+  const tHdr = document.createElement('div');
+  tHdr.className = 'net-touches-header';
+  tHdr.textContent = 'Touches';
+  touchesWrap.appendChild(tHdr);
+
+  const touches = (c.touches || []).slice().sort((a, b) => (b.at || '').localeCompare(a.at || ''));
+  if (!touches.length) {
+    const none = document.createElement('div');
+    none.className = 'net-touches-empty';
+    none.textContent = 'No touches logged yet.';
+    touchesWrap.appendChild(none);
+  } else {
+    const list = document.createElement('div');
+    list.className = 'net-touches-list';
+    touches.forEach(t => {
+      const row = document.createElement('div');
+      row.className = 'net-touch';
+      const kind = document.createElement('span');
+      kind.className = 'net-touch-kind';
+      kind.textContent = TOUCH_KIND_LABEL[t.kind] || t.kind;
+      const note = document.createElement('span');
+      note.className = 'net-touch-note';
+      note.textContent = t.note;
+      const when = document.createElement('span');
+      when.className = 'net-touch-when';
+      when.textContent = formatRelativeDate(t.at);
+      row.appendChild(kind);
+      row.appendChild(note);
+      row.appendChild(when);
+      list.appendChild(row);
+    });
+    touchesWrap.appendChild(list);
+  }
+
+  // Add-touch composer.
+  const composer = document.createElement('div');
+  composer.className = 'net-touch-composer';
+  const kSel = document.createElement('select');
+  kSel.id = 'touch-kind-' + c.id;
+  TOUCH_KINDS.forEach(([v, lbl]) => {
+    const o = document.createElement('option');
+    o.value = v; o.textContent = lbl;
+    kSel.appendChild(o);
+  });
+  const nInp = document.createElement('input');
+  nInp.type = 'text';
+  nInp.id = 'touch-note-' + c.id;
+  nInp.placeholder = 'What happened? (e.g. "30-min call, said to apply by Sept 1")';
+  nInp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); addNetworkingTouch(c.id); } };
+  const addBtn = document.createElement('button');
+  addBtn.className = 'btn-primary-sm';
+  addBtn.textContent = 'Log touch';
+  addBtn.onclick = () => addNetworkingTouch(c.id);
+  composer.appendChild(kSel);
+  composer.appendChild(nInp);
+  composer.appendChild(addBtn);
+  touchesWrap.appendChild(composer);
+
+  // Footer with delete.
+  const footer = document.createElement('div');
+  footer.className = 'net-row-footer';
+  const del = document.createElement('button');
+  del.className = 'btn-ghost-sm net-delete';
+  del.textContent = 'Delete contact';
+  del.onclick = () => deleteNetworkingContact(c.id);
+  footer.appendChild(del);
+
+  wrap.appendChild(grid);
+  wrap.appendChild(meta);
+  wrap.appendChild(notesField);
+  wrap.appendChild(touchesWrap);
+  wrap.appendChild(footer);
+  return wrap;
+}
+
+function dueFollowUpCount() {
+  return networkingContacts.filter(isDueThisWeek).length;
+}
+
+// Surface a small "N follow-ups due" badge on the sidebar Apply item.
+function updateApplyBadge() {
+  const badge = document.getElementById('sb-apply-badge');
+  if (!badge) return;
+  const n = dueFollowUpCount();
+  if (n > 0) {
+    badge.style.display = '';
+    badge.textContent = n;
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+// Filter-chip click delegation — attach once at module load so it survives
+// re-renders of the list.
+document.addEventListener('click', (e) => {
+  const chip = e.target.closest('.net-chip');
+  if (chip && chip.dataset.filter) setNetworkingFilter(chip.dataset.filter);
+});
 
 /* ─── STORY BANK ────────────────────── */
 let storyPanelOpen = false;
