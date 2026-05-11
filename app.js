@@ -1003,19 +1003,31 @@ function capitalize(s) { return (s && typeof s === 'string') ? s.charAt(0).toUpp
 
 /* ─── VIEWS ──────────────────────────── */
 function showView(id) {
+  // Apply has two sidebar entries (Networking, Internship Tracker) that
+  // both render the same view-apply element with a different tab opened.
+  let viewId = id;
+  let applyTab = null;
+  if (id === 'apply-networking') { viewId = 'apply'; applyTab = 'networking'; }
+  else if (id === 'apply-internships') { viewId = 'apply'; applyTab = 'internships'; }
+
   document.querySelectorAll('.app-view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.sb-item').forEach(n => n.classList.remove('active'));
-  const view = document.getElementById('view-' + id);
+  const view = document.getElementById('view-' + viewId);
   if (view) view.classList.add('active');
-  const labels = { dashboard: 'Dashboard', flash: 'Flashcards', mock: 'Mock Interview', video: 'Video Interview', learn: 'Concepts', profile: 'Profile', apply: 'Apply' };
+  const labels = {
+    dashboard: 'Dashboard', flash: 'Flashcards', mock: 'Mock Interview',
+    video: 'Video Interview', learn: 'Concepts', profile: 'Profile',
+    'apply-networking': 'Networking', 'apply-internships': 'Internship Tracker'
+  };
+  const matchLabel = (labels[id] || id).toLowerCase();
   document.querySelectorAll('.sb-item').forEach(n => {
-    if (n.textContent.trim().toLowerCase().includes((labels[id] || id).toLowerCase())) n.classList.add('active');
+    if (n.textContent.trim().toLowerCase().includes(matchLabel)) n.classList.add('active');
   });
-  if (id === 'flash') initFlash();
-  if (id === 'learn') renderLearnModules();
-  if (id === 'mock') renderMockModeBanner();
-  if (id === 'profile') renderProfile();
-  if (id === 'apply') initApply();
+  if (viewId === 'flash') initFlash();
+  if (viewId === 'learn') renderLearnModules();
+  if (viewId === 'mock') renderMockModeBanner();
+  if (viewId === 'profile') renderProfile();
+  if (viewId === 'apply') initApply(applyTab);
 }
 
 /* ─── PROGRESS ───────────────────────── */
@@ -2282,8 +2294,8 @@ let networkingFilter = 'all';
 let networkingExpandedId = null;
 let networkingLoaded = false;
 
-async function initApply() {
-  showApplyTab('networking');
+async function initApply(tab) {
+  showApplyTab(tab || 'networking');
   if (!networkingLoaded) await loadNetworkingContacts();
   renderNetworkingList();
 }
