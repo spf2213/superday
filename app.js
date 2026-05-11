@@ -483,6 +483,7 @@ Object.assign(window, {
   openInlineAuth, closeInlineAuth, switchInlineAuthTab, doInlineLogin, doInlineSignup,
   showScreen, showView, shuffleFlash, smartPractice,
   askForHint, startMock, stepMockMode, syncRailOpt, endInterview,
+  showApplyTab, openAddNetworkingForm, closeAddNetworkingForm, saveNewNetworkingContact,
   switchAuthTab, toggleFaq,
   toggleProfileEdit, toggleStoryPanel, toggleTheme, toggleCardWhy,
   viewStoryNote
@@ -836,6 +837,9 @@ async function onSignedIn(user) {
   } catch (e) {
     console.error('loadProgress failed:', e);
   }
+  // Networking is small (one user's contact list); load eagerly so the
+  // sidebar follow-ups badge is accurate from first paint.
+  loadNetworkingContacts().catch(() => {});
 }
 
 /* ─── PAYMENTS / SUBSCRIPTIONS ───────── */
@@ -1000,19 +1004,31 @@ function capitalize(s) { return (s && typeof s === 'string') ? s.charAt(0).toUpp
 
 /* ─── VIEWS ──────────────────────────── */
 function showView(id) {
+  // Apply has two sidebar entries (Networking, Internship Tracker) that
+  // both render the same view-apply element with a different tab opened.
+  let viewId = id;
+  let applyTab = null;
+  if (id === 'apply-networking') { viewId = 'apply'; applyTab = 'networking'; }
+  else if (id === 'apply-internships') { viewId = 'apply'; applyTab = 'internships'; }
+
   document.querySelectorAll('.app-view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.sb-item').forEach(n => n.classList.remove('active'));
-  const view = document.getElementById('view-' + id);
+  const view = document.getElementById('view-' + viewId);
   if (view) view.classList.add('active');
-  const labels = { dashboard: 'Dashboard', flash: 'Flashcards', mock: 'Mock Interview', video: 'Video Interview', learn: 'Concepts', profile: 'Profile' };
+  const labels = {
+    dashboard: 'Dashboard', flash: 'Flashcards', mock: 'Mock Interview',
+    video: 'Video Interview', learn: 'Concepts', profile: 'Profile',
+    'apply-networking': 'Networking', 'apply-internships': 'Internship Tracker'
+  };
+  const matchLabel = (labels[id] || id).toLowerCase();
   document.querySelectorAll('.sb-item').forEach(n => {
-    if (n.textContent.trim().toLowerCase().includes((labels[id] || id).toLowerCase())) n.classList.add('active');
+    if (n.textContent.trim().toLowerCase().includes(matchLabel)) n.classList.add('active');
   });
-  if (id === 'flash') initFlash();
-  if (id === 'bank') renderProblemBank();
-  if (id === 'learn') renderLearnModules();
-  if (id === 'mock') renderMockModeBanner();
-  if (id === 'profile') renderProfile();
+  if (viewId === 'flash') initFlash();
+  if (viewId === 'learn') renderLearnModules();
+  if (viewId === 'mock') renderMockModeBanner();
+  if (viewId === 'profile') renderProfile();
+  if (viewId === 'apply') initApply(applyTab);
 }
 
 /* ─── PROBLEM BANK ───────────────────── */
@@ -1267,21 +1283,7 @@ function updateDashStats() {
   setText('dash-hero-sub', hero.sub);
   setText('dash-hero-cta', hero.cta);
 
-  // Streak = consecutive calendar days ending today with at least one
-  // answered card. One source of truth, no fabricated counters.
-  const seenDays = new Set();
-  for (const m of Object.values(progress.mastery || {})) {
-    if (m && m.lastSeen) seenDays.add(new Date(m.lastSeen).toDateString());
-  }
-  const today = new Date();
-  let streak = 0;
-  const cursor = new Date(today);
-  while (seenDays.has(cursor.toDateString())) {
-    streak++;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-  setText('dash-streak', streak);
-  setText('dash-streak-label', streak === 1 ? 'day' : 'days');
+  renderRecruitingCountdown();
 
   renderActivity();
 }
@@ -1293,6 +1295,40 @@ function setText(id, text) {
 function setBar(id, frac) {
   const el = document.getElementById(id);
   if (el) el.style.width = Math.max(0, Math.min(1, frac)) * 100 + '%';
+}
+
+// Countdown to Dec 1 of the current year (full-time / SA recruiting kicks
+// off then for most banks). Rolls forward to Dec 1 of next year once the
+// date passes so the dashboard never shows a stale or negative number.
+// Visual urgency tier: ≤14 days = critical (red), ≤60 = urgent (amber),
+// otherwise neutral.
+function renderRecruitingCountdown() {
+  const pill = document.getElementById('dash-countdown-pill');
+  const numEl = document.getElementById('dash-countdown-num');
+  const lblEl = document.getElementById('dash-countdown-lbl');
+  if (!pill || !numEl || !lblEl) return;
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let target = new Date(now.getFullYear(), 11, 1);
+  if (today.getTime() > target.getTime()) {
+    target = new Date(now.getFullYear() + 1, 11, 1);
+  }
+  const days = Math.round((target.getTime() - today.getTime()) / 86400000);
+
+  pill.classList.remove('urgent', 'critical', 'today');
+  if (days === 0) {
+    numEl.textContent = '0';
+    lblEl.textContent = 'recruiting starts today';
+    pill.classList.add('critical', 'today');
+  } else {
+    numEl.textContent = days;
+    lblEl.textContent = (days === 1 ? 'day' : 'days') + ' to Dec 1';
+    if (days <= 14) pill.classList.add('critical');
+    else if (days <= 60) pill.classList.add('urgent');
+  }
+  const targetLabel = target.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+  pill.title = `Recruiting kickoff: ${targetLabel}`;
 }
 
 // Pick the next-step recommendation rendered in the hero card. Walks state
@@ -1385,14 +1421,110 @@ function renderActivity() {
 /* ─── NEWS ───────────────────────────── */
 // Note: previous version asked Claude to invent headlines — actively misleading
 // for an interview-prep context. Disabled until a real RSS-backed feed lands.
+// Market Pulse — hits our own /api/market-news proxy. The LIVE badge
+// becomes truthful: green pulse when data is fresh, muted "offline" if
+// the feed fails or isn't configured. Auto-refreshes every 5 minutes
+// while the dashboard view is active.
+
+let _newsRefreshTimer = null;
+
 async function loadNews() {
   const el = document.getElementById('news-list');
+  const badge = document.querySelector('.news-live-tag');
   if (!el) return;
+
+  // Loading state only on the first render (later refreshes update in place
+  // so the user never sees the headlines blink).
+  if (!el.dataset.loaded) {
+    el.replaceChildren();
+    const loading = document.createElement('div');
+    loading.style.cssText = 'padding:24px;text-align:center;font-size:12px;color:var(--t-3)';
+    loading.textContent = 'Loading market news…';
+    el.appendChild(loading);
+  }
+
+  try {
+    const resp = await fetch('/api/market-news', { credentials: 'omit' });
+    if (resp.status === 503) {
+      renderNewsError(el, badge, 'Market feed not configured yet.');
+    } else if (!resp.ok) {
+      renderNewsError(el, badge, "Market feed unavailable. We'll retry shortly.");
+    } else {
+      const data = await resp.json();
+      if (!Array.isArray(data.items) || data.items.length === 0) {
+        renderNewsError(el, badge, 'No headlines right now.');
+      } else {
+        renderNewsItems(el, badge, data.items);
+        el.dataset.loaded = '1';
+      }
+    }
+  } catch (e) {
+    console.error('loadNews error:', e);
+    renderNewsError(el, badge, 'Market feed unavailable.');
+  } finally {
+    if (_newsRefreshTimer) clearTimeout(_newsRefreshTimer);
+    _newsRefreshTimer = setTimeout(() => {
+      const dash = document.getElementById('view-dashboard');
+      if (dash && dash.classList.contains('active')) loadNews();
+    }, 5 * 60 * 1000);
+  }
+}
+
+function renderNewsError(el, badge, msg) {
   el.replaceChildren();
-  const placeholder = document.createElement('div');
-  placeholder.style.cssText = 'padding:24px;text-align:center;font-size:12px;color:var(--t-3)';
-  placeholder.textContent = 'Live market news coming soon.';
-  el.appendChild(placeholder);
+  const note = document.createElement('div');
+  note.style.cssText = 'padding:24px;text-align:center;font-size:12px;color:var(--t-3)';
+  note.textContent = msg;
+  el.appendChild(note);
+  setNewsLiveBadge(badge, false);
+}
+
+function renderNewsItems(el, badge, items) {
+  el.replaceChildren();
+  setNewsLiveBadge(badge, true);
+  for (const item of items) {
+    const row = document.createElement('a');
+    row.className = 'news-item-row';
+    row.href = item.url;
+    row.target = '_blank';
+    row.rel = 'noopener noreferrer';
+    row.title = item.source ? `${item.headline} — ${item.source}` : item.headline;
+
+    const pill = document.createElement('span');
+    pill.className = 'news-tag-pill';
+    pill.textContent = (item.source || item.category || 'news').slice(0, 14);
+
+    const hl = document.createElement('div');
+    hl.className = 'news-hl';
+    hl.textContent = item.headline;
+
+    const time = document.createElement('span');
+    time.className = 'news-time-sm';
+    time.textContent = item.datetime ? formatNewsRelative(item.datetime * 1000) : '';
+
+    row.appendChild(pill);
+    row.appendChild(hl);
+    row.appendChild(time);
+    el.appendChild(row);
+  }
+}
+
+function setNewsLiveBadge(badge, isLive) {
+  if (!badge) return;
+  badge.classList.toggle('news-live-offline', !isLive);
+  const label = badge.querySelector('.news-live-label');
+  if (label) label.textContent = isLive ? 'LIVE' : 'OFFLINE';
+}
+
+function formatNewsRelative(ms) {
+  const min = Math.max(0, Math.floor((Date.now() - ms) / 60000));
+  if (min < 1) return 'just now';
+  if (min < 60) return min + 'm';
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return hr + 'h';
+  const d = Math.floor(hr / 24);
+  if (d < 7) return d + 'd';
+  return Math.floor(d / 7) + 'w';
 }
 
 /* ─── FLASHCARDS ─────────────────────── */
@@ -1956,7 +2088,271 @@ function appendMsg(role, text) {
   div.appendChild(av);
   div.appendChild(bubble);
   body.appendChild(div);
-  body.scrollTop = body.scrollHeight;
+  scrollChatToBottom();
+}
+
+// Append plain text to a node, preserving line breaks without injecting HTML.
+function appendTextWithBreaks(el, text) {
+  text.split('\n').forEach((line, i) => {
+    if (i > 0) el.appendChild(document.createElement('br'));
+    el.appendChild(document.createTextNode(line));
+  });
+}
+
+// Smoothly scroll the chat body to its bottom. Used after appending any new
+// message so the user sees the new content slide into view.
+function scrollChatToBottom() {
+  const body = document.getElementById('chat-body');
+  if (!body) return;
+  body.scrollTo({ top: body.scrollHeight, behavior: 'smooth' });
+}
+
+// Ease-out cubic count-up from the element's current value to `target/10`.
+// Used by the recap card to make the score numbers feel earned, not handed
+// over.
+function tickToValue(el, target, duration = 600) {
+  const start = performance.now();
+  const tick = (now) => {
+    const t = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    el.textContent = Math.round(target * eased) + '/10';
+    if (t < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+// Split an interviewer reply into its rubric parts. The system prompt asks
+// for: SCORE line, "What would make this stronger:" paragraph, a pivot
+// (PUSHBACK / DRILL DEEPER / MOVE ON), then "Question N:". We parse what's
+// actually there and degrade gracefully when the model omits a section.
+function parseInterviewerReply(reply, scoreMatch) {
+  let rest = reply;
+  if (scoreMatch) {
+    rest = rest.replace(/Technical:\s*\d+\/10\s*\|\s*Structure:\s*\d+\/10\s*\|\s*Confidence:\s*\d+\/10/i, '').trim();
+  }
+
+  // Wrap-up turn — final question of the session. Render as one block.
+  const wrapM = rest.match(/WRAP-?UP\s*:/i);
+  if (wrapM) {
+    const before = rest.substring(0, wrapM.index).trim();
+    const wrapUp = rest.substring(wrapM.index).replace(/^WRAP-?UP\s*:\s*/i, '').trim();
+    return { feedback: stripFeedbackLabel(before), pivot: null, nextQuestion: null, wrapUp };
+  }
+
+  // Pull off "Question N:" first — it's the trailing section.
+  let nextQuestion = null;
+  const qM = rest.match(/(^|\n)\s*Question\s+\d+\s*:\s*/i);
+  if (qM) {
+    nextQuestion = rest.substring(qM.index + qM[0].length).trim();
+    rest = rest.substring(0, qM.index).trim();
+  }
+
+  // Then pivot label from what's left.
+  let pivot = null;
+  const pM = rest.match(/(^|\n)\s*(PUSHBACK|DRILL DEEPER|MOVE ON)\s*:\s*/i);
+  if (pM) {
+    pivot = {
+      kind: pM[2].toUpperCase().replace(/\s+/g, '_'),
+      body: rest.substring(pM.index + pM[0].length).trim()
+    };
+    rest = rest.substring(0, pM.index).trim();
+  }
+
+  return { feedback: parseFeedback(rest), pivot, nextQuestion, wrapUp: null };
+}
+
+// Extract structured feedback (GAP / FIX bullets / STRONGER) from the
+// rubric. Falls back to plain paragraph if the model emitted prose
+// instead — older sessions and any deviation still render gracefully.
+function parseFeedback(text) {
+  if (!text) return null;
+  let cleaned = text.replace(/^.*?What would make this stronger\s*:\s*/is, '').trim();
+  if (!cleaned) return null;
+
+  const gapM = cleaned.match(/(?:^|\n)\s*GAP\s*:\s*([^\n]+)/i);
+  const strongerM = cleaned.match(/(?:^|\n)\s*STRONGER\s*:\s*([\s\S]+?)$/i);
+  // FIX section: everything between "FIX:" and STRONGER (or end). Bullet
+  // lines start with -, *, or •; non-bullet lines are ignored.
+  const fixSectionM = cleaned.match(/(?:^|\n)\s*FIX\s*:\s*([\s\S]+?)(?=\n\s*STRONGER\s*:|$)/i);
+  const fix = fixSectionM
+    ? fixSectionM[1].split('\n').map(l => l.replace(/^\s*[-*•]\s*/, '').trim()).filter(Boolean)
+    : [];
+
+  if (gapM || fix.length || strongerM) {
+    return {
+      structured: true,
+      gap: gapM ? gapM[1].trim() : null,
+      fix,
+      stronger: strongerM ? strongerM[1].trim() : null
+    };
+  }
+
+  return { structured: false, text: cleaned };
+}
+
+function feedbackHasContent(fb) {
+  if (!fb) return false;
+  if (fb.structured) return !!(fb.gap || fb.fix.length || fb.stronger);
+  return !!fb.text;
+}
+
+// Render a parsed interviewer reply as one or two cards: a muted recap card
+// (score + feedback on the last answer) followed by a prominent question
+// bubble (the next ask). Falls back to a plain bubble for first-question
+// turns where there's no score and no rubric structure.
+function renderInterviewerReply(reply, scoreMatch) {
+  const body = document.getElementById('chat-body');
+  if (!body) return;
+  const parsed = parseInterviewerReply(reply, scoreMatch);
+  const hasFollowUp = parsed.wrapUp || parsed.pivot || parsed.nextQuestion;
+
+  // Only show the recap card when there's a next section to follow it —
+  // otherwise the candidate would see feedback with no question to answer.
+  if (scoreMatch && hasFollowUp) {
+    body.appendChild(buildRecapCard(scoreMatch, parsed.feedback));
+  }
+
+  if (parsed.wrapUp) {
+    body.appendChild(buildAIBubble(b => {
+      const tag = document.createElement('span');
+      tag.className = 'q-tag wrap';
+      tag.textContent = 'Wrap-up';
+      b.appendChild(tag);
+      appendTextWithBreaks(b, parsed.wrapUp);
+    }));
+  } else if (parsed.pivot || parsed.nextQuestion) {
+    body.appendChild(buildAIBubble(b => {
+      if (parsed.pivot) {
+        const tag = document.createElement('span');
+        const labels = { PUSHBACK: 'Pushback', DRILL_DEEPER: 'Follow-up', MOVE_ON: 'New topic' };
+        tag.className = 'q-tag ' + parsed.pivot.kind.toLowerCase().replace(/_/g, '-');
+        tag.textContent = labels[parsed.pivot.kind] || 'Next';
+        b.appendChild(tag);
+        // Pivot body is the setup or challenge. If there's also a Question
+        // N: ask, treat the pivot as muted context; otherwise it IS the ask.
+        const pivotEl = document.createElement('div');
+        pivotEl.className = parsed.nextQuestion ? 'q-context' : 'q-ask';
+        appendTextWithBreaks(pivotEl, parsed.pivot.body);
+        b.appendChild(pivotEl);
+      }
+      if (parsed.nextQuestion) {
+        if (!parsed.pivot) {
+          const tag = document.createElement('span');
+          tag.className = 'q-tag next';
+          tag.textContent = 'Question';
+          b.appendChild(tag);
+        }
+        const askEl = document.createElement('div');
+        askEl.className = 'q-ask';
+        appendTextWithBreaks(askEl, parsed.nextQuestion);
+        b.appendChild(askEl);
+      }
+    }));
+  } else {
+    // No rubric structure (first question, hint, error message): render the
+    // whole reply as a plain bubble so nothing is lost.
+    body.appendChild(buildAIBubble(b => appendTextWithBreaks(b, reply)));
+  }
+
+  scrollChatToBottom();
+}
+
+function buildRecapCard(scoreMatch, feedback) {
+  const card = document.createElement('div');
+  card.className = 'recap-card';
+
+  const header = document.createElement('div');
+  header.className = 'recap-header';
+  header.textContent = 'Your last answer';
+  card.appendChild(header);
+
+  const row = document.createElement('div');
+  row.className = 'recap-score-row';
+  const cc = n => n >= 8 ? 'sc-g' : n >= 6 ? 'sc-y' : 'sc-r';
+  const animatedValues = [];
+  [['Technical', +scoreMatch[1]], ['Structure', +scoreMatch[2]], ['Confidence', +scoreMatch[3]]].forEach(([label, val]) => {
+    const item = document.createElement('div');
+    item.className = 'recap-score-item';
+    const lbl = document.createElement('span');
+    lbl.className = 'lbl';
+    lbl.textContent = label;
+    const v = document.createElement('span');
+    v.className = 'val ' + cc(val);
+    v.textContent = '0/10';
+    animatedValues.push([v, val]);
+    item.appendChild(lbl);
+    item.appendChild(v);
+    row.appendChild(item);
+  });
+  card.appendChild(row);
+
+  // Defer the count-up until the card has actually entered the DOM so the
+  // animation lines up with the slide-in instead of running invisibly.
+  requestAnimationFrame(() => {
+    animatedValues.forEach(([el, target]) => tickToValue(el, target, 650));
+  });
+
+  if (feedbackHasContent(feedback)) {
+    if (feedback.structured) {
+      if (feedback.gap) {
+        card.appendChild(buildRecapSection('The gap', feedback.gap, 'recap-gap'));
+      }
+      if (feedback.fix.length) {
+        const fix = document.createElement('div');
+        fix.className = 'recap-fix';
+        fix.appendChild(buildRecapLabel('What to add'));
+        const ul = document.createElement('ul');
+        ul.className = 'recap-fix-list';
+        feedback.fix.forEach(item => {
+          const li = document.createElement('li');
+          li.textContent = item;
+          ul.appendChild(li);
+        });
+        fix.appendChild(ul);
+        card.appendChild(fix);
+      }
+      if (feedback.stronger) {
+        card.appendChild(buildRecapSection('A 9/10 answer', feedback.stronger, 'recap-stronger'));
+      }
+    } else {
+      // Legacy paragraph fallback (model deviated from the structured format).
+      card.appendChild(buildRecapSection('Stronger answer', feedback.text, 'recap-feedback'));
+    }
+  }
+
+  return card;
+}
+
+function buildRecapLabel(text) {
+  const lbl = document.createElement('div');
+  lbl.className = 'recap-section-label';
+  lbl.textContent = text;
+  return lbl;
+}
+
+function buildRecapSection(label, body, kind) {
+  const wrap = document.createElement('div');
+  wrap.className = kind;
+  wrap.appendChild(buildRecapLabel(label));
+  const b = document.createElement('div');
+  b.className = kind + '-body';
+  appendTextWithBreaks(b, body);
+  wrap.appendChild(b);
+  return wrap;
+}
+
+function buildAIBubble(populate) {
+  const wrap = document.createElement('div');
+  wrap.className = 'chat-msg';
+  const av = document.createElement('div');
+  av.className = 'cm-av ai';
+  av.textContent = aiAvatarLabel();
+  const bubble = document.createElement('div');
+  bubble.className = 'cm-bubble ai';
+  populate(bubble);
+  wrap.appendChild(av);
+  wrap.appendChild(bubble);
+  return wrap;
 }
 
 function showTyping() {
@@ -1973,7 +2369,7 @@ function showTyping() {
   div.appendChild(av);
   div.appendChild(ind);
   body.appendChild(div);
-  body.scrollTop = body.scrollHeight;
+  scrollChatToBottom();
 }
 
 function removeTyping() { document.getElementById('typing-indicator')?.remove(); }
@@ -2075,54 +2471,7 @@ async function runMockTurn(cat, firm) {
       saveProgress();
     }
 
-    const replyText = scoreMatch
-      ? reply.replace(/Technical:\s*\d+\/10\s*\|\s*Structure:\s*\d+\/10\s*\|\s*Confidence:\s*\d+\/10/i, '').trim()
-      : reply;
-    const body = document.getElementById('chat-body');
-    if (body) {
-      const div = document.createElement('div');
-      div.className = 'chat-msg';
-      const av = document.createElement('div');
-      av.className = 'cm-av ai';
-      av.textContent = aiAvatarLabel();
-      const bubble = document.createElement('div');
-      bubble.className = 'cm-bubble ai';
-      // AI text — render with line breaks but no HTML.
-      replyText.split('\n').forEach((line, i) => {
-        if (i > 0) bubble.appendChild(document.createElement('br'));
-        bubble.appendChild(document.createTextNode(line));
-      });
-      if (scoreMatch) {
-        const t = scoreMatch[1], s = scoreMatch[2], c = scoreMatch[3];
-        const cc = n => parseInt(n)>=8?'sc-g':parseInt(n)>=6?'sc-y':'sc-r';
-        const block = document.createElement('div');
-        block.className = 'score-block';
-        block.style.marginTop = '8px';
-        const lines = [
-          ['Technical Accuracy', t],
-          ['Structure & Clarity', s],
-          ['Confidence', c]
-        ];
-        lines.forEach(([label, val]) => {
-          const row = document.createElement('div');
-          row.className = 'score-line';
-          const lbl = document.createElement('span');
-          lbl.className = 'sc-label';
-          lbl.textContent = label;
-          const v = document.createElement('span');
-          v.className = 'sc-val ' + cc(val);
-          v.textContent = val + '/10';
-          row.appendChild(lbl);
-          row.appendChild(v);
-          block.appendChild(row);
-        });
-        bubble.appendChild(block);
-      }
-      div.appendChild(av);
-      div.appendChild(bubble);
-      body.appendChild(div);
-      body.scrollTop = body.scrollHeight;
-    }
+    renderInterviewerReply(reply, scoreMatch);
 
     // Persist updated messages to mock_sessions (best-effort, fire-and-forget).
     if (mockSessionId) {
@@ -2141,6 +2490,476 @@ async function runMockTurn(cat, firm) {
   }
   if (sendBtn) sendBtn.disabled = false;
 }
+
+/* ─── APPLY: NETWORKING CRM ──────────── */
+// Per-user list of networking contacts loaded lazily on first visit to
+// the Apply view. Touches are stored inline as a jsonb array on each
+// contact (see supabase/migrations/2026_05_10_networking_contacts.sql).
+
+const NET_STATUSES = [
+  ['to_reach_out',  'To reach out'],
+  ['outreach_sent', 'Outreach sent'],
+  ['replied',       'Replied'],
+  ['scheduled',     'Scheduled'],
+  ['met',           'Met'],
+  ['followed_up',   'Followed up'],
+  ['dormant',       'Dormant']
+];
+const NET_STATUS_LABEL = Object.fromEntries(NET_STATUSES);
+
+const TOUCH_KINDS = [
+  ['outreach',  'Outreach'],
+  ['email',     'Email'],
+  ['linkedin',  'LinkedIn'],
+  ['call',      'Call'],
+  ['coffee',    'Coffee / meeting'],
+  ['follow_up', 'Follow-up'],
+  ['note',      'Note']
+];
+const TOUCH_KIND_LABEL = Object.fromEntries(TOUCH_KINDS);
+
+let networkingContacts = [];
+let networkingFilter = 'all';
+let networkingExpandedId = null;
+let networkingLoaded = false;
+
+async function initApply(tab) {
+  showApplyTab(tab || 'networking');
+  if (!networkingLoaded) await loadNetworkingContacts();
+  renderNetworkingList();
+}
+
+function showApplyTab(tab) {
+  document.querySelectorAll('.apply-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.applyTab === tab);
+  });
+  document.querySelectorAll('.apply-pane').forEach(p => {
+    p.style.display = p.id === 'apply-pane-' + tab ? '' : 'none';
+  });
+}
+
+async function loadNetworkingContacts() {
+  if (!sb || !currentUser) return;
+  try {
+    const { data, error } = await sb.from('networking_contacts')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .order('updated_at', { ascending: false });
+    if (error) { console.error('loadNetworkingContacts:', error); return; }
+    networkingContacts = data || [];
+    networkingLoaded = true;
+    updateApplyBadge();
+  } catch (e) { console.error('loadNetworkingContacts:', e); }
+}
+
+function openAddNetworkingForm() {
+  const form = document.getElementById('net-add-form');
+  if (!form) return;
+  form.style.display = '';
+  document.getElementById('net-new-name')?.focus();
+}
+
+function closeAddNetworkingForm() {
+  const form = document.getElementById('net-add-form');
+  if (!form) return;
+  form.style.display = 'none';
+  ['name','firm','role','email','linkedin','how-met'].forEach(k => {
+    const el = document.getElementById('net-new-' + k);
+    if (el) el.value = '';
+  });
+}
+
+async function saveNewNetworkingContact() {
+  if (!sb || !currentUser) return;
+  const name = document.getElementById('net-new-name')?.value.trim();
+  if (!name) {
+    document.getElementById('net-new-name')?.focus();
+    return;
+  }
+  const payload = {
+    user_id: currentUser.id,
+    name,
+    firm: document.getElementById('net-new-firm')?.value.trim() || null,
+    role: document.getElementById('net-new-role')?.value.trim() || null,
+    email: document.getElementById('net-new-email')?.value.trim() || null,
+    linkedin_url: document.getElementById('net-new-linkedin')?.value.trim() || null,
+    how_met: document.getElementById('net-new-how-met')?.value.trim() || null,
+    status: 'to_reach_out',
+    touches: []
+  };
+  try {
+    const { data, error } = await sb.from('networking_contacts').insert(payload).select().single();
+    if (error) { console.error('insert contact:', error); return; }
+    networkingContacts.unshift(data);
+    closeAddNetworkingForm();
+    networkingExpandedId = data.id;
+    renderNetworkingList();
+    updateApplyBadge();
+  } catch (e) { console.error('insert contact:', e); }
+}
+
+async function updateNetworkingContact(id, patch) {
+  if (!sb) return;
+  const idx = networkingContacts.findIndex(c => c.id === id);
+  if (idx === -1) return;
+  Object.assign(networkingContacts[idx], patch);
+  try {
+    const { error } = await sb.from('networking_contacts').update(patch).eq('id', id);
+    if (error) console.error('update contact:', error);
+  } catch (e) { console.error('update contact:', e); }
+  renderNetworkingList();
+  updateApplyBadge();
+}
+
+async function deleteNetworkingContact(id) {
+  if (!sb) return;
+  if (!confirm('Delete this contact and their touch history?')) return;
+  networkingContacts = networkingContacts.filter(c => c.id !== id);
+  if (networkingExpandedId === id) networkingExpandedId = null;
+  try {
+    const { error } = await sb.from('networking_contacts').delete().eq('id', id);
+    if (error) console.error('delete contact:', error);
+  } catch (e) { console.error('delete contact:', e); }
+  renderNetworkingList();
+  updateApplyBadge();
+}
+
+async function addNetworkingTouch(id) {
+  const kindEl = document.getElementById('touch-kind-' + id);
+  const noteEl = document.getElementById('touch-note-' + id);
+  if (!kindEl || !noteEl) return;
+  const note = noteEl.value.trim();
+  if (!note) { noteEl.focus(); return; }
+  const touch = { at: new Date().toISOString(), kind: kindEl.value, note };
+  const contact = networkingContacts.find(c => c.id === id);
+  if (!contact) return;
+  const touches = [...(contact.touches || []), touch];
+  await updateNetworkingContact(id, { touches });
+  noteEl.value = '';
+}
+
+function setNetworkingFilter(filter) {
+  networkingFilter = filter;
+  document.querySelectorAll('.net-chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.filter === filter);
+  });
+  renderNetworkingList();
+}
+
+function toggleContactExpanded(id) {
+  networkingExpandedId = networkingExpandedId === id ? null : id;
+  renderNetworkingList();
+}
+
+// Latest touch timestamp for a contact, or null. Used for the "Last touch"
+// column and for sorting.
+function lastTouchAt(contact) {
+  if (!contact.touches || !contact.touches.length) return null;
+  return contact.touches.reduce((max, t) => !max || t.at > max ? t.at : max, null);
+}
+
+function formatRelativeDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  const days = Math.round((Date.now() - d.getTime()) / 86400000);
+  if (days === 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 7) return days + 'd ago';
+  if (days < 30) return Math.floor(days / 7) + 'w ago';
+  return Math.floor(days / 30) + 'mo ago';
+}
+
+function formatDateInput(iso) {
+  if (!iso) return '';
+  return iso.slice(0, 10);
+}
+
+function isDueThisWeek(contact) {
+  if (!contact.next_action_at) return false;
+  const due = new Date(contact.next_action_at);
+  const now = new Date();
+  const weekFromNow = new Date(now.getTime() + 7 * 86400000);
+  return due <= weekFromNow;
+}
+
+function filteredContacts() {
+  const all = networkingContacts;
+  if (networkingFilter === 'all') return all;
+  if (networkingFilter === 'due') return all.filter(isDueThisWeek);
+  return all.filter(c => c.status === networkingFilter);
+}
+
+function renderNetworkingList() {
+  const list = document.getElementById('net-list');
+  if (!list) return;
+
+  // Update filter counts.
+  document.querySelectorAll('.net-count').forEach(el => {
+    const key = el.dataset.count;
+    let n;
+    if (key === 'all') n = networkingContacts.length;
+    else if (key === 'due') n = networkingContacts.filter(isDueThisWeek).length;
+    else n = networkingContacts.filter(c => c.status === key).length;
+    el.textContent = n;
+  });
+
+  const contacts = filteredContacts();
+  const empty = document.getElementById('net-empty');
+
+  // Clear previously-rendered rows (preserve the empty-state node).
+  Array.from(list.querySelectorAll('.net-row, .net-row-expanded')).forEach(n => n.remove());
+
+  if (!contacts.length) {
+    if (empty) empty.style.display = '';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+
+  contacts.forEach(c => {
+    list.appendChild(buildNetworkingRow(c));
+    if (networkingExpandedId === c.id) {
+      list.appendChild(buildNetworkingExpanded(c));
+    }
+  });
+}
+
+function buildNetworkingRow(c) {
+  const row = document.createElement('div');
+  row.className = 'net-row';
+  row.onclick = () => toggleContactExpanded(c.id);
+
+  const name = document.createElement('div');
+  name.className = 'net-cell net-cell-name';
+  const nm = document.createElement('div');
+  nm.className = 'net-name';
+  nm.textContent = c.name;
+  const sub = document.createElement('div');
+  sub.className = 'net-sub';
+  sub.textContent = [c.role, c.firm].filter(Boolean).join(' · ') || '—';
+  name.appendChild(nm);
+  name.appendChild(sub);
+
+  const status = document.createElement('div');
+  status.className = 'net-cell';
+  const pill = document.createElement('span');
+  pill.className = 'net-status-pill status-' + c.status;
+  pill.textContent = NET_STATUS_LABEL[c.status] || c.status;
+  status.appendChild(pill);
+
+  const last = document.createElement('div');
+  last.className = 'net-cell net-cell-meta';
+  last.textContent = formatRelativeDate(lastTouchAt(c));
+
+  const next = document.createElement('div');
+  next.className = 'net-cell net-cell-meta';
+  if (c.next_action_at) {
+    const due = new Date(c.next_action_at);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const isOverdue = due < today;
+    const isThisWeek = isDueThisWeek(c) && !isOverdue;
+    const dateStr = due.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    next.textContent = dateStr;
+    if (isOverdue) next.classList.add('net-overdue');
+    else if (isThisWeek) next.classList.add('net-due-soon');
+  } else {
+    next.textContent = '—';
+  }
+
+  const caret = document.createElement('div');
+  caret.className = 'net-cell net-cell-caret';
+  caret.textContent = networkingExpandedId === c.id ? '⌃' : '⌄';
+
+  row.appendChild(name);
+  row.appendChild(status);
+  row.appendChild(last);
+  row.appendChild(next);
+  row.appendChild(caret);
+  return row;
+}
+
+function buildNetworkingExpanded(c) {
+  const wrap = document.createElement('div');
+  wrap.className = 'net-row-expanded';
+
+  // Editable fields grid.
+  const grid = document.createElement('div');
+  grid.className = 'net-edit-grid';
+
+  const fields = [
+    { key: 'name',         label: 'Name',         type: 'text' },
+    { key: 'firm',         label: 'Firm',         type: 'text' },
+    { key: 'role',         label: 'Role / team',  type: 'text' },
+    { key: 'email',        label: 'Email',        type: 'email' },
+    { key: 'linkedin_url', label: 'LinkedIn',     type: 'url' },
+    { key: 'how_met',      label: 'How met',      type: 'text' }
+  ];
+  fields.forEach(f => {
+    const field = document.createElement('label');
+    field.className = 'net-field';
+    const lbl = document.createElement('span');
+    lbl.className = 'net-field-label';
+    lbl.textContent = f.label;
+    const inp = document.createElement('input');
+    inp.type = f.type;
+    inp.value = c[f.key] || '';
+    inp.placeholder = f.label;
+    inp.onchange = () => updateNetworkingContact(c.id, { [f.key]: inp.value.trim() || null });
+    field.appendChild(lbl);
+    field.appendChild(inp);
+    grid.appendChild(field);
+  });
+
+  // Status + next action row.
+  const meta = document.createElement('div');
+  meta.className = 'net-meta-row';
+
+  const statusField = document.createElement('label');
+  statusField.className = 'net-field';
+  const sLbl = document.createElement('span');
+  sLbl.className = 'net-field-label';
+  sLbl.textContent = 'Status';
+  const sSel = document.createElement('select');
+  NET_STATUSES.forEach(([v, lbl]) => {
+    const o = document.createElement('option');
+    o.value = v; o.textContent = lbl;
+    if (v === c.status) o.selected = true;
+    sSel.appendChild(o);
+  });
+  sSel.onchange = () => updateNetworkingContact(c.id, { status: sSel.value });
+  statusField.appendChild(sLbl);
+  statusField.appendChild(sSel);
+
+  const dueField = document.createElement('label');
+  dueField.className = 'net-field';
+  const dLbl = document.createElement('span');
+  dLbl.className = 'net-field-label';
+  dLbl.textContent = 'Next action';
+  const dInp = document.createElement('input');
+  dInp.type = 'date';
+  dInp.value = formatDateInput(c.next_action_at);
+  dInp.onchange = () => updateNetworkingContact(c.id, { next_action_at: dInp.value || null });
+  dueField.appendChild(dLbl);
+  dueField.appendChild(dInp);
+
+  meta.appendChild(statusField);
+  meta.appendChild(dueField);
+
+  // Notes textarea.
+  const notesField = document.createElement('label');
+  notesField.className = 'net-field net-notes-field';
+  const nLbl = document.createElement('span');
+  nLbl.className = 'net-field-label';
+  nLbl.textContent = 'Private notes';
+  const nTa = document.createElement('textarea');
+  nTa.rows = 2;
+  nTa.value = c.notes || '';
+  nTa.placeholder = 'What did you talk about? What did they suggest?';
+  nTa.onchange = () => updateNetworkingContact(c.id, { notes: nTa.value.trim() || null });
+  notesField.appendChild(nLbl);
+  notesField.appendChild(nTa);
+
+  // Touches log.
+  const touchesWrap = document.createElement('div');
+  touchesWrap.className = 'net-touches';
+  const tHdr = document.createElement('div');
+  tHdr.className = 'net-touches-header';
+  tHdr.textContent = 'Touches';
+  touchesWrap.appendChild(tHdr);
+
+  const touches = (c.touches || []).slice().sort((a, b) => (b.at || '').localeCompare(a.at || ''));
+  if (!touches.length) {
+    const none = document.createElement('div');
+    none.className = 'net-touches-empty';
+    none.textContent = 'No touches logged yet.';
+    touchesWrap.appendChild(none);
+  } else {
+    const list = document.createElement('div');
+    list.className = 'net-touches-list';
+    touches.forEach(t => {
+      const row = document.createElement('div');
+      row.className = 'net-touch';
+      const kind = document.createElement('span');
+      kind.className = 'net-touch-kind';
+      kind.textContent = TOUCH_KIND_LABEL[t.kind] || t.kind;
+      const note = document.createElement('span');
+      note.className = 'net-touch-note';
+      note.textContent = t.note;
+      const when = document.createElement('span');
+      when.className = 'net-touch-when';
+      when.textContent = formatRelativeDate(t.at);
+      row.appendChild(kind);
+      row.appendChild(note);
+      row.appendChild(when);
+      list.appendChild(row);
+    });
+    touchesWrap.appendChild(list);
+  }
+
+  // Add-touch composer.
+  const composer = document.createElement('div');
+  composer.className = 'net-touch-composer';
+  const kSel = document.createElement('select');
+  kSel.id = 'touch-kind-' + c.id;
+  TOUCH_KINDS.forEach(([v, lbl]) => {
+    const o = document.createElement('option');
+    o.value = v; o.textContent = lbl;
+    kSel.appendChild(o);
+  });
+  const nInp = document.createElement('input');
+  nInp.type = 'text';
+  nInp.id = 'touch-note-' + c.id;
+  nInp.placeholder = 'What happened? (e.g. "30-min call, said to apply by Sept 1")';
+  nInp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); addNetworkingTouch(c.id); } };
+  const addBtn = document.createElement('button');
+  addBtn.className = 'btn-primary-sm';
+  addBtn.textContent = 'Log touch';
+  addBtn.onclick = () => addNetworkingTouch(c.id);
+  composer.appendChild(kSel);
+  composer.appendChild(nInp);
+  composer.appendChild(addBtn);
+  touchesWrap.appendChild(composer);
+
+  // Footer with delete.
+  const footer = document.createElement('div');
+  footer.className = 'net-row-footer';
+  const del = document.createElement('button');
+  del.className = 'btn-ghost-sm net-delete';
+  del.textContent = 'Delete contact';
+  del.onclick = () => deleteNetworkingContact(c.id);
+  footer.appendChild(del);
+
+  wrap.appendChild(grid);
+  wrap.appendChild(meta);
+  wrap.appendChild(notesField);
+  wrap.appendChild(touchesWrap);
+  wrap.appendChild(footer);
+  return wrap;
+}
+
+function dueFollowUpCount() {
+  return networkingContacts.filter(isDueThisWeek).length;
+}
+
+// Surface a small "N follow-ups due" badge on the sidebar Apply item.
+function updateApplyBadge() {
+  const badge = document.getElementById('sb-apply-badge');
+  if (!badge) return;
+  const n = dueFollowUpCount();
+  if (n > 0) {
+    badge.style.display = '';
+    badge.textContent = n;
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+// Filter-chip click delegation — attach once at module load so it survives
+// re-renders of the list.
+document.addEventListener('click', (e) => {
+  const chip = e.target.closest('.net-chip');
+  if (chip && chip.dataset.filter) setNetworkingFilter(chip.dataset.filter);
+});
 
 /* ─── STORY BANK ────────────────────── */
 let storyPanelOpen = false;
