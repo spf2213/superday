@@ -1170,21 +1170,7 @@ function updateDashStats() {
   setText('dash-hero-sub', hero.sub);
   setText('dash-hero-cta', hero.cta);
 
-  // Streak = consecutive calendar days ending today with at least one
-  // answered card. One source of truth, no fabricated counters.
-  const seenDays = new Set();
-  for (const m of Object.values(progress.mastery || {})) {
-    if (m && m.lastSeen) seenDays.add(new Date(m.lastSeen).toDateString());
-  }
-  const today = new Date();
-  let streak = 0;
-  const cursor = new Date(today);
-  while (seenDays.has(cursor.toDateString())) {
-    streak++;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-  setText('dash-streak', streak);
-  setText('dash-streak-label', streak === 1 ? 'day' : 'days');
+  renderRecruitingCountdown();
 
   renderActivity();
 }
@@ -1196,6 +1182,40 @@ function setText(id, text) {
 function setBar(id, frac) {
   const el = document.getElementById(id);
   if (el) el.style.width = Math.max(0, Math.min(1, frac)) * 100 + '%';
+}
+
+// Countdown to Dec 1 of the current year (full-time / SA recruiting kicks
+// off then for most banks). Rolls forward to Dec 1 of next year once the
+// date passes so the dashboard never shows a stale or negative number.
+// Visual urgency tier: ≤14 days = critical (red), ≤60 = urgent (amber),
+// otherwise neutral.
+function renderRecruitingCountdown() {
+  const pill = document.getElementById('dash-countdown-pill');
+  const numEl = document.getElementById('dash-countdown-num');
+  const lblEl = document.getElementById('dash-countdown-lbl');
+  if (!pill || !numEl || !lblEl) return;
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let target = new Date(now.getFullYear(), 11, 1);
+  if (today.getTime() > target.getTime()) {
+    target = new Date(now.getFullYear() + 1, 11, 1);
+  }
+  const days = Math.round((target.getTime() - today.getTime()) / 86400000);
+
+  pill.classList.remove('urgent', 'critical', 'today');
+  if (days === 0) {
+    numEl.textContent = '0';
+    lblEl.textContent = 'recruiting starts today';
+    pill.classList.add('critical', 'today');
+  } else {
+    numEl.textContent = days;
+    lblEl.textContent = (days === 1 ? 'day' : 'days') + ' to Dec 1';
+    if (days <= 14) pill.classList.add('critical');
+    else if (days <= 60) pill.classList.add('urgent');
+  }
+  const targetLabel = target.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+  pill.title = `Recruiting kickoff: ${targetLabel}`;
 }
 
 // Pick the next-step recommendation rendered in the hero card. Walks state

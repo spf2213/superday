@@ -2972,14 +2972,27 @@ body:has(.dss-mode.active) { overflow:hidden }
 .video-placeholder-sub{font-size:13px;color:var(--t-3)}
 
 /* ─── DASHBOARD: 3-row pedagogy ─────────── */
-.dash-streak-pill{
+.dash-countdown-pill{
   display:inline-flex;align-items:baseline;gap:6px;
   padding:6px 12px;border:1px solid var(--line);border-radius:999px;
   background:var(--bg-2);color:var(--t-2);
   font-size:12px;font-family:'Geist Mono',monospace;
+  transition:var(--trans);
 }
-.dash-streak-num{font-size:16px;font-weight:600;color:var(--t)}
-.dash-streak-lbl{font-size:11px;color:var(--t-3);letter-spacing:0.02em}
+.dash-countdown-num{font-size:16px;font-weight:600;color:var(--t);font-variant-numeric:tabular-nums}
+.dash-countdown-lbl{font-size:11px;color:var(--t-3);letter-spacing:0.02em}
+/* Urgency tiers: ≤60 days = amber, ≤14 days = red. Communicates how
+   close recruiting actually is without needing the user to do the math. */
+.dash-countdown-pill.urgent{
+  background:var(--amber-dim);border-color:rgba(224,154,59,0.3);
+}
+.dash-countdown-pill.urgent .dash-countdown-num{color:var(--amber)}
+.dash-countdown-pill.urgent .dash-countdown-lbl{color:var(--amber)}
+.dash-countdown-pill.critical{
+  background:var(--red-dim);border-color:rgba(224,92,92,0.3);
+}
+.dash-countdown-pill.critical .dash-countdown-num{color:var(--red)}
+.dash-countdown-pill.critical .dash-countdown-lbl{color:var(--red)}
 
 /* Hero "next step" — asymmetric: content on the left, button on the right.
    The card frames the recommendation; the button is the actual click target. */
