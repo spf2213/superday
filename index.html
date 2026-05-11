@@ -924,6 +924,9 @@
       <div class="sb-section">Test</div>
       <div class="sb-item" onclick="showView('mock')"><span class="sb-icon">◎</span>Mock Interview</div>
       <div class="sb-item" onclick="showView('video')"><span class="sb-icon">▶</span>Video Interview</div>
+      <div class="sb-section">Apply</div>
+      <div class="sb-item" onclick="showView('apply-networking')"><span class="sb-icon">◊</span>Networking<span class="sb-badge" id="sb-apply-badge" style="display:none"></span></div>
+      <div class="sb-item" onclick="showView('apply-internships')"><span class="sb-icon">→</span>Internship Tracker</div>
     </div>
     <div class="sb-spacer"></div>
     <div class="sb-bottom">
@@ -959,9 +962,9 @@
           <div class="dash-date" id="dash-date"></div>
         </div>
         <div class="dash-hero-right">
-          <div class="dash-streak-pill">
-            <span class="dash-streak-num" id="dash-streak">0</span>
-            <span class="dash-streak-lbl"><span id="dash-streak-label">days</span> in a row</span>
+          <div class="dash-countdown-pill" id="dash-countdown-pill" title="">
+            <span class="dash-countdown-num" id="dash-countdown-num">—</span>
+            <span class="dash-countdown-lbl" id="dash-countdown-lbl">to Dec 1</span>
           </div>
         </div>
       </div>
@@ -1015,7 +1018,8 @@
           <div class="dp-header">
             <span class="dp-title">Market Pulse</span>
             <span class="news-live-tag">
-              <span class="news-live-dot"></span>LIVE
+              <span class="news-live-dot"></span>
+              <span class="news-live-label">LIVE</span>
             </span>
           </div>
           <div class="news-list-inner" id="news-list">
@@ -1337,6 +1341,77 @@
           <div class="video-placeholder-icon">▶</div>
           <div class="video-placeholder-title">Video Interview</div>
           <div class="video-placeholder-sub">We're building this. Check back soon.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── APPLY (Internship Tracker · Networking) ── -->
+    <div class="app-view" id="view-apply">
+      <div class="view-header">
+        <div class="view-title">Apply</div>
+        <div class="view-sub">Track every application and every person you've talked to. The chase is its own job.</div>
+      </div>
+
+      <div class="apply-tabs" role="tablist">
+        <button class="apply-tab active" data-apply-tab="networking" onclick="showApplyTab('networking')">Networking</button>
+        <button class="apply-tab" data-apply-tab="internships" onclick="showApplyTab('internships')">Internship Tracker</button>
+      </div>
+
+      <!-- Networking tab -->
+      <div class="apply-pane" id="apply-pane-networking">
+        <div class="net-toolbar">
+          <div class="net-filters" id="net-filters">
+            <button class="net-chip active" data-filter="all">All <span class="net-count" data-count="all">0</span></button>
+            <button class="net-chip" data-filter="due">Due this week <span class="net-count" data-count="due">0</span></button>
+            <button class="net-chip" data-filter="to_reach_out">To reach out <span class="net-count" data-count="to_reach_out">0</span></button>
+            <button class="net-chip" data-filter="outreach_sent">Outreach sent <span class="net-count" data-count="outreach_sent">0</span></button>
+            <button class="net-chip" data-filter="replied">Replied <span class="net-count" data-count="replied">0</span></button>
+            <button class="net-chip" data-filter="scheduled">Scheduled <span class="net-count" data-count="scheduled">0</span></button>
+            <button class="net-chip" data-filter="met">Met <span class="net-count" data-count="met">0</span></button>
+            <button class="net-chip" data-filter="followed_up">Followed up <span class="net-count" data-count="followed_up">0</span></button>
+            <button class="net-chip" data-filter="dormant">Dormant <span class="net-count" data-count="dormant">0</span></button>
+          </div>
+          <button class="btn-add-contact" onclick="openAddNetworkingForm()">+ Add contact</button>
+        </div>
+
+        <div class="net-add-form" id="net-add-form" style="display:none">
+          <div class="net-form-row">
+            <input type="text" id="net-new-name" placeholder="Name *" autocomplete="off" />
+            <input type="text" id="net-new-firm" placeholder="Firm" autocomplete="off" />
+            <input type="text" id="net-new-role" placeholder="Role / team" autocomplete="off" />
+          </div>
+          <div class="net-form-row">
+            <input type="email" id="net-new-email" placeholder="Email" autocomplete="off" />
+            <input type="url" id="net-new-linkedin" placeholder="LinkedIn URL" autocomplete="off" />
+            <input type="text" id="net-new-how-met" placeholder="How you met / referrer" autocomplete="off" />
+          </div>
+          <div class="net-form-actions">
+            <button class="btn-ghost-sm" onclick="closeAddNetworkingForm()">Cancel</button>
+            <button class="btn-primary-sm" onclick="saveNewNetworkingContact()">Add contact</button>
+          </div>
+        </div>
+
+        <div class="net-list" id="net-list">
+          <div class="net-empty" id="net-empty">
+            <div class="net-empty-title">No contacts yet.</div>
+            <div class="net-empty-sub">Add the first person you reached out to. Track who, what was said, and when to follow up.</div>
+            <button class="btn-primary-sm" onclick="openAddNetworkingForm()" style="margin-top:14px">+ Add your first contact</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Internship Tracker tab (coming soon) -->
+      <div class="apply-pane" id="apply-pane-internships" style="display:none">
+        <div class="net-coming-soon">
+          <div class="net-coming-soon-tag">Coming soon</div>
+          <div class="net-coming-soon-title">Internship Tracker</div>
+          <div class="net-coming-soon-sub">One row per application. Stage (applied → OA → phone → superday → offer → reject), deadlines, superday dates, and recruiter contacts — all linked to your networking list.</div>
+          <ul class="net-coming-soon-list">
+            <li>Track every firm you apply to with current stage</li>
+            <li>Calendar of superday dates and deadline windows</li>
+            <li>Link applications to the people who referred you</li>
+            <li>Get reminders before each upcoming round</li>
+          </ul>
         </div>
       </div>
     </div>
