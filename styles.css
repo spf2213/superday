@@ -1166,8 +1166,10 @@ body:has(.dss-mode.active) { overflow:hidden }
 .news-item-row{
   padding:10px 10px;border-radius:var(--r);cursor:pointer;
   transition:var(--trans);display:flex;gap:10px;align-items:flex-start;
+  text-decoration:none;color:inherit;
 }
 .news-item-row:hover{background:var(--bg-2)}
+.news-item-row:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .news-tag-pill{
   font-size:9px;font-family:'Geist Mono',monospace;letter-spacing:0.08em;
   text-transform:uppercase;padding:2px 7px;border-radius:4px;
@@ -2954,6 +2956,13 @@ body:has(.dss-mode.active) { overflow:hidden }
   width:6px;height:6px;border-radius:50%;background:var(--green);
   display:inline-block;animation:pulse-dot 2s ease infinite;
 }
+/* Offline state — the LIVE badge becomes honest when the feed is down
+   or not configured: dot stops pulsing, color goes neutral. */
+.news-live-offline .news-live-dot{
+  background:var(--t-3);animation:none;
+}
+.news-live-offline{color:var(--t-3)}
+.news-live-offline .news-live-label{color:var(--t-3)}
 
 /* ─── VIDEO INTERVIEW (placeholder) ─────── */
 .video-wrap{padding:24px 0}

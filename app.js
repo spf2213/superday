@@ -1308,14 +1308,110 @@ function renderActivity() {
 /* ─── NEWS ───────────────────────────── */
 // Note: previous version asked Claude to invent headlines — actively misleading
 // for an interview-prep context. Disabled until a real RSS-backed feed lands.
+// Market Pulse — hits our own /api/market-news proxy. The LIVE badge
+// becomes truthful: green pulse when data is fresh, muted "offline" if
+// the feed fails or isn't configured. Auto-refreshes every 5 minutes
+// while the dashboard view is active.
+
+let _newsRefreshTimer = null;
+
 async function loadNews() {
   const el = document.getElementById('news-list');
+  const badge = document.querySelector('.news-live-tag');
   if (!el) return;
+
+  // Loading state only on the first render (later refreshes update in place
+  // so the user never sees the headlines blink).
+  if (!el.dataset.loaded) {
+    el.replaceChildren();
+    const loading = document.createElement('div');
+    loading.style.cssText = 'padding:24px;text-align:center;font-size:12px;color:var(--t-3)';
+    loading.textContent = 'Loading market news…';
+    el.appendChild(loading);
+  }
+
+  try {
+    const resp = await fetch('/api/market-news', { credentials: 'omit' });
+    if (resp.status === 503) {
+      renderNewsError(el, badge, 'Market feed not configured yet.');
+    } else if (!resp.ok) {
+      renderNewsError(el, badge, "Market feed unavailable. We'll retry shortly.");
+    } else {
+      const data = await resp.json();
+      if (!Array.isArray(data.items) || data.items.length === 0) {
+        renderNewsError(el, badge, 'No headlines right now.');
+      } else {
+        renderNewsItems(el, badge, data.items);
+        el.dataset.loaded = '1';
+      }
+    }
+  } catch (e) {
+    console.error('loadNews error:', e);
+    renderNewsError(el, badge, 'Market feed unavailable.');
+  } finally {
+    if (_newsRefreshTimer) clearTimeout(_newsRefreshTimer);
+    _newsRefreshTimer = setTimeout(() => {
+      const dash = document.getElementById('view-dashboard');
+      if (dash && dash.classList.contains('active')) loadNews();
+    }, 5 * 60 * 1000);
+  }
+}
+
+function renderNewsError(el, badge, msg) {
   el.replaceChildren();
-  const placeholder = document.createElement('div');
-  placeholder.style.cssText = 'padding:24px;text-align:center;font-size:12px;color:var(--t-3)';
-  placeholder.textContent = 'Live market news coming soon.';
-  el.appendChild(placeholder);
+  const note = document.createElement('div');
+  note.style.cssText = 'padding:24px;text-align:center;font-size:12px;color:var(--t-3)';
+  note.textContent = msg;
+  el.appendChild(note);
+  setNewsLiveBadge(badge, false);
+}
+
+function renderNewsItems(el, badge, items) {
+  el.replaceChildren();
+  setNewsLiveBadge(badge, true);
+  for (const item of items) {
+    const row = document.createElement('a');
+    row.className = 'news-item-row';
+    row.href = item.url;
+    row.target = '_blank';
+    row.rel = 'noopener noreferrer';
+    row.title = item.source ? `${item.headline} — ${item.source}` : item.headline;
+
+    const pill = document.createElement('span');
+    pill.className = 'news-tag-pill';
+    pill.textContent = (item.source || item.category || 'news').slice(0, 14);
+
+    const hl = document.createElement('div');
+    hl.className = 'news-hl';
+    hl.textContent = item.headline;
+
+    const time = document.createElement('span');
+    time.className = 'news-time-sm';
+    time.textContent = item.datetime ? formatNewsRelative(item.datetime * 1000) : '';
+
+    row.appendChild(pill);
+    row.appendChild(hl);
+    row.appendChild(time);
+    el.appendChild(row);
+  }
+}
+
+function setNewsLiveBadge(badge, isLive) {
+  if (!badge) return;
+  badge.classList.toggle('news-live-offline', !isLive);
+  const label = badge.querySelector('.news-live-label');
+  if (label) label.textContent = isLive ? 'LIVE' : 'OFFLINE';
+}
+
+function formatNewsRelative(ms) {
+  const min = Math.max(0, Math.floor((Date.now() - ms) / 60000));
+  if (min < 1) return 'just now';
+  if (min < 60) return min + 'm';
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return hr + 'h';
+  const d = Math.floor(hr / 24);
+  if (d < 7) return d + 'd';
+  return Math.floor(d / 7) + 'w';
 }
 
 /* ─── FLASHCARDS ─────────────────────── */
