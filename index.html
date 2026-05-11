@@ -920,6 +920,7 @@
       <div class="sb-section">Learn</div>
       <div class="sb-item" onclick="showView('learn')"><span class="sb-icon">□</span>Concepts</div>
       <div class="sb-section">Practice</div>
+      <div class="sb-item" onclick="showView('bank')"><span class="sb-icon">≡</span>Problem Bank</div>
       <div class="sb-item" onclick="showView('flash')"><span class="sb-icon">⬡</span>Flashcards</div>
       <div class="sb-section">Test</div>
       <div class="sb-item" onclick="showView('mock')"><span class="sb-icon">◎</span>Mock Interview</div>
@@ -1031,6 +1032,47 @@
 
 
     <!-- ── FLASHCARDS ── -->
+    <!-- ── PROBLEM BANK ── -->
+    <div class="app-view" id="view-bank">
+      <div class="view-header">
+        <div class="view-title">Problem Bank</div>
+        <div class="view-sub">Every question, indexed. Filter by topic, difficulty, or status. Click a row to drill it.</div>
+      </div>
+      <div class="bank-wrap">
+        <div class="bank-filter-row">
+          <input type="text" class="bank-search" id="bank-search" placeholder="Search questions…" oninput="renderProblemBank()">
+        </div>
+        <div class="bank-filter-row">
+          <span class="bank-filter-label">Topic</span>
+          <button class="bank-pill active" data-bank-topic="all" onclick="setBankFilter('topic','all')">All</button>
+          <button class="bank-pill" data-bank-topic="accounting" onclick="setBankFilter('topic','accounting')">Accounting</button>
+          <button class="bank-pill" data-bank-topic="valuation" onclick="setBankFilter('topic','valuation')">Valuation</button>
+          <button class="bank-pill" data-bank-topic="lbo" onclick="setBankFilter('topic','lbo')">LBO</button>
+          <button class="bank-pill" data-bank-topic="ma" onclick="setBankFilter('topic','ma')">M&amp;A</button>
+          <button class="bank-pill" data-bank-topic="beh" onclick="setBankFilter('topic','beh')">Behavioral</button>
+          <button class="bank-pill" data-bank-topic="brain" onclick="setBankFilter('topic','brain')">Brain Teasers</button>
+          <button class="bank-pill" data-bank-topic="deal" onclick="setBankFilter('topic','deal')">Deals &amp; Markets</button>
+        </div>
+        <div class="bank-filter-row">
+          <span class="bank-filter-label">Difficulty</span>
+          <button class="bank-pill active" data-bank-diff="all" onclick="setBankFilter('difficulty','all')">All</button>
+          <button class="bank-pill" data-bank-diff="1" onclick="setBankFilter('difficulty','1')">Easy</button>
+          <button class="bank-pill" data-bank-diff="2" onclick="setBankFilter('difficulty','2')">Medium</button>
+          <button class="bank-pill" data-bank-diff="3" onclick="setBankFilter('difficulty','3')">Hard</button>
+        </div>
+        <div class="bank-filter-row">
+          <span class="bank-filter-label">Status</span>
+          <button class="bank-pill active" data-bank-status="all" onclick="setBankFilter('status','all')">All</button>
+          <button class="bank-pill" data-bank-status="todo" onclick="setBankFilter('status','todo')">To-do</button>
+          <button class="bank-pill" data-bank-status="missed" onclick="setBankFilter('status','missed')">Missed</button>
+          <button class="bank-pill" data-bank-status="unsure" onclick="setBankFilter('status','unsure')">Unsure</button>
+          <button class="bank-pill" data-bank-status="got" onclick="setBankFilter('status','got')">Got it</button>
+        </div>
+        <div class="bank-meta" id="bank-meta">0 of 0 questions</div>
+        <div class="bank-list" id="bank-list"></div>
+      </div>
+    </div>
+
     <div class="app-view" id="view-flash">
       <div class="view-header">
         <div class="view-title">Flashcards</div>

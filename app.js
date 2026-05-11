@@ -474,7 +474,8 @@ Object.assign(window, {
   doForgotPassword, doLogin, doSetNewPassword, doSignOut, doSignup,
   flipCard,
   navScrollTo, nextCard, nextLearnSection,
-  openLearnModule, prevCard, prevLearnSection, prevNav,
+  openLearnModule, openQuestion, prevCard, prevLearnSection, prevNav,
+  renderProblemBank, setBankFilter,
   pvBankFilter, pvFlipCard, pvFCNav, pvMockSend, pvToggleQ, rateCard,
   saveProfileInfo, saveProfilePassword,
   sendMsg, setFlashCat, setNavActive, setStudyMode,
@@ -1028,6 +1029,118 @@ function showView(id) {
   if (viewId === 'mock') renderMockModeBanner();
   if (viewId === 'profile') renderProfile();
   if (viewId === 'apply') initApply(applyTab);
+}
+
+/* ─── PROBLEM BANK ───────────────────── */
+// Browseable index of every question with status dots and filters. Clicking a
+// row jumps the flashcard view to that specific question.
+
+let bankFilters = { topic: 'all', difficulty: 'all', status: 'all' };
+
+const TOPIC_LABEL = {
+  accounting: 'Accounting',
+  valuation:  'Valuation',
+  lbo:        'LBO',
+  ma:         'M&A',
+  beh:        'Behavioral',
+  brain:      'Brain Teaser',
+  deal:       'Deals & Markets'
+};
+
+const DIFF_LABEL = { 1: 'Easy', 2: 'Medium', 3: 'Hard' };
+
+// Map a question to a topic key for filtering. Technical questions use their
+// sub-topic (accounting/valuation/lbo/ma); everything else uses cat.
+function bankTopicKey(q) {
+  if (q.cat === 'tech') return q.sub || 'tech';
+  return q.cat;
+}
+
+// 4-state status from the existing mastery model: level 0 = todo, 1 = missed,
+// 2 = unsure, 3 = got it. Anything missing defaults to todo.
+function bankStatusKey(id) {
+  const m = progress.mastery && progress.mastery[id];
+  if (!m || !m.level) return 'todo';
+  if (m.level === 1) return 'missed';
+  if (m.level === 2) return 'unsure';
+  if (m.level === 3) return 'got';
+  return 'todo';
+}
+
+function setBankFilter(kind, value) {
+  bankFilters[kind] = value;
+  const attr = kind === 'topic' ? 'data-bank-topic'
+             : kind === 'difficulty' ? 'data-bank-diff'
+             : 'data-bank-status';
+  document.querySelectorAll('[' + attr + ']').forEach(b =>
+    b.classList.toggle('active', b.getAttribute(attr) === value));
+  renderProblemBank();
+}
+
+function renderProblemBank() {
+  const list = document.getElementById('bank-list');
+  const meta = document.getElementById('bank-meta');
+  if (!list) return;
+
+  const search = (document.getElementById('bank-search')?.value || '').trim().toLowerCase();
+
+  const filtered = QUESTIONS.filter(q => {
+    if (bankFilters.topic !== 'all' && bankTopicKey(q) !== bankFilters.topic) return false;
+    if (bankFilters.difficulty !== 'all' && String(q.difficulty) !== bankFilters.difficulty) return false;
+    if (bankFilters.status !== 'all' && bankStatusKey(q.id) !== bankFilters.status) return false;
+    if (search && !q.q.toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  if (meta) meta.textContent = filtered.length + ' of ' + QUESTIONS.length + ' questions';
+
+  if (!filtered.length) {
+    list.innerHTML = '<div class="bank-empty">No questions match these filters.</div>';
+    return;
+  }
+
+  // Render rows. Escape question text via textContent assignment to avoid HTML
+  // injection from any question copy that includes brackets/markup.
+  list.innerHTML = filtered.map(q => {
+    const status = bankStatusKey(q.id);
+    const topic = TOPIC_LABEL[bankTopicKey(q)] || bankTopicKey(q);
+    const diff = DIFF_LABEL[q.difficulty] || '';
+    const diffClass = 'bank-diff-' + (q.difficulty || 1);
+    return '<div class="bank-row" data-qid="' + q.id + '" onclick="openQuestion(' + q.id + ')">' +
+      '<span class="bank-status bank-status-' + status + '" title="' + status + '"></span>' +
+      '<span class="bank-row-title"></span>' +
+      '<span class="bank-row-topic">' + topic + '</span>' +
+      '<span class="bank-row-diff ' + diffClass + '">' + diff + '</span>' +
+      '</div>';
+  }).join('');
+
+  // Set text via textContent so any special characters in the prompt render
+  // safely.
+  list.querySelectorAll('.bank-row').forEach((row, i) => {
+    const titleEl = row.querySelector('.bank-row-title');
+    if (titleEl) titleEl.textContent = filtered[i].q;
+  });
+}
+
+function openQuestion(id) {
+  // Reset flashcard filters so the chosen question is in the deck regardless of
+  // current category/study-mode state.
+  flashCat = 'all';
+  flashSub = null;
+  studyMode = 'all';
+  document.querySelectorAll('.bank-pill[data-fcat]').forEach(b =>
+    b.classList.toggle('active', b.dataset.fcat === 'all'));
+  document.querySelectorAll('.mode-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.mode === 'all'));
+
+  showView('flash');
+
+  const idx = flashDeck.findIndex(q => q.id === id);
+  if (idx >= 0) {
+    flashIdx = idx;
+    flashFlipped = false;
+    renderCard();
+  }
 }
 
 /* ─── PROGRESS ───────────────────────── */

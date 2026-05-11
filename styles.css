@@ -1369,6 +1369,70 @@ body:has(.dss-mode.active) { overflow:hidden }
 .mastery-stat .mastery-dot{width:10px;height:10px}
 .mastery-stat-val{font-family:'Geist Mono',monospace;font-weight:500}
 
+/* PROBLEM BANK */
+.bank-wrap{max-width:980px}
+.bank-filter-row{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  margin-bottom:10px;
+}
+.bank-filter-label{
+  font-size:10.5px;color:var(--t-3);
+  font-family:'Geist Mono',monospace;letter-spacing:0.06em;
+  text-transform:uppercase;min-width:64px;
+}
+.bank-meta{
+  margin:14px 0 10px;font-size:11px;color:var(--t-3);
+  font-family:'Geist Mono',monospace;letter-spacing:0.04em;
+}
+.bank-list{
+  display:flex;flex-direction:column;
+  border:1px solid var(--line);border-radius:var(--r-lg);
+  background:var(--bg-1);overflow:hidden;
+}
+.bank-row{
+  display:flex;align-items:center;gap:14px;
+  padding:11px 14px;cursor:pointer;
+  border-bottom:1px solid var(--line);
+  transition:var(--trans);
+}
+.bank-row:last-child{border-bottom:none}
+.bank-row:hover{background:var(--bg-2)}
+.bank-status{
+  width:9px;height:9px;border-radius:50%;flex-shrink:0;
+  border:1px solid var(--line);background:var(--bg-3);
+}
+.bank-status-todo{background:var(--bg-3);border-color:var(--line-2)}
+.bank-status-missed{background:var(--red);border-color:var(--red)}
+.bank-status-unsure{background:var(--amber);border-color:var(--amber)}
+.bank-status-got{background:var(--green);border-color:var(--green)}
+.bank-row-title{
+  flex:1;font-size:13px;color:var(--t);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.bank-row-topic{
+  font-size:10.5px;color:var(--t-2);
+  font-family:'Geist Mono',monospace;letter-spacing:0.04em;
+  padding:3px 8px;border-radius:10px;
+  background:var(--bg-2);border:1px solid var(--line);
+  flex-shrink:0;
+}
+.bank-row-diff{
+  font-size:10.5px;font-family:'Geist Mono',monospace;
+  letter-spacing:0.04em;padding:3px 8px;border-radius:10px;
+  min-width:62px;text-align:center;flex-shrink:0;
+}
+.bank-diff-1{color:var(--green);background:var(--green-dim)}
+.bank-diff-2{color:var(--amber);background:var(--amber-dim)}
+.bank-diff-3{color:var(--red);background:var(--red-dim)}
+.bank-empty{
+  padding:32px;text-align:center;
+  font-size:13px;color:var(--t-3);
+}
+@media (max-width:720px){
+  .bank-row-topic{display:none}
+  .bank-filter-label{min-width:auto}
+}
+
 /* DUE BADGE */
 .due-badge{
   background:var(--red-dim);color:var(--red);
