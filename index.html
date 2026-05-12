@@ -1513,6 +1513,26 @@
     </div>
 
   </main>
+
+  <!-- ── FEEDBACK BUTTON + MODAL ── -->
+  <button class="feedback-fab" id="feedback-fab" onclick="openFeedback()" aria-label="Send feedback">
+    <span class="feedback-fab-dot"></span>Send feedback
+  </button>
+
+  <div class="feedback-modal" id="feedback-modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="feedback-title">
+    <div class="feedback-backdrop" onclick="closeFeedback()"></div>
+    <div class="feedback-card">
+      <button class="feedback-close" onclick="closeFeedback()" aria-label="Close">×</button>
+      <div class="feedback-title" id="feedback-title">Send feedback</div>
+      <div class="feedback-sub">Tell us what's broken, missing, or confusing. Direct is better than polite.</div>
+      <textarea class="feedback-textarea" id="feedback-body" placeholder="What's on your mind?" maxlength="4000"></textarea>
+      <div class="feedback-actions">
+        <button class="feedback-cancel" onclick="closeFeedback()">Cancel</button>
+        <button class="feedback-submit" id="feedback-submit" onclick="submitFeedback()">Send →</button>
+      </div>
+      <div class="feedback-msg" id="feedback-msg"></div>
+    </div>
+  </div>
 </div><!-- /app -->
 
 <!-- STORY BANK FLOATING BUTTON -->

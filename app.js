@@ -473,6 +473,7 @@ Object.assign(window, {
   demoChatSend, demoFilterBank, demoFlipCard, demoFCNav, demoFCShuffle, demoToggleQ,
   doBetaSignup, doInlineBetaSignup,
   doForgotPassword, doLogin, doSetNewPassword, doSignOut, doSignup,
+  openFeedback, closeFeedback, submitFeedback,
   flipCard,
   navScrollTo, nextCard, nextLearnSection,
   openLearnModule, openQuestion, prevCard, prevLearnSection, prevNav,
@@ -802,6 +803,63 @@ async function doInlineBetaSignup() {
     if (btn) { btn.disabled = false; btn.textContent = 'Activate beta access →'; }
     if (msg) showMsg(msg, 'error', e.message || 'Could not activate beta access.');
   }
+}
+
+/* ─── FEEDBACK ────────────────────────── */
+function openFeedback() {
+  const modal = document.getElementById('feedback-modal');
+  const body = document.getElementById('feedback-body');
+  const msg = document.getElementById('feedback-msg');
+  if (!modal) return;
+  if (msg) { msg.className = 'feedback-msg'; msg.textContent = ''; }
+  modal.style.display = 'flex';
+  setTimeout(() => { if (body) body.focus(); }, 50);
+}
+
+function closeFeedback() {
+  const modal = document.getElementById('feedback-modal');
+  const body = document.getElementById('feedback-body');
+  if (modal) modal.style.display = 'none';
+  if (body) body.value = '';
+}
+
+// Records which view the user was on when they submitted, so a "X is broken"
+// note has enough context to triage without a follow-up.
+function currentFeedbackContext() {
+  const active = document.querySelector('.app-view.active');
+  const view = active ? active.id : 'unknown';
+  return JSON.stringify({ view, path: window.location.pathname + window.location.hash });
+}
+
+async function submitFeedback() {
+  const bodyEl = document.getElementById('feedback-body');
+  const btn = document.getElementById('feedback-submit');
+  const msg = document.getElementById('feedback-msg');
+  const text = bodyEl ? bodyEl.value.trim() : '';
+  if (msg) { msg.className = 'feedback-msg'; msg.textContent = ''; }
+  if (!text) {
+    if (msg) { msg.className = 'feedback-msg error'; msg.textContent = "Type something first."; }
+    return;
+  }
+  if (!currentUser || !sb) {
+    if (msg) { msg.className = 'feedback-msg error'; msg.textContent = 'Please sign in first.'; }
+    return;
+  }
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  const { error } = await sb.from('feedback').insert({
+    user_id: currentUser.id,
+    body: text.slice(0, 4000),
+    context: currentFeedbackContext(),
+    user_agent: navigator.userAgent.slice(0, 500)
+  });
+  if (btn) { btn.disabled = false; btn.textContent = 'Send →'; }
+  if (error) {
+    if (msg) { msg.className = 'feedback-msg error'; msg.textContent = 'Could not send — try again in a moment.'; }
+    console.error('feedback insert failed:', error);
+    return;
+  }
+  closeFeedback();
+  showToast('Thanks — feedback sent.', { icon: '✓' });
 }
 
 async function doSignOut() {
