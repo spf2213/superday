@@ -242,7 +242,6 @@
       </button>
     </div>
     <div class="nav-right">
-      <button class="nav-login" onclick="openInlineAuth('beta')">Beta access</button>
       <button class="nav-login" onclick="openInlineAuth('login')">Log in</button>
       <button class="nav-cta" onclick="openInlineAuth('signup')">Start free →</button>
     </div>
@@ -260,7 +259,6 @@
         <div class="hero-top-ctas">
           <button class="hero-cta" onclick="openInlineAuth('signup')">Sign up</button>
           <button class="hero-cta hero-cta-ghost" onclick="openInlineAuth('login')">Log in</button>
-          <button class="hero-cta hero-cta-ghost" onclick="openInlineAuth('beta')">Beta access</button>
         </div>
       </div>
 
@@ -280,6 +278,8 @@
       <div class="hero-bottom">
         <div class="hero-meta">
           <span>Superday © 2026</span>
+          <span class="hero-meta-sep">//</span>
+          <a href="#" class="hero-meta-link" onclick="event.preventDefault();openInlineAuth('beta')">Beta access</a>
           <span class="hero-meta-sep">//</span>
           <span id="hero-live-time">—</span>
           <span class="hero-meta-sep">//</span>
