@@ -471,6 +471,7 @@ Object.assign(window, {
   addNewStory, calcROI, closeLearnModule,
   dashHeroAction,
   demoChatSend, demoFilterBank, demoFlipCard, demoFCNav, demoFCShuffle, demoToggleQ,
+  doBetaSignup, doInlineBetaSignup,
   doForgotPassword, doLogin, doSetNewPassword, doSignOut, doSignup,
   flipCard,
   navScrollTo, nextCard, nextLearnSection,
@@ -529,14 +530,18 @@ function showAuthTab(tab) {
 function switchAuthTab(tab) {
   const tabLogin = document.getElementById('tab-login');
   const tabSignup = document.getElementById('tab-signup');
+  const tabBeta = document.getElementById('tab-beta');
   const loginForm = document.getElementById('auth-login-form');
   const signupForm = document.getElementById('auth-signup-form');
+  const betaForm = document.getElementById('auth-beta-form');
   const forgotForm = document.getElementById('auth-forgot-form');
   const newpwForm = document.getElementById('auth-newpw-form');
   if (tabLogin) tabLogin.classList.toggle('active', tab === 'login');
   if (tabSignup) tabSignup.classList.toggle('active', tab === 'signup');
+  if (tabBeta) tabBeta.classList.toggle('active', tab === 'beta');
   if (loginForm) loginForm.style.display = tab === 'login' ? 'block' : 'none';
   if (signupForm) signupForm.style.display = tab === 'signup' ? 'block' : 'none';
+  if (betaForm) betaForm.style.display = tab === 'beta' ? 'block' : 'none';
   if (forgotForm) forgotForm.style.display = 'none';
   if (newpwForm) newpwForm.style.display = 'none';
 }
@@ -674,12 +679,16 @@ function closeInlineAuth() {
 function switchInlineAuthTab(tab) {
   const tabLogin = document.getElementById('inline-tab-login');
   const tabSignup = document.getElementById('inline-tab-signup');
+  const tabBeta = document.getElementById('inline-tab-beta');
   const loginForm = document.getElementById('inline-login-form');
   const signupForm = document.getElementById('inline-signup-form');
+  const betaForm = document.getElementById('inline-beta-form');
   if (tabLogin) tabLogin.classList.toggle('active', tab === 'login');
   if (tabSignup) tabSignup.classList.toggle('active', tab === 'signup');
+  if (tabBeta) tabBeta.classList.toggle('active', tab === 'beta');
   if (loginForm) loginForm.style.display = tab === 'login' ? 'block' : 'none';
   if (signupForm) signupForm.style.display = tab === 'signup' ? 'block' : 'none';
+  if (betaForm) betaForm.style.display = tab === 'beta' ? 'block' : 'none';
 }
 
 async function doInlineLogin() {
@@ -727,6 +736,72 @@ async function doInlineSignup() {
     return;
   }
   await onSignedIn(data.user);
+}
+
+/* ─── BETA SIGNUP ─────────────────────── */
+// POSTs to /api/beta-signup which validates the invite code and creates a
+// user with plan='beta', status='active'. The endpoint marks the user as
+// email-confirmed so we can sign them in immediately after the call.
+async function submitBetaSignup({ code, name, email, password }) {
+  const r = await fetch('/api/beta-signup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, name, email, password })
+  });
+  let body = {};
+  try { body = await r.json(); } catch (_) {}
+  if (!r.ok) throw new Error(body.error || 'Could not activate beta access.');
+  return body;
+}
+
+async function doBetaSignup() {
+  const code = document.getElementById('beta-code')?.value?.trim() || '';
+  const name = document.getElementById('beta-name')?.value?.trim() || '';
+  const email = document.getElementById('beta-email')?.value?.trim() || '';
+  const password = document.getElementById('beta-password')?.value || '';
+  const btn = document.getElementById('beta-btn');
+  const msg = document.getElementById('beta-msg');
+  if (msg) { msg.className = 'auth-msg'; msg.textContent = ''; }
+  if (!code) { if (msg) showMsg(msg, 'error', 'Please enter your invite code.'); return; }
+  if (!name || !email || !password) { if (msg) showMsg(msg, 'error', 'Please fill in all fields.'); return; }
+  if (password.length < 8) { if (msg) showMsg(msg, 'error', 'Password must be at least 8 characters.'); return; }
+  if (!requireSupabase()) return;
+  if (btn) { btn.disabled = true; btn.textContent = 'Activating…'; }
+  try {
+    await submitBetaSignup({ code, name, email, password });
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) throw new Error(error.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Activate beta access →'; }
+    await onSignedIn(data.user);
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Activate beta access →'; }
+    if (msg) showMsg(msg, 'error', e.message || 'Could not activate beta access.');
+  }
+}
+
+async function doInlineBetaSignup() {
+  const code = document.getElementById('inline-beta-code')?.value?.trim() || '';
+  const name = document.getElementById('inline-beta-name')?.value?.trim() || '';
+  const email = document.getElementById('inline-beta-email')?.value?.trim() || '';
+  const password = document.getElementById('inline-beta-password')?.value || '';
+  const btn = document.getElementById('inline-beta-btn');
+  const msg = document.getElementById('inline-beta-msg');
+  if (msg) { msg.className = 'auth-msg'; msg.textContent = ''; }
+  if (!code) { if (msg) showMsg(msg, 'error', 'Please enter your invite code.'); return; }
+  if (!name || !email || !password) { if (msg) showMsg(msg, 'error', 'Please fill in all fields.'); return; }
+  if (password.length < 8) { if (msg) showMsg(msg, 'error', 'Password must be at least 8 characters.'); return; }
+  if (!requireSupabase()) return;
+  if (btn) { btn.disabled = true; btn.textContent = 'Activating…'; }
+  try {
+    await submitBetaSignup({ code, name, email, password });
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) throw new Error(error.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Activate beta access →'; }
+    await onSignedIn(data.user);
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Activate beta access →'; }
+    if (msg) showMsg(msg, 'error', e.message || 'Could not activate beta access.');
+  }
 }
 
 async function doSignOut() {
