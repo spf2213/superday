@@ -1159,6 +1159,7 @@ function showView(id) {
   });
   if (viewId === 'flash') initFlash();
   if (viewId === 'learn') renderLearnModules();
+  if (viewId === 'bank') renderProblemBank();
   if (viewId === 'mock') renderMockModeBanner();
   if (viewId === 'profile') renderProfile();
   if (viewId === 'apply') initApply(applyTab);
