@@ -37,6 +37,7 @@
       <div class="auth-tabs">
         <div class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Log in</div>
         <div class="auth-tab" id="tab-signup" onclick="switchAuthTab('signup')">Sign up</div>
+        <div class="auth-tab" id="tab-beta" onclick="switchAuthTab('beta')">Beta</div>
       </div>
 
       <!-- LOGIN FORM -->
@@ -112,6 +113,31 @@
         </div>
         <button class="auth-btn" id="signup-btn" onclick="doSignup()">Create account →</button>
         <div class="auth-msg" id="signup-msg"></div>
+      </div>
+
+      <!-- BETA FORM -->
+      <div id="auth-beta-form" style="display:none">
+        <div class="auth-title">Beta access.</div>
+        <div class="auth-sub">Got an invite? Enter your code to skip the paywall.</div>
+        <div class="auth-field">
+          <label class="auth-label">Invite code</label>
+          <input class="auth-input" type="text" id="beta-code" autocomplete="off" placeholder="Your invite code"/>
+        </div>
+        <div class="auth-field">
+          <label class="auth-label">Full Name</label>
+          <input class="auth-input" type="text" id="beta-name" placeholder="Your name"/>
+        </div>
+        <div class="auth-field">
+          <label class="auth-label">Email</label>
+          <input class="auth-input" type="email" id="beta-email" name="email" autocomplete="email" placeholder="you@email.com"/>
+        </div>
+        <div class="auth-field">
+          <label class="auth-label">Password</label>
+          <input class="auth-input" type="password" id="beta-password" name="password" autocomplete="new-password" placeholder="Min. 8 characters"
+            onkeydown="if(event.key==='Enter')doBetaSignup()"/>
+        </div>
+        <button class="auth-btn" id="beta-btn" onclick="doBetaSignup()">Activate beta access →</button>
+        <div class="auth-msg" id="beta-msg"></div>
       </div>
     </div>
     <div class="auth-back" onclick="showScreen('landing')">← <span>Back to homepage</span></div>
@@ -216,6 +242,7 @@
       </button>
     </div>
     <div class="nav-right">
+      <button class="nav-login" onclick="openInlineAuth('beta')">Beta access</button>
       <button class="nav-login" onclick="openInlineAuth('login')">Log in</button>
       <button class="nav-cta" onclick="openInlineAuth('signup')">Start free →</button>
     </div>
@@ -233,6 +260,7 @@
         <div class="hero-top-ctas">
           <button class="hero-cta" onclick="openInlineAuth('signup')">Sign up</button>
           <button class="hero-cta hero-cta-ghost" onclick="openInlineAuth('login')">Log in</button>
+          <button class="hero-cta hero-cta-ghost" onclick="openInlineAuth('beta')">Beta access</button>
         </div>
       </div>
 
@@ -482,6 +510,7 @@
         <div class="auth-tabs">
           <div class="auth-tab" id="inline-tab-login" onclick="switchInlineAuthTab('login')">Log in</div>
           <div class="auth-tab" id="inline-tab-signup" onclick="switchInlineAuthTab('signup')">Sign up</div>
+          <div class="auth-tab" id="inline-tab-beta" onclick="switchInlineAuthTab('beta')">Beta</div>
         </div>
 
         <!-- LOGIN -->
@@ -523,6 +552,31 @@
           </div>
           <button class="auth-btn" id="inline-signup-btn" onclick="doInlineSignup()">Create account →</button>
           <div class="auth-msg" id="inline-signup-msg"></div>
+        </div>
+
+        <!-- INLINE BETA -->
+        <div id="inline-beta-form" style="display:none">
+          <div class="auth-title">Beta access.</div>
+          <div class="auth-sub">Got an invite? Enter your code to skip the paywall.</div>
+          <div class="auth-field">
+            <label class="auth-label">Invite code</label>
+            <input class="auth-input" type="text" id="inline-beta-code" autocomplete="off" placeholder="Your invite code"/>
+          </div>
+          <div class="auth-field">
+            <label class="auth-label">Full Name</label>
+            <input class="auth-input" type="text" id="inline-beta-name" placeholder="Your name"/>
+          </div>
+          <div class="auth-field">
+            <label class="auth-label">Email</label>
+            <input class="auth-input" type="email" id="inline-beta-email" autocomplete="email" placeholder="you@email.com"/>
+          </div>
+          <div class="auth-field">
+            <label class="auth-label">Password</label>
+            <input class="auth-input" type="password" id="inline-beta-password" autocomplete="new-password" placeholder="Min. 8 characters"
+              onkeydown="if(event.key==='Enter')doInlineBetaSignup()"/>
+          </div>
+          <button class="auth-btn" id="inline-beta-btn" onclick="doInlineBetaSignup()">Activate beta access →</button>
+          <div class="auth-msg" id="inline-beta-msg"></div>
         </div>
       </div>
     </div>
