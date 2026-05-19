@@ -1,8 +1,12 @@
+import { inject } from '@vercel/analytics';
 import { createClient } from '@supabase/supabase-js';
 import { QUESTIONS } from './src/data/questions.js';
 import { LEARN_MODULES } from './src/data/learnModules.js';
 import { setNavActive, toggleTheme } from './src/theme.js';
 import './src/animations.js';
+
+// Initialize Vercel Analytics
+inject();
 
 // Friendly topic labels for mock-score grouping.
 const TOPIC_LABELS = {
